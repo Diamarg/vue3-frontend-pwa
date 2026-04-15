@@ -55,12 +55,14 @@ const handleLogin = async () => {
 
 <template>
   <div class="login-container">
-    <form class="login-form" @submit.prevent="handleLogin">
+    <form class="login-form" @submit.prevent="handleLogin" autocomplete="off">
       <div class="login-form__header">
         <h2>Вход</h2>
       </div>
       <div class="login-form__inputs">
+        <label class="login-form__label">Имя пользователя</label>
         <ainput v-model="form.userName" placeholder="Имя пользователя" type="text"></ainput>
+        <label class="login-form__label">Пароль</label>
         <ainput v-model="form.password" placeholder="Пароль" type="password"></ainput>
       </div>
 
@@ -79,29 +81,30 @@ const handleLogin = async () => {
   display: flex;
   justify-content: center; /* горизонталь */
   align-items: center; /* вертикаль */
-  background: linear-gradient(160deg, rgb(205, 206, 209), rgb(171, 171, 185));
+  background-color: rgb(240, 240, 240);
 }
 
 .login-form {
   min-width: 300px;
   display: grid;
-  text-align: center;
-
-  grid-template-rows: 80px 100px 100px;
-  box-shadow: var(--md-sys-elevation-2);
-  border-radius: 4px;
-  background-color: rgb(233, 238, 247);
+  grid-template-rows: 60px 160px 100px;
+  border-radius: 8px;
+  border-color: #d9d9d9;
+  border-style: solid;
+  border-width: 1px;
+  background-color: rgb(255, 255, 255);
+  padding: 24px;
 }
 
 .login-form__header {
-  color: aliceblue;
+  text-align: center;
+  color: rgb(100, 100, 100);
   font-size: 26px;
   font-weight: 300;
-  background: linear-gradient(2000deg, rgb(255, 93, 30), rgb(255, 197, 121));
   align-content: center;
 }
-.login-form__username {
-  margin-top: 12px;
+.login-form__label {
+  color: rgb(51, 51, 51);
 }
 .login-form__actions {
   display: grid;

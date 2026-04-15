@@ -8,36 +8,25 @@ const props = defineProps({
 </script>
 
 <template>
-  <input class="input" :placeholder="props.placeholder" :type="props.type" v-model="model" />
+  <input
+    class="input"
+    :placeholder="props.placeholder"
+    :type="props.type"
+    v-model="model"
+    autocomplete="off"
+  />
 </template>
 
 <style scoped>
 .input {
-  /* Базовые стили кнопки */
-  display: block;
-  padding: 10px 20px;
-  border: none;
-  cursor: pointer;
-  box-shadow: var(--md-sys-elevation-0);
-  transition: var(--md-sys-motion-duration-short);
+  /* Базовые стили */
+  display: flex;
+  padding: 12px 16px;
   font-size: 16px;
-}
-
-.input:hover {
-  box-shadow: var(--md-sys-elevation-1);
-  background-color: color-mix(
-    in srgb,
-    var(--md-sys-color-on-surface) 8%,
-    var(--md-sys-color-surface-container-highest)
-  );
-}
-
-.input:focus {
-  box-shadow: var(--md-sys-elevation-1);
-  background-color: color-mix(
-    in srgb,
-    var(--md-sys-color-primary) 8%,
-    var(--md-sys-color-surface-container-highest)
-  );
+  border-radius: 8px;
+  border-style: solid;
+  border-width: 1px;
+  border-color: #d9d9d9;
+  cursor: pointer;
 }
 </style>
