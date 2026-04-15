@@ -57,14 +57,10 @@ const handleLogin = async () => {
   <div class="login-container">
     <form class="login-form" @submit.prevent="handleLogin">
       <div class="login-form__header">
-        <h2>Вход в систему</h2>
+        <h2>Вход</h2>
       </div>
-
-      <div class="login-form__username">
+      <div class="login-form__inputs">
         <ainput v-model="form.userName" placeholder="Имя пользователя" type="text"></ainput>
-      </div>
-
-      <div class="login-form__password">
         <ainput v-model="form.password" placeholder="Пароль" type="password"></ainput>
       </div>
 
@@ -83,21 +79,35 @@ const handleLogin = async () => {
   display: flex;
   justify-content: center; /* горизонталь */
   align-items: center; /* вертикаль */
-  background-color: var(--md-sys-color-background);
+  background: linear-gradient(160deg, rgb(205, 206, 209), rgb(171, 171, 185));
 }
 
 .login-form {
+  min-width: 300px;
   display: grid;
-  gap: 10px;
+  text-align: center;
+
+  grid-template-rows: 80px 100px 100px;
+  box-shadow: var(--md-sys-elevation-2);
+  border-radius: 4px;
+  background-color: rgb(233, 238, 247);
 }
 
 .login-form__header {
-  text-align: center;
+  color: aliceblue;
+  font-size: 26px;
+  font-weight: 300;
+  background: linear-gradient(2000deg, rgb(255, 93, 30), rgb(255, 197, 121));
+  align-content: center;
 }
-
+.login-form__username {
+  margin-top: 12px;
+}
 .login-form__actions {
   display: grid;
-  gap: 10px;
+  gap: 8px;
+  margin-top: 8px;
+  margin-bottom: 20px;
 }
 </style>
 
