@@ -14,14 +14,13 @@ const props = defineProps({
 <style scoped>
 .btn {
   /* Базовые стили кнопки */
-  font: var(--md-sys-typescale-font-family);
   padding: 10px 20px;
-  border-radius: var(--md-sys-shape-corner-medium);
   border: none;
-  font-weight: 500;
+  font-weight: 400;
   cursor: pointer;
   box-shadow: var(--md-sys-elevation-0);
   transition: var(--md-sys-motion-duration-short);
+  font-size: 16px;
 }
 
 .btn:hover {
