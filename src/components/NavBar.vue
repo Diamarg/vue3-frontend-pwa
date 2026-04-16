@@ -13,12 +13,15 @@
 import Abutton from './Abutton.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
+import { useToast } from '@/composables/useToast'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const toast = useToast()
 
 const handleLogout = () => {
   authStore.logout()
+  toast.info('Вы вышли из системы')
   router.push('/login')
 }
 </script>

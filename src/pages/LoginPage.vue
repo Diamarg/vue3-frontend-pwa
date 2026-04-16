@@ -30,12 +30,13 @@ const handleLogin = async () => {
   error.value = ''
   try {
     await authStore.login(form.value)
-    const redirectPath = route.query.redirect || '/'
-    router.push(redirectPath)
   } catch (err) {
     toast.error(err)
     error.value = err.message
   }
+  const redirectPath = route.query.redirect || '/'
+  router.push(redirectPath)
+  toast.info(`${authStore.user.fullName} (${authStore.user.userName}) входит в систему`)
 }
 </script>
 

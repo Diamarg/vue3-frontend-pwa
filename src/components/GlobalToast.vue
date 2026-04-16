@@ -15,7 +15,7 @@ const { toasts } = useToast()
 <style scoped>
 .toast-container {
   position: fixed;
-  top: 90%;
+  top: 10%;
   right: 20px;
   z-index: 9999;
 }
@@ -29,16 +29,16 @@ const { toasts } = useToast()
 }
 
 .toast-success {
-  background-color: #4caf50;
+  background-color: #3e9241;
 }
 .toast-error {
-  background-color: #f44336;
+  background-color: #ac2e25;
 }
 .toast-info {
-  background-color: #2196f3;
+  background-color: #1d5888;
 }
 .toast-warning {
-  background-color: #ff9800;
+  background-color: #b86e00;
 }
 
 @keyframes slideIn {
