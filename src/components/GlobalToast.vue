@@ -15,7 +15,7 @@ const { toasts } = useToast()
 <style scoped>
 .toast-container {
   position: fixed;
-  top: 10%;
+  top: 100px;
   right: 20px;
   z-index: 9999;
 }
@@ -25,7 +25,7 @@ const { toasts } = useToast()
   margin-bottom: 10px;
   border-radius: 8px;
   color: white;
-  animation: slideIn 0.3s ease;
+  animation: slideIn 0.5s ease;
 }
 
 .toast-success {

@@ -6,7 +6,6 @@ import { useRouter, useRoute } from 'vue-router'
 import GlobalToast from './components/GlobalToast.vue'
 import NavBar from './components/NavBar.vue'
 
-const router = useRouter()
 const authStore = useAuthStore()
 
 // onMounted(async () => {
