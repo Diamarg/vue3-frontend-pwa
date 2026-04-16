@@ -20,6 +20,7 @@ a:hover {
 label {
   color: rgb(87, 87, 87);
   font-weight: 400;
+  margin-bottom: 18px;
 }
 
 h3 {

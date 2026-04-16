@@ -18,25 +18,23 @@ const props = defineProps({
   font-weight: 300;
   cursor: pointer;
   font-size: 16px;
-  height: 40px;
+  min-height: 40px;
   border-radius: 8px;
+  border-width: 1px;
+  border-style: solid;
   transition: var(--md-sys-motion-duration-short);
   padding-inline: 24px;
-}
-
-.btn:hover {
 }
 
 .btn-primary {
   color: rgb(255, 255, 255);
   background-color: rgb(31, 31, 31);
+  border-color: rgb(31, 31, 31);
 }
 
 .btn-primary:hover {
   color: rgb(41, 41, 41);
   background-color: rgb(255, 255, 255);
-  border-width: 1px;
-  border-style: solid;
   border-color: rgb(209, 209, 209);
 }
 

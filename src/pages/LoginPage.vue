@@ -4,6 +4,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import Abutton from '@/components/Abutton.vue'
 import Ainput from '@/components/Ainput.vue'
+import { useToast } from '@/composables/useToast'
 
 const router = useRouter()
 const route = useRoute()
@@ -11,6 +12,8 @@ const authStore = useAuthStore()
 
 const isValid = ref(false)
 const error = ref('')
+
+const toast = useToast()
 
 const form = ref({
   userName: '',
@@ -23,31 +26,14 @@ onMounted(() => {
   }
 })
 
-const userNameRules = [
-  (v) => !!v || 'Имя пользователя обязательно',
-  (v) => v.length >= 5 || 'Имя пользователя должно быть не менее 5 символов',
-  (v) =>
-    /^[a-zA-Z][a-zA-Z0-9]*$/.test(v) ||
-    'Имя пользователя должно начинаться с буквы и содержать только английские буквы и цифры',
-]
-
-const passwordRules = [
-  (password) => !!password || 'Пароль обязателен',
-  (password) => (password?.length || 0) > 8 || 'Пароль должен быть длиннее 8 символов',
-  (password) =>
-    (/[a-zA-Z]/.test(password) && /\d/.test(password)) ||
-    'Пароль должен содержать английские буквы и цифры',
-]
-
 const handleLogin = async () => {
-  console.log(form.value.userName)
-  console.log(form.value.password)
   error.value = ''
   try {
     await authStore.login(form.value)
     const redirectPath = route.query.redirect || '/'
     router.push(redirectPath)
   } catch (err) {
+    toast.error(err)
     error.value = err.message
   }
 }
@@ -67,6 +53,7 @@ const handleLogin = async () => {
             placeholder="Имя пользователя"
             type="text"
             id="name-input"
+            :loading="authStore.loading"
           ></ainput>
         </div>
         <div class="login-form__input">
@@ -76,6 +63,7 @@ const handleLogin = async () => {
             placeholder="Пароль"
             type="password"
             id="pass-input"
+            :loading="authStore.loading"
           ></ainput>
         </div>
       </div>
@@ -122,8 +110,13 @@ const handleLogin = async () => {
 }
 
 .login-form__input {
-  display: grid;
-  gap: 8px;
+}
+
+label {
+  display: block;
+  color: rgb(87, 87, 87);
+  font-weight: 400;
+  margin-bottom: 8px;
 }
 
 .login-form__actions {

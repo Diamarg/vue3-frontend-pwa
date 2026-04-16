@@ -1,21 +1,33 @@
 <script setup>
 import Abutton from '@/components/Abutton.vue'
+import { ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { onMounted } from 'vue'
 
 const authStore = useAuthStore()
+const loading = ref(true)
 
-const handleLogout = () => {
-  authStore.logout()
-  window.location.href = '/login'
-}
+onMounted(async () => {
+  await authStore.fetchMe()
+  loading.value = false
+})
 </script>
 
 <template>
-  <h1>Проекты</h1>
-  <div v-if="!authStore.user">Загрузка данных пользователя</div>
-  <div v-else>
-    <div>Пользователь - {{ authStore.user.fullName || 'Гость' }}</div>
-    <div>Админ - {{ authStore.isAdmin || '' }}</div>
-    <abutton @click="handleLogout">Выйти</abutton>
+  <div v-if="authStore.user" class="global-container">
+    <h3>Проекты</h3>
+    <div>
+      <div>Пользователь - {{ authStore.user.fullName || 'Гость' }}</div>
+      <div>Админ - {{ authStore.isAdmin || 'false' }}</div>
+    </div>
   </div>
 </template>
+
+<style scoped>
+.global-container {
+  max-width: 1400px;
+  margin-inline: auto;
+  padding-inline: 20px;
+  width: 100%;
+}
+</style>
