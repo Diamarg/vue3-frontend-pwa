@@ -14,36 +14,42 @@ const props = defineProps({
 <style scoped>
 .btn {
   /* Базовые стили кнопки */
-  padding: 10px 20px;
   border: none;
-  font-weight: 400;
+  font-weight: 300;
   cursor: pointer;
-  box-shadow: var(--md-sys-elevation-0);
-  transition: var(--md-sys-motion-duration-short);
   font-size: 16px;
+  height: 40px;
+  border-radius: 8px;
+  transition: var(--md-sys-motion-duration-short);
+  padding-inline: 24px;
 }
 
 .btn:hover {
-  box-shadow: var(--md-sys-elevation-2);
 }
 
 .btn-primary {
-  background-color: var(--md-sys-color-primary);
-  color: var(--md-sys-color-on-primary);
+  color: rgb(255, 255, 255);
+  background-color: rgb(31, 31, 31);
+}
+
+.btn-primary:hover {
+  color: rgb(41, 41, 41);
+  background-color: rgb(255, 255, 255);
+  border-width: 1px;
+  border-style: solid;
+  border-color: rgb(209, 209, 209);
 }
 
 .btn-secondary {
-  background-color: var(--md-sys-color-secondary-container);
   color: var(--md-sys-color-on-secondary-container);
+  background-color: rgb(31, 31, 31);
 }
 
 .btn-succeed {
-  background-color: var(--md-sys-color-tertiary);
   color: var(--md-sys-color-on-tertiary);
 }
 
 .btn-danger {
-  background-color: var(--md-sys-color-error);
   color: var(--md-sys-color-on-error);
 }
 </style>

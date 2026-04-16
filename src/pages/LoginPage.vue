@@ -55,20 +55,36 @@ const handleLogin = async () => {
 
 <template>
   <div class="login-container">
-    <form class="login-form" @submit.prevent="handleLogin" autocomplete="off">
+    <form class="login-form" @submit.prevent="handleLogin">
       <div class="login-form__header">
-        <h2>Вход</h2>
+        <h3>Вход в систему</h3>
       </div>
       <div class="login-form__inputs">
-        <label class="login-form__label">Имя пользователя</label>
-        <ainput v-model="form.userName" placeholder="Имя пользователя" type="text"></ainput>
-        <label class="login-form__label">Пароль</label>
-        <ainput v-model="form.password" placeholder="Пароль" type="password"></ainput>
+        <div class="login-form__input">
+          <label for="name-input">Имя пользователя</label>
+          <ainput
+            v-model="form.userName"
+            placeholder="Имя пользователя"
+            type="text"
+            id="name-input"
+          ></ainput>
+        </div>
+        <div class="login-form__input">
+          <label for="pass-input">Пароль</label>
+          <ainput
+            v-model="form.password"
+            placeholder="Пароль"
+            type="password"
+            id="pass-input"
+          ></ainput>
+        </div>
       </div>
 
       <div class="login-form__actions">
-        <abutton variant="primary" type="submit">Вход</abutton>
-        <abutton variant="secondary" @click="router.push('/register')">Регистрация</abutton>
+        <abutton variant="primary" type="submit" class="login-form__enter-button">Вход</abutton>
+        <a @click="router.push('/register')" class="login-form__register-link"
+          >Создать учётную запись</a
+        >
       </div>
     </form>
   </div>
@@ -76,41 +92,47 @@ const handleLogin = async () => {
 
 <style scoped>
 .login-container {
-  margin: 0;
   min-height: 100vh;
   display: flex;
   justify-content: center; /* горизонталь */
   align-items: center; /* вертикаль */
-  background-color: rgb(240, 240, 240);
 }
 
 .login-form {
-  min-width: 300px;
   display: grid;
-  grid-template-rows: 60px 160px 100px;
+  gap: 24px;
   border-radius: 8px;
   border-color: #d9d9d9;
   border-style: solid;
   border-width: 1px;
   background-color: rgb(255, 255, 255);
   padding: 24px;
+  margin: 24px;
 }
 
 .login-form__header {
   text-align: center;
-  color: rgb(100, 100, 100);
-  font-size: 26px;
-  font-weight: 300;
-  align-content: center;
+  font-size: 24px;
+  color: rgb(114, 114, 114);
 }
-.login-form__label {
-  color: rgb(51, 51, 51);
+
+.login-form__inputs {
+  display: grid;
+  gap: 24px;
 }
-.login-form__actions {
+
+.login-form__input {
   display: grid;
   gap: 8px;
-  margin-top: 8px;
-  margin-bottom: 20px;
+}
+
+.login-form__actions {
+  display: flex;
+  gap: 16px;
+}
+
+.login-form__register-link {
+  align-self: center;
 }
 </style>
 

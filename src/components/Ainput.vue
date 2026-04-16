@@ -23,10 +23,13 @@ const props = defineProps({
   display: flex;
   padding: 12px 16px;
   font-size: 16px;
+  font-weight: 200;
   border-radius: 8px;
   border-style: solid;
   border-width: 1px;
   border-color: #d9d9d9;
   cursor: pointer;
+  height: 40px;
+  width: 100%;
 }
 </style>
