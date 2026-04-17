@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import Abutton from '@/components/Abutton.vue'
@@ -88,6 +88,7 @@ const handleLogin = async () => {
 }
 
 .login-form {
+  max-width: 370px;
   display: grid;
   gap: 24px;
   border-radius: 8px;

@@ -2,11 +2,12 @@
 const props = defineProps({
   variant: { type: String, default: 'primary' },
   type: { type: String },
+  disabled: { type: Boolean, default: false },
 })
 </script>
 
 <template>
-  <button :class="['btn', `btn-${props.variant}`]" :type="props.type">
+  <button :disabled="props.disabled" :class="['btn', `btn-${props.variant}`]" :type="props.type">
     <slot />
   </button>
 </template>

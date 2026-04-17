@@ -6,19 +6,23 @@ const props = defineProps({
   placeholder: { type: String, default: '' },
   type: { type: String, default: 'text' },
   loading: { type: Boolean, default: false },
+  invalidMessage: { type: String, default: '' },
 })
 </script>
 
 <template>
-  <input
-    :id="id"
-    class="input"
-    :placeholder="props.placeholder"
-    :type="props.type"
-    v-model="model"
-    autocomplete="off"
-  />
-  <div v-if="loading" class="loader"></div>
+  <div>
+    <input
+      :id="id"
+      class="input"
+      :placeholder="props.placeholder"
+      :type="props.type"
+      v-model="model"
+      autocomplete="off"
+    />
+    <div v-if="loading" class="loader"></div>
+    <p class="valid-error" v-if="invalidMessage">{{ invalidMessage }}</p>
+  </div>
 </template>
 
 <style scoped>
@@ -55,6 +59,12 @@ const props = defineProps({
   background-color: white;
   animation: inherit;
   animation-timing-function: ease-out;
+}
+
+.valid-error {
+  font-weight: 300;
+  font-size: 14px;
+  color: red;
 }
 
 @keyframes loader {

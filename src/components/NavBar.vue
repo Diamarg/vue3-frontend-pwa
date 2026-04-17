@@ -1,6 +1,6 @@
 <template>
   <div class="navbar">
-    <div class="navbar-pagename">Проекты</div>
+    <div class="navbar-pagename">{{ pageStore.nowpage }}</div>
     <div class="navbar-navbuttons">Кнопки</div>
     <div v-if="authStore.user" class="navbar-logout">
       <div>{{ authStore.user.fullName }}</div>
@@ -14,10 +14,13 @@ import Abutton from './Abutton.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
 import { useToast } from '@/composables/useToast'
+import { usePageStore } from '@/stores/pages'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const toast = useToast()
+
+const pageStore = usePageStore()
 
 const handleLogout = () => {
   authStore.logout()

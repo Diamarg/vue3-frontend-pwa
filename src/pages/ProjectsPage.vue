@@ -2,12 +2,15 @@
 import Abutton from '@/components/Abutton.vue'
 import { ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { usePageStore } from '@/stores/pages'
 import { onMounted } from 'vue'
 
 const authStore = useAuthStore()
+const pageStore = usePageStore()
 const loading = ref(true)
 
 onMounted(async () => {
+  pageStore.nowpage = 'Проекты'
   await authStore.fetchMe()
   loading.value = false
 })
