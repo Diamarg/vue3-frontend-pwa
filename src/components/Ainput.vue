@@ -62,7 +62,7 @@ const props = defineProps({
 }
 
 .valid-error {
-  font-weight: 300;
+  font-weight: 200;
   font-size: 14px;
   color: red;
 }

@@ -10,7 +10,6 @@ const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 
-const isValid = ref(false)
 const error = ref('')
 
 const toast = useToast()
@@ -130,63 +129,3 @@ label {
   align-self: center;
 }
 </style>
-
-<!-- <template>
-  <v-container class="h-screen d-flex align-center justify-center">
-    <v-row align="center" justify="center">
-      <v-col cols="12" sm="8" md="6" lg="4">
-        <h2>Вход в систему</h2>
-        <v-form fast-fail @submit.prevent="handleLogin" v-model="isValid">
-          <v-text-field
-            :loading="authStore.loading"
-            :disabled="authStore.loading"
-            v-model="form.userName"
-            :rules="userNameRules"
-            label="Имя пользователя"
-            autocomplete="username"
-          ></v-text-field>
-
-          <v-text-field
-            :loading="authStore.loading"
-            :disabled="authStore.loading"
-            type="password"
-            v-model="form.password"
-            :rules="passwordRules"
-            label="Пароль"
-            autocomplete="password"
-          ></v-text-field>
-
-          <v-btn
-            rounded
-            :disabled="!isValid || authStore.loading"
-            class="mt-2"
-            color="primary"
-            type="submit"
-            block
-            >Вход</v-btn
-          >
-          <v-btn
-            rounded
-            :disabled="authStore.loading"
-            class="mt-2"
-            color="secondary"
-            block
-            @click="router.push('/register')"
-            >Регистрация</v-btn
-          >
-        </v-form>
-
-        <v-alert
-          v-if="error"
-          type="error"
-          variant="tonal"
-          class="mt-4"
-          closable
-          @click:close="error = ''"
-        >
-          {{ error }}
-        </v-alert>
-      </v-col>
-    </v-row>
-  </v-container>
-</template> -->

@@ -7,11 +7,9 @@ import Ainput from '@/components/Ainput.vue'
 import { useToast } from '@/composables/useToast'
 
 const router = useRouter()
-const route = useRoute()
 const authStore = useAuthStore()
 const toast = useToast()
 
-const isValid = ref(false)
 const error = ref('')
 
 const form = ref({
@@ -63,20 +61,28 @@ const passConfirmError = computed(() => {
   }
 })
 
-const formIsValid = computed(() => {
-  return (
-    !userNameError.value &&
-    !emailError.value &&
-    !fullNameError.value &&
-    !passwordError.value &&
-    !passConfirmError.value
-  )
+const disableRegisterButton = computed(() => {
+  if (
+    form.value.userName.length < 1 ||
+    form.value.email.length < 1 ||
+    form.value.fullName.length < 1 ||
+    form.value.password.length < 1 ||
+    form.value.confirmPassword.length < 1 ||
+    userNameError.value ||
+    emailError.value ||
+    fullNameError.value ||
+    passwordError.value ||
+    passConfirmError.value
+  ) {
+    return true
+  } else {
+    return false
+  }
 })
 
 onMounted(() => {})
 
 const handleRegister = async () => {
-  console.log('submit form')
   error.value = ''
   try {
     await authStore.register({
@@ -169,7 +175,7 @@ const handleRegister = async () => {
 
       <div class="register-form__actions">
         <abutton
-          :disabled="!formIsValid"
+          :disabled="disableRegisterButton"
           variant="primary"
           type="submit"
           class="register-form__enter-button"

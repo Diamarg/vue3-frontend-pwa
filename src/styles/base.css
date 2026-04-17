@@ -27,3 +27,14 @@ h3 {
   font-size: 20px;
   font-weight: 300;
 }
+
+.valid-error {
+  font-weight: 300;
+  font-size: 14px;
+  color: red;
+
+  word-wrap: break-word; /* Переносит длинные слова */
+  overflow-wrap: break-word; /* Современный аналог */
+  white-space: normal; /* Убирает nowrap, если он где-то задан */
+  max-width: 100%; /* Ограничивает ширину родителем */
+}

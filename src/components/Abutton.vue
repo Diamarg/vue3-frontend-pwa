@@ -7,7 +7,11 @@ const props = defineProps({
 </script>
 
 <template>
-  <button :disabled="props.disabled" :class="['btn', `btn-${props.variant}`]" :type="props.type">
+  <button
+    :disabled="props.disabled"
+    :class="['btn', `btn-${props.variant}`, `btn-disabled-${disabled}`]"
+    :type="props.type"
+  >
     <slot />
   </button>
 </template>
@@ -50,5 +54,18 @@ const props = defineProps({
 
 .btn-danger {
   color: var(--md-sys-color-on-error);
+}
+
+.btn-disabled-true {
+  background-color: rgb(175, 175, 175);
+  color: aliceblue;
+  border: none;
+  cursor: default;
+}
+.btn-disabled-true:hover {
+  background-color: rgb(175, 175, 175);
+  color: rgb(255, 255, 255);
+  border: none;
+  cursor: default;
 }
 </style>

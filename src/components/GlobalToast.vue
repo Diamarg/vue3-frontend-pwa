@@ -32,7 +32,7 @@ const { toasts } = useToast()
   background-color: #3e9241;
 }
 .toast-error {
-  background-color: #ac2e25;
+  background-color: #c20d00;
 }
 .toast-info {
   background-color: #1d5888;
