@@ -25,6 +25,34 @@ onMounted(() => {
   }
 })
 
+const userNameTouched = ref(false)
+const userNameError = computed(() => {
+  if (userNameTouched.value && form.value.userName.length < 1) {
+    return 'Нужно заполнить'
+  }
+  return ''
+})
+
+const passwordTouched = ref(false)
+const passwordError = computed(() => {
+  if (passwordTouched.value && form.value.password.length < 1) {
+    return 'Нужно заполнить'
+  }
+})
+
+const disableLoginButton = computed(() => {
+  if (
+    form.value.userName.length < 1 ||
+    form.value.password.length < 1 ||
+    userNameError.value ||
+    passwordError.value
+  ) {
+    return true
+  } else {
+    return false
+  }
+})
+
 const handleLogin = async () => {
   error.value = ''
   try {
@@ -54,6 +82,8 @@ const handleLogin = async () => {
             type="text"
             id="name-input"
             :loading="authStore.loading"
+            :invalid-message="userNameError"
+            @input="userNameTouched = true"
           ></ainput>
         </div>
         <div class="login-form__input">
@@ -64,12 +94,20 @@ const handleLogin = async () => {
             type="password"
             id="pass-input"
             :loading="authStore.loading"
+            :invalid-message="passwordError"
+            @input="passwordTouched = true"
           ></ainput>
         </div>
       </div>
 
       <div class="login-form__actions">
-        <abutton variant="primary" type="submit" class="login-form__enter-button">Вход</abutton>
+        <abutton
+          variant="primary"
+          type="submit"
+          class="login-form__enter-button"
+          :disabled="disableLoginButton"
+          >Вход</abutton
+        >
         <a @click="router.push('/register')" class="login-form__register-link"
           >Создать учётную запись</a
         >
