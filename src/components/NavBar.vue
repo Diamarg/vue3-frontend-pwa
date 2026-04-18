@@ -36,8 +36,8 @@ onMounted(() => {
 })
 
 const handleLogout = () => {
+  toast.info(`${authStore.user.fullName} (${authStore.user.userName}) выходит из системы`)
   authStore.logout()
-  toast.info('Вы вышли из системы')
   router.push('/login')
 }
 </script>
