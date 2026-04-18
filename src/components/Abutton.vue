@@ -7,28 +7,26 @@ const props = defineProps({
 </script>
 
 <template>
-  <button
-    :disabled="props.disabled"
-    :class="['btn', `btn-${props.variant}`, `btn-disabled-${disabled}`]"
-    :type="props.type"
-  >
-    <slot />
-  </button>
+  <div :class="['btn', `btn-${props.variant}`, `btn-disabled-${disabled}`]">
+    <button :disabled="props.disabled" :type="props.type">
+      <slot />
+    </button>
+  </div>
 </template>
 
 <style scoped>
 .btn {
-  /* Базовые стили кнопки */
+  display: flex;
   border: none;
   font-weight: 300;
   cursor: pointer;
   font-size: 16px;
-  min-height: 40px;
+  min-height: 30px;
   border-radius: 8px;
   border-width: 1px;
   border-style: solid;
   transition: var(--md-sys-motion-duration-short);
-  padding-inline: 24px;
+  padding: 8px 16px;
 }
 
 .btn-primary {

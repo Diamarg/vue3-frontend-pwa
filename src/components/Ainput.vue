@@ -29,7 +29,7 @@ const props = defineProps({
 .input {
   /* Базовые стили */
   display: flex;
-  padding: 12px 16px;
+  padding: 8px 16px;
   font-size: 16px;
   font-weight: 200;
   border-radius: 8px;
@@ -37,7 +37,7 @@ const props = defineProps({
   border-width: 1px;
   border-color: #d9d9d9;
   cursor: pointer;
-  min-height: 40px;
+  min-height: 30px;
   width: 100%;
 }
 

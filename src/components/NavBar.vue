@@ -48,7 +48,7 @@ const handleLogout = () => {
   grid-template-columns: 1fr 2fr 1fr;
   align-items: center;
   justify-items: center;
-  height: 60px;
+  height: 65px;
   border-color: rgba(0, 0, 0, 0);
   border-bottom-width: 1px;
   border-bottom-color: #d9d9d9;
@@ -58,7 +58,7 @@ const handleLogout = () => {
 
 .navbar-pagename {
   font-size: 20px;
-  font-weight: 200;
+  font-weight: 300;
   margin-left: 24px;
   justify-self: start;
 }
@@ -74,14 +74,14 @@ const handleLogout = () => {
   display: grid;
   align-items: center;
   grid-template-columns: 1fr 1fr;
-  /* gap: 48px; */
 }
 
 .navbar-user {
-  font-weight: 200;
+  font-weight: 400;
+  color: rgb(99, 99, 99);
 }
 
 .admin {
-  color: rgb(133, 0, 0);
+  color: rgb(173, 0, 0);
 }
 </style>
