@@ -2,8 +2,8 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import Abutton from '@/components/Abutton.vue'
-import Ainput from '@/components/Ainput.vue'
+import Abutton from '@/components/A-button.vue'
+import Ainput from '@/components/A-input.vue'
 import { useToast } from '@/composables/useToast'
 
 const router = useRouter()
@@ -80,6 +80,10 @@ const disableRegisterButton = computed(() => {
   }
 })
 
+const formReady = computed(() => {
+  return Object.values(form.value).every((val = val.length > 0))
+})
+
 onMounted(() => {})
 
 const handleRegister = async () => {
@@ -109,15 +113,16 @@ const handleRegister = async () => {
       <div class="register-form__inputs">
         <div class="register-form__input">
           <label for="name-input">Имя пользователя</label>
-          <ainput
-            v-model="form.userName"
+          <a-input
+            v-model="form.userName.value"
             placeholder="Имя пользователя"
             type="text"
             id="name-input"
             :loading="authStore.loading"
-            @input="userNameTouched = true"
-            :invalid-message="userNameError"
-          ></ainput>
+            :validate="true"
+            @is-valid="userNameValidHandle"
+          >
+          </a-input>
         </div>
 
         <div class="register-form__input">

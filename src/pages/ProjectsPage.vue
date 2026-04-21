@@ -1,10 +1,10 @@
 <script setup>
-import Abutton from '@/components/Abutton.vue'
+import Abutton from '@/components/A-button.vue'
 import { ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { usePageStore } from '@/stores/pages'
 import { onMounted } from 'vue'
-import Ainput from '@/components/Ainput.vue'
+import Ainput from '@/components/A-input.vue'
 import ProjectCard from '@/components/ProjectCard.vue'
 import AddIcon from '@/components/icons/AddIcon.vue'
 

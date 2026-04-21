@@ -1,9 +1,9 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch, reactive } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import Abutton from '@/components/Abutton.vue'
-import Ainput from '@/components/Ainput.vue'
+import Abutton from '@/components/A-button.vue'
+import AInput from '@/components/A-input.vue'
 import { useToast } from '@/composables/useToast'
 
 const router = useRouter()
@@ -14,9 +14,15 @@ const error = ref('')
 
 const toast = useToast()
 
-const form = ref({
-  userName: '',
-  password: '',
+const form = reactive({
+  userName: {
+    value: '',
+    isValid: false,
+  },
+  password: {
+    value: '',
+    isValid: false,
+  },
 })
 
 onMounted(() => {
@@ -25,38 +31,22 @@ onMounted(() => {
   }
 })
 
-const userNameTouched = ref(false)
-const userNameError = computed(() => {
-  if (userNameTouched.value && form.value.userName.length < 1) {
-    return 'Нужно заполнить'
-  }
-  return ''
-})
+const userNameValidHandle = (isValid) => {
+  form.userName.isValid = isValid
+}
 
-const passwordTouched = ref(false)
-const passwordError = computed(() => {
-  if (passwordTouched.value && form.value.password.length < 1) {
-    return 'Нужно заполнить'
-  }
-})
+const passwordValidHandle = (isValid) => {
+  form.password.isValid = isValid
+}
 
-const disableLoginButton = computed(() => {
-  if (
-    form.value.userName.length < 1 ||
-    form.value.password.length < 1 ||
-    userNameError.value ||
-    passwordError.value
-  ) {
-    return true
-  } else {
-    return false
-  }
+const formReady = computed(() => {
+  return form.userName.isValid && form.password.isValid
 })
 
 const handleLogin = async () => {
   error.value = ''
   try {
-    await authStore.login(form.value)
+    await authStore.login({ userName: form.userName.value, password: form.password.value })
   } catch (err) {
     toast.error(err)
     error.value = err.message
@@ -76,27 +66,28 @@ const handleLogin = async () => {
       <div class="login-form__inputs">
         <div class="login-form__input">
           <label for="name-input">Имя пользователя</label>
-          <ainput
-            v-model="form.userName"
+          <a-input
+            v-model="form.userName.value"
             placeholder="Имя пользователя"
             type="text"
             id="name-input"
             :loading="authStore.loading"
-            :invalid-message="userNameError"
-            @input="userNameTouched = true"
-          ></ainput>
+            :validate="true"
+            @is-valid="userNameValidHandle"
+          >
+          </a-input>
         </div>
         <div class="login-form__input">
           <label for="pass-input">Пароль</label>
-          <ainput
-            v-model="form.password"
+          <a-input
+            v-model="form.password.value"
             placeholder="Пароль"
             type="password"
             id="pass-input"
             :loading="authStore.loading"
-            :invalid-message="passwordError"
-            @input="passwordTouched = true"
-          ></ainput>
+            :validate="true"
+            @is-valid="passwordValidHandle"
+          ></a-input>
         </div>
       </div>
 
@@ -105,7 +96,7 @@ const handleLogin = async () => {
           variant="primary"
           type="submit"
           class="login-form__enter-button"
-          :disabled="disableLoginButton"
+          :disabled="!formReady"
           >Вход</abutton
         >
         <a @click="router.push('/register')" class="login-form__register-link"
@@ -126,6 +117,7 @@ const handleLogin = async () => {
 
 .login-form {
   max-width: 370px;
+
   display: grid;
   gap: 24px;
   border-radius: 8px;
@@ -146,9 +138,6 @@ const handleLogin = async () => {
 .login-form__inputs {
   display: grid;
   gap: 24px;
-}
-
-.login-form__input {
 }
 
 label {
