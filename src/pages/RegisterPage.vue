@@ -224,9 +224,6 @@ const handleRegister = async () => {
   gap: 24px;
 }
 
-.register-form__input {
-}
-
 label {
   display: block;
   color: rgb(87, 87, 87);
