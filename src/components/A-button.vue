@@ -7,11 +7,13 @@ const props = defineProps({
 </script>
 
 <template>
-  <div :class="['btn', `btn-${props.variant}`, `btn-disabled-${disabled}`]">
-    <button :disabled="props.disabled" :type="props.type">
-      <slot />
-    </button>
-  </div>
+  <button
+    :disabled="props.disabled"
+    :type="props.type"
+    :class="['btn', `btn-${props.variant}`, `btn-disabled-${disabled}`]"
+  >
+    <slot />
+  </button>
 </template>
 
 <style scoped>
@@ -64,6 +66,5 @@ const props = defineProps({
   background-color: rgb(175, 175, 175);
   color: rgb(255, 255, 255);
   border: none;
-  cursor: default;
 }
 </style>

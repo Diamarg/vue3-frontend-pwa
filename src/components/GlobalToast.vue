@@ -18,7 +18,7 @@ const { toasts } = useToast()
   top: 100px;
   right: 30px;
   z-index: 9999;
-  opacity: 0.8;
+  opacity: 0.85;
 }
 
 .toast {

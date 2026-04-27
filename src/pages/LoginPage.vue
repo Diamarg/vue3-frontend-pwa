@@ -4,11 +4,14 @@ import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import Abutton from '@/components/A-button.vue'
 import AInput from '@/components/A-input.vue'
+import ALoader from '@/components/A-loader.vue'
 import { useToast } from '@/composables/useToast'
 
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
+
+const loading = ref(false)
 
 const error = ref('')
 
@@ -31,19 +34,20 @@ onMounted(() => {
   }
 })
 
-const userNameValidHandle = (isValid) => {
-  form.userName.isValid = isValid
+const userNameValidHandle = (e) => {
+  form.userName.isValid = e
 }
 
-const passwordValidHandle = (isValid) => {
-  form.password.isValid = isValid
+const passwordValidHandle = (e) => {
+  form.password.isValid = e
 }
 
 const formReady = computed(() => {
   return form.userName.isValid && form.password.isValid
 })
 
-const handleLogin = async () => {
+const sendForm = async () => {
+  loading.value = true
   error.value = ''
   try {
     await authStore.login({ userName: form.userName.value, password: form.password.value })
@@ -51,6 +55,8 @@ const handleLogin = async () => {
     toast.error(err)
     error.value = err.message
   }
+  loading.value = false
+
   const redirectPath = route.query.redirect || '/'
   router.push(redirectPath)
   toast.info(`${authStore.user.fullName} (${authStore.user.userName}) входит в систему`)
@@ -59,7 +65,7 @@ const handleLogin = async () => {
 
 <template>
   <div class="login-container">
-    <form class="login-form" @submit.prevent="handleLogin">
+    <form class="login-form">
       <div class="login-form__header">
         <h3>Вход в систему</h3>
       </div>
@@ -73,7 +79,8 @@ const handleLogin = async () => {
             id="name-input"
             :loading="authStore.loading"
             :validate="true"
-            @is-valid="userNameValidHandle"
+            @on-valid="userNameValidHandle($event)"
+            validation-message="Заполните имя пользователя"
           >
           </a-input>
         </div>
@@ -86,15 +93,17 @@ const handleLogin = async () => {
             id="pass-input"
             :loading="authStore.loading"
             :validate="true"
-            @is-valid="passwordValidHandle"
+            @on-valid="passwordValidHandle($event)"
+            validation-message="Заполните имя пароль"
           ></a-input>
         </div>
       </div>
 
       <div class="login-form__actions">
         <abutton
+          @click="sendForm"
           variant="primary"
-          type="submit"
+          type="button"
           class="login-form__enter-button"
           :disabled="!formReady"
           >Вход</abutton
@@ -103,6 +112,7 @@ const handleLogin = async () => {
           >Создать учётную запись</a
         >
       </div>
+      <a-loader :enable="loading" />
     </form>
   </div>
 </template>
@@ -117,7 +127,6 @@ const handleLogin = async () => {
 
 .login-form {
   max-width: 370px;
-
   display: grid;
   gap: 24px;
   border-radius: 8px;

@@ -3,7 +3,7 @@ import { computed, watch, ref } from 'vue'
 
 const isTouched = ref(false)
 
-const emit = defineEmits(['isValid'])
+const emit = defineEmits(['onValid'])
 
 const model = defineModel()
 
@@ -50,7 +50,7 @@ const validationMessageComputed = computed(() => {
 watch(
   isValidComputed,
   (valid) => {
-    emit('isValid', valid) // Эмитим и true, и false
+    emit('onValid', valid) // Эмитим и true, и false
   },
   { immediate: false }, // ✅ Важно! Отправить начальное состояние сразу
 )
@@ -67,8 +67,7 @@ watch(
       autocomplete="off"
       @focus="isTouched = true"
     />
-    <div v-if="loading" class="loader"></div>
-    <p class="valid-error" v-if="!isValidComputed">{{ validationMessageComputed }}</p>
+    <p class="valid-error">{{ validationMessageComputed }}</p>
   </div>
 </template>
 
@@ -88,43 +87,9 @@ watch(
   width: 100%;
 }
 
-.loader {
-  position: relative;
-  width: 0%;
-  height: 1px;
-  background-color: rgb(116, 116, 116);
-  animation: loader 1s ease-in-out infinite;
-}
-
-.loader::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 0%;
-  height: 100%;
-  background-color: white;
-  animation: inherit;
-  animation-timing-function: ease-out;
-}
-
 .valid-error {
   font-weight: 200;
-  font-size: 14px;
+  font-size: 13px;
   color: red;
-}
-
-@keyframes loader {
-  0% {
-    width: 0%;
-  }
-
-  75% {
-    width: 100%;
-  }
-
-  100% {
-    width: 100%;
-  }
 }
 </style>
