@@ -1,92 +1,79 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import Abutton from '@/components/A-button.vue'
-import Ainput from '@/components/A-input.vue'
+import AInput from '@/components/A-input.vue'
+import ALoader from '@/components/A-loader.vue'
 import { useToast } from '@/composables/useToast'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const toast = useToast()
-
-const error = ref('')
+const error = ref(null)
 
 const form = ref({
   userName: '',
+  userNameTouched: false,
   email: '',
+  emailTouched: false,
   fullName: '',
+  fullNameTouched: false,
   password: '',
+  passwordTouched: false,
   confirmPassword: '',
+  confirmPasswordTouched: false,
 })
 
-const userNameTouched = ref(false)
-const userNameError = computed(() => {
-  if (userNameTouched.value && form.value.userName.length < 5) {
-    return 'Имя пользователя не менее пяти символов'
-  }
+const userNameValidation = computed(() => {
+  const regexp = new RegExp(/^[a-zA-Z0-9_-]{3,30}$/)
+
+  if (form.value.userNameTouched && !regexp.test(form.value.userName))
+    return 'Не менее 3х символов англ. алфивита'
   return ''
 })
 
-const emailTouched = ref(false)
-const emailError = computed(() => {
-  const regex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/
-
-  if (emailTouched.value && !regex.test(form.value.email)) {
-    return 'Введите корректный email.'
-  }
+const emailValidation = computed(() => {
+  const regexp = new RegExp(/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/)
+  if (form.value.emailTouched && !regexp.test(form.value.email)) return 'Введите корректный email'
   return ''
 })
 
-const fullNameTouched = ref(false)
-const fullNameError = computed(() => {
-  if (fullNameTouched.value && form.value.fullName.length < 3) {
-    return 'Полное имя не менее трёх символов'
-  }
+const fullNameValidation = computed(() => {
+  const regexp = new RegExp(/^[a-zA-Zа-яА-ЯёЁ0-9_-]{3,30}$/u)
+  if (form.value.fullNameTouched && !regexp.test(form.value.fullName)) return 'Не менее 3х символов'
   return ''
 })
 
-const passwordTouched = ref(false)
-const passwordError = computed(() => {
-  const regex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/
-  if (passwordTouched.value && !regex.test(form.value.password)) {
-    return 'Пароль должен содержать не менее 6 букв английского алфавита и не менее одной цифры'
-  }
+const passwordValidation = computed(() => {
+  const regexp = new RegExp(/^(?=.*[A-Za-z])(?=.*\d).{8,}$/)
+  if (form.value.passwordTouched && !regexp.test(form.value.password))
+    return 'Не менее 8 символов A-Z в любом регистре'
+  return ''
 })
 
-const passConfirmTouched = ref(false)
-const passConfirmError = computed(() => {
-  if (passConfirmTouched.value && form.value.password !== form.value.confirmPassword) {
-    return 'Пароли не совпадают'
-  }
-})
-
-const disableRegisterButton = computed(() => {
-  if (
-    form.value.userName.length < 1 ||
-    form.value.email.length < 1 ||
-    form.value.fullName.length < 1 ||
-    form.value.password.length < 1 ||
-    form.value.confirmPassword.length < 1 ||
-    userNameError.value ||
-    emailError.value ||
-    fullNameError.value ||
-    passwordError.value ||
-    passConfirmError.value
-  ) {
-    return true
-  } else {
-    return false
-  }
+const confirmPasswordValidation = computed(() => {
+  if (!form.value.confirmPasswordTouched) return ''
+  if (form.value.password === form.value.confirmPassword) return ''
+  return 'Пароли не совпадают'
 })
 
 const formReady = computed(() => {
-  return Object.values(form.value).every((val = val.length > 0))
+  return (
+    form.value.userName !== '' &&
+    form.value.email !== '' &&
+    form.value.fullName !== '' &&
+    form.value.password !== '' &&
+    form.value.confirmPassword !== '' &&
+    !userNameValidation.value &&
+    !emailValidation.value &&
+    !fullNameValidation.value &&
+    !passwordValidation.value &&
+    !confirmPasswordValidation.value
+  )
 })
 
-onMounted(() => {})
-
-const handleRegister = async () => {
+const sendForm = async () => {
   error.value = ''
   try {
     await authStore.register({
@@ -111,83 +98,83 @@ const handleRegister = async () => {
         <h3>Регистрация</h3>
       </div>
       <div class="register-form__inputs">
-        <div class="register-form__input">
+        <div>
           <label for="name-input">Имя пользователя</label>
           <a-input
-            v-model="form.userName.value"
-            placeholder="Имя пользователя"
+            v-model="form.userName"
+            placeholder="Ваше имя пользователя"
             type="text"
             id="name-input"
-            :loading="authStore.loading"
-            :validate="true"
-            @is-valid="userNameValidHandle"
+            @on-touch="form.userNameTouched = true"
           >
           </a-input>
+          <p class="valid-error">{{ userNameValidation }}</p>
         </div>
 
-        <div class="register-form__input">
+        <div>
           <label for="email-input">E-mail</label>
-          <ainput
+          <a-input
             v-model="form.email"
             placeholder="E-mail"
             type="email"
             id="email-input"
-            :loading="authStore.loading"
-            @input="emailTouched = true"
-            :invalid-message="emailError"
-          ></ainput>
+            @on-touch="form.emailTouched = true"
+          >
+          </a-input>
+          <p class="valid-error">{{ emailValidation }}</p>
         </div>
 
-        <div class="register-form__input">
+        <div>
           <label for="fullName-input">Полное имя</label>
-          <ainput
+          <a-input
             v-model="form.fullName"
-            placeholder="Полное имя"
+            placeholder="Василий Петрович"
             type="text"
             id="fullName-input"
-            :loading="authStore.loading"
-            @input="fullNameTouched = true"
-            :invalid-message="fullNameError"
-          ></ainput>
+            @on-touch="form.fullNameTouched = true"
+          >
+          </a-input>
+          <p class="valid-error">{{ fullNameValidation }}</p>
         </div>
 
-        <div class="register-form__input">
+        <div>
           <label for="pass-input">Пароль</label>
-          <ainput
+          <a-input
             v-model="form.password"
-            placeholder="Пароль"
+            placeholder="Ваш пароль"
             type="password"
             id="pass-input"
-            :loading="authStore.loading"
-            @input="passwordTouched = true"
-            :invalid-message="passwordError"
-          ></ainput>
+            @on-touch="form.passwordTouched = true"
+          >
+          </a-input>
+          <p class="valid-error">{{ passwordValidation }}</p>
         </div>
 
-        <div class="register-form__input">
+        <div>
           <label for="passConfirm-input">Повторите пароль</label>
-          <ainput
+          <a-input
             v-model="form.confirmPassword"
-            placeholder="Повторите пароль"
+            placeholder="Повторите ваш пароль"
             type="password"
-            id="passConfirm-input"
-            :loading="authStore.loading"
-            @input="passConfirmTouched = true"
-            :invalid-message="passConfirmError"
-          ></ainput>
+            id="pass-input"
+            @on-touch="form.confirmPasswordTouched = true"
+          >
+          </a-input>
+          <p class="valid-error">{{ confirmPasswordValidation }}</p>
         </div>
       </div>
 
       <div class="register-form__actions">
         <abutton
-          :disabled="disableRegisterButton"
+          @click="sendForm"
+          :disabled="!formReady"
           variant="primary"
-          type="submit"
           class="register-form__enter-button"
           >Новый пользователь</abutton
         >
         <a @click="router.push('/')" class="register-form__back-link">Назад</a>
       </div>
+      <a-loader :enable="authStore.loading" />
     </form>
   </div>
 </template>

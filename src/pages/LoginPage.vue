@@ -17,15 +17,9 @@ const error = ref('')
 
 const toast = useToast()
 
-const form = reactive({
-  userName: {
-    value: '',
-    isValid: false,
-  },
-  password: {
-    value: '',
-    isValid: false,
-  },
+const form = ref({
+  userName: '',
+  password: '',
 })
 
 onMounted(() => {
@@ -34,23 +28,15 @@ onMounted(() => {
   }
 })
 
-const userNameValidHandle = (e) => {
-  form.userName.isValid = e
-}
-
-const passwordValidHandle = (e) => {
-  form.password.isValid = e
-}
-
 const formReady = computed(() => {
-  return form.userName.isValid && form.password.isValid
+  return form.value.userName && form.value.password
 })
 
 const sendForm = async () => {
   loading.value = true
   error.value = ''
   try {
-    await authStore.login({ userName: form.userName.value, password: form.password.value })
+    await authStore.login({ userName: form.value.userName, password: form.value.password })
   } catch (err) {
     toast.error(err)
     error.value = err.message
@@ -73,28 +59,22 @@ const sendForm = async () => {
         <div class="login-form__input">
           <label for="name-input">Имя пользователя</label>
           <a-input
-            v-model="form.userName.value"
+            v-model="form.userName"
             placeholder="Имя пользователя"
             type="text"
             id="name-input"
-            :loading="authStore.loading"
-            :validate="true"
-            @on-valid="userNameValidHandle($event)"
-            validation-message="Заполните имя пользователя"
+            @on-touch="form.userNameTouched = true"
           >
           </a-input>
         </div>
         <div class="login-form__input">
           <label for="pass-input">Пароль</label>
           <a-input
-            v-model="form.password.value"
+            v-model="form.password"
             placeholder="Пароль"
             type="password"
             id="pass-input"
-            :loading="authStore.loading"
-            :validate="true"
-            @on-valid="passwordValidHandle($event)"
-            validation-message="Заполните имя пароль"
+            @on-touch="form.passwordTouched = true"
           ></a-input>
         </div>
       </div>
