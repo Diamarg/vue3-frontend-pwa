@@ -56,6 +56,12 @@ const handleLogout = () => {
   background-color: rgb(255, 255, 255);
 }
 
+@media (max-width: 700px) {
+  .navbar-user {
+    display: none;
+  }
+}
+
 .navbar-pagename {
   font-size: 20px;
   font-weight: 300;
@@ -78,6 +84,7 @@ const handleLogout = () => {
 
 .navbar-user {
   font-weight: 400;
+  text-align: center;
   color: rgb(99, 99, 99);
 }
 

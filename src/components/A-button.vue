@@ -29,6 +29,7 @@ const props = defineProps({
   border-style: solid;
   transition: var(--md-sys-motion-duration-short);
   padding: 8px 16px;
+  justify-content: center;
 }
 
 .btn-primary {

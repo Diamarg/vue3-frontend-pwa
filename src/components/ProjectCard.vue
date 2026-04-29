@@ -1,8 +1,45 @@
+<script setup>
+const props = defineProps({
+  codename: { type: String, default: 'АС__' },
+  customer: { type: String, default: 'заказчик' },
+  description: { type: String, default: 'описание' },
+  creationDate: { type: String, default: '09.06.89' },
+  isAdmin: { type: Boolean, default: false },
+})
+</script>
+
 <template>
   <div class="project-card">
-    <div class="project-card__header">АС89</div>
-    <div class="project-card__content">Уралвагон</div>
-    <div class="project-card__footer">23.02.24</div>
+    <div class="project-card__header">
+      <div class="project-card__codename" :title="'Описание проекта: ' + props.description">
+        {{ props.codename }}
+      </div>
+      <div v-if="isAdmin" class="project-card__actions">
+        <a class="project-card__link project-card__link--edit">Редактировать</a
+        ><a class="project-card__link project-card__link--delete">Удалить</a>
+      </div>
+    </div>
+    <hr />
+    <div class="project-card__content">
+      <div class="project-card__customer">
+        <span class="project-card__customer-label">Заказчик:</span
+        ><span class="project-card__customer-text">{{ props.customer }}</span>
+      </div>
+      <!-- <div class="project-card__description">
+        <span class="project-card__description-label">Описание:</span
+        ><span class="project-card__description-text">{{ props.description }}</span>
+      </div> -->
+    </div>
+    <div class="project-card__creation">
+      <span class="project-card__creation-label">Создано:</span
+      ><span class="project-card__creation-date">{{ props.creationDate }}</span>
+    </div>
+    <hr />
+    <div class="project-card__links">
+      <a class="project-card__link project-card__link--outline">Галерея</a>
+      <a class="project-card__link project-card__link--outline">Кабельный журнал</a>
+      <a class="project-card__link project-card__link--outline">Сборки</a>
+    </div>
   </div>
 </template>
 
@@ -17,5 +54,94 @@
   border-width: 1px;
   background-color: rgb(255, 255, 255);
   padding: 24px;
+}
+
+.project-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.project-card__codename {
+  color: rgb(82, 82, 82);
+  cursor: help;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.project-card__actions {
+  font-size: 13px;
+  display: flex;
+  gap: 12px;
+}
+.project-card__content {
+  color: rgb(82, 82, 82);
+}
+.project-card__customer {
+  display: flex;
+  justify-content: space-between;
+  margin-block: 24px;
+}
+
+.project-card__description {
+  margin-bottom: 24px;
+}
+
+.project-card__creation {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.project-card__creation-label,
+.project-card__customer-label,
+.project-card__description-label {
+  font-weight: 400;
+  color: rgb(150, 150, 150);
+}
+
+.project-card__customer-text,
+.project-card__creation-date {
+  font-weight: 300;
+  color: rgb(109, 109, 109);
+}
+.project-card__links {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.project-card__link {
+  color: rgb(80, 80, 80);
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.project-card__link--outline {
+  padding: 8px 24px;
+  border: 1px solid #d9d9d9;
+  border-radius: 8px;
+  transition: all 0.3s;
+}
+
+.project-card__link--outline:hover {
+  border-color: rgb(150, 150, 150);
+}
+
+.project-card__link--edit {
+  color: rgb(196, 167, 0);
+}
+
+.project-card__link--edit:hover {
+  color: rgb(172, 146, 0);
+}
+
+.project-card__link--delete {
+  color: rgb(177, 29, 29);
+}
+
+.project-card__link--delete:hover {
+  color: rgb(85, 9, 9);
 }
 </style>
