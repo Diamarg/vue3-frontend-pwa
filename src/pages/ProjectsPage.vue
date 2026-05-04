@@ -7,6 +7,7 @@ import { onMounted } from 'vue'
 import Ainput from '@/components/A-input.vue'
 import ProjectCard from '@/components/ProjectCard.vue'
 import AddIcon from '@/components/icons/AddIcon.vue'
+import AModal from '@/components/A-modal.vue'
 import { projectsApi } from '@/api/projects'
 
 const authStore = useAuthStore()
@@ -15,6 +16,7 @@ const loadError = ref('')
 const loading = ref(false)
 const projects = ref([])
 const searchBar = ref('')
+const showModal = ref(false)
 
 const filteredProjects = computed(() => {
   const query = searchBar.value.trim().toLowerCase()
@@ -47,6 +49,19 @@ const fethProjects = async () => {
     loading.value = false
   }
 }
+
+const sendForm = async () => {
+  try {
+  } catch {
+  } finally {
+    console.log('Форма отправлена')
+    closeModal()
+  }
+}
+
+const closeModal = () => {
+  showModal.value = false
+}
 </script>
 
 <template>
@@ -61,9 +76,9 @@ const fethProjects = async () => {
             placeholder="Найти по имени проекта или заказчику..."
           ></ainput>
         </div>
-        <Abutton
+        <!-- <Abutton @click="showModal = true"
           ><template #icon><add-icon color="white" /></template>Новый проект
-        </Abutton>
+        </Abutton> -->
       </div>
       <div v-if="!loading" class="projects-cards">
         <ProjectCard
@@ -79,6 +94,35 @@ const fethProjects = async () => {
       <div v-else class="project-cards__loading">Загрузка...</div>
     </div>
   </div>
+  <a-modal v-if="showModal" @close-emit="closeModal">
+    <form class="modal__form">
+      <div class="modal_form-group">
+        <label>Кодовое название*</label>
+        <ainput placeholder="АС-101" />
+        <p class="valid-error">Заполните название</p>
+      </div>
+      <div class="modal_form-group">
+        <label>Заказчик*</label>
+        <ainput placeholder='ООО "Пивозавр"' />
+        <p class="valid-error">Заполните информацию о заказчике</p>
+      </div>
+      <div class="modal_form-group">
+        <label>Описание проекта*</label>
+        <ainput placeholder="Установка обратного осмоса" />
+        <p class="valid-error">Заполните описание проекта</p>
+      </div>
+      <div class="modal_form-group">
+        <label>Дата создания*</label>
+        <ainput type="date" />
+        <p class="valid-error">Выберите дату создания проекта</p>
+      </div>
+
+      <div class="modal__actions">
+        <abutton @click="sendForm" type="button">Изменить</abutton>
+        <a @click="closeModal" class="form__back-link">Закрыть</a>
+      </div>
+    </form>
+  </a-modal>
 </template>
 
 <style scoped>
@@ -127,10 +171,6 @@ const fethProjects = async () => {
   align-content: center;
 }
 
-.projects-headbar__searchinput {
-  /* margin-inline: 16px; */
-}
-
 .projects-cards {
   display: grid;
   gap: 24px;
@@ -154,5 +194,23 @@ const fethProjects = async () => {
   font-weight: 300;
   text-align: center;
   color: gray;
+}
+
+/* Модалка */
+
+.modal__actions {
+  display: flex;
+  justify-content: end;
+}
+
+.form__back-link {
+  font-size: 16px;
+  align-self: center;
+  padding: 0px 24px;
+}
+
+.modal__form {
+  display: grid;
+  gap: 24px;
 }
 </style>
