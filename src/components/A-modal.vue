@@ -1,16 +1,20 @@
 <script setup>
+import { Transition } from 'vue'
+
 const props = defineProps({
   title: { type: String, default: 'Заголовок' },
+  opened: { type: Boolean, default: false },
 })
 </script>
 
 <template>
-  <div class="modal">
-    <div class="modal__overlay">
+  <transition name="modal-fade">
+    <div v-if="opened" class="modal__overlay">
       <!-- Само модальное окно -->
+
       <div class="modal__wrapper">
         <div class="modal__header">
-          <h2 class="modal__title">Создание нового проекта</h2>
+          <h2 class="modal__title">{{ title }}</h2>
           <button class="modal__close" @click="$emit('closeEmit')">&times;</button>
         </div>
         <div>
@@ -20,10 +24,32 @@ const props = defineProps({
         </div>
       </div>
     </div>
-  </div>
+  </transition>
 </template>
 
 <style scoped>
+/* Анимация для оверлея (плавное появление/исчезновение) */
+.modal-fade-enter-active,
+.modal-fade-leave-active {
+  transition: opacity 0.5s cubic-bezier(0.075, 0.82, 0.165, 1);
+}
+
+.modal-fade-enter-from,
+.modal-fade-leave-to {
+  opacity: 0;
+}
+
+/* Анимация для wrapper (масштабирование) */
+.modal-fade-enter-active .modal__wrapper,
+.modal-fade-leave-active .modal__wrapper {
+  transition: transform 0.5s cubic-bezier(0.075, 0.82, 0.165, 1);
+}
+
+.modal-fade-enter-from .modal__wrapper,
+.modal-fade-leave-to .modal__wrapper {
+  transform: scale(0.3);
+}
+
 .modal__overlay {
   position: fixed;
   inset: 0; /* top/right/bottom/left: 0 */

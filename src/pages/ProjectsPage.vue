@@ -9,14 +9,73 @@ import ProjectCard from '@/components/ProjectCard.vue'
 import AddIcon from '@/components/icons/AddIcon.vue'
 import AModal from '@/components/A-modal.vue'
 import { projectsApi } from '@/api/projects'
+import { useToast } from '@/composables/useToast'
 
 const authStore = useAuthStore()
 const pageStore = usePageStore()
+
+const toast = useToast()
+
 const loadError = ref('')
 const loading = ref(false)
 const projects = ref([])
 const searchBar = ref('')
 const showModal = ref(false)
+
+const form = ref({
+  codeName: '',
+  codeNameTouched: false,
+  customer: '',
+  customerTouched: false,
+  description: '',
+  descriptionTouched: false,
+  creationDate: '',
+  creationDateTouched: false,
+})
+
+const codeNameValidation = computed(() => {
+  const regexp = new RegExp(/^[а-яА-ЯёЁ0-9_-\s]{4,30}$/)
+
+  if (form.value.codeNameTouched && !regexp.test(form.value.codeName))
+    return 'Заполните кодовое имя проекта'
+  return ''
+})
+
+const customerValidation = computed(() => {
+  const regexp = new RegExp(/^[а-яА-ЯёЁ0-9_-\s\"]{3,50}$/)
+
+  if (form.value.customerTouched && !regexp.test(form.value.customer)) return 'Заполните заказчика'
+  return ''
+})
+
+const descriptionValidation = computed(() => {
+  const regexp = new RegExp(/^[а-яА-ЯёЁ0-9_-\s\"\(\)]{3,200}$/)
+
+  if (form.value.descriptionTouched && !regexp.test(form.value.description))
+    return `Заполните краткое описание`
+  return ''
+})
+
+const creationDateValidation = computed(() => {
+  const regexp = new RegExp(/^[а-яА-ЯёЁ0-9_-]{3,30}$/)
+
+  if (form.value.creationDateTouched && !regexp.test(form.value.creationDate))
+    return 'Выберите дату создания проекта'
+  return ''
+})
+
+const formReady = computed(() => {
+  return (
+    form.value.codeName !== '' &&
+    form.value.customer !== '' &&
+    form.value.description !== '' &&
+    form.value.creationDate !== '' &&
+    !codeNameValidation.value &&
+    !customerValidation.value &&
+    !descriptionValidation.value &&
+    !creationDateValidation.value
+  )
+})
 
 const filteredProjects = computed(() => {
   const query = searchBar.value.trim().toLowerCase()
@@ -30,12 +89,6 @@ const filteredProjects = computed(() => {
   )
 })
 
-onMounted(async () => {
-  fethProjects()
-  pageStore.nowpage = 'Проекты'
-  await authStore.fetchMe()
-})
-
 const fethProjects = async () => {
   loading.value = true
   try {
@@ -44,24 +97,46 @@ const fethProjects = async () => {
     loadError.value = true
     console.log(error)
     console.error('Failed to load projects:', error)
-    showToast('Ошибка при загрузке проектов', 'error')
+    toast.error('Ошибка при загрузке проектов', 'error')
   } finally {
     loading.value = false
   }
 }
 
-const sendForm = async () => {
+const saveProject = async () => {
+  if (!authStore.isAdmin) {
+    toast.error('У вас нет прав для редактирования проектов')
+    return
+  }
+
+  const projectData = {
+    codeName: form.value.codeName,
+    customer: form.value.customer,
+    description: form.value.description,
+    dateOfCreation: form.value.creationDate,
+  }
+
   try {
-  } catch {
+    await projectsApi.createProject(projectData)
+    toast.success(`Проект ${form.value.codeName} был добавлен`)
+  } catch (error) {
+    console.error('Failed to save project:', error)
+    toast.error(error)
   } finally {
-    console.log('Форма отправлена')
-    closeModal()
+    fethProjects()
+    showModal.value = false
   }
 }
 
 const closeModal = () => {
   showModal.value = false
 }
+
+onMounted(async () => {
+  fethProjects()
+  pageStore.nowpage = 'Проекты'
+  await authStore.fetchMe()
+})
 </script>
 
 <template>
@@ -76,9 +151,9 @@ const closeModal = () => {
             placeholder="Найти по имени проекта или заказчику..."
           ></ainput>
         </div>
-        <!-- <Abutton @click="showModal = true"
+        <Abutton @click="showModal = true"
           ><template #icon><add-icon color="white" /></template>Новый проект
-        </Abutton> -->
+        </Abutton>
       </div>
       <div v-if="!loading" class="projects-cards">
         <ProjectCard
@@ -94,31 +169,51 @@ const closeModal = () => {
       <div v-else class="project-cards__loading">Загрузка...</div>
     </div>
   </div>
-  <a-modal v-if="showModal" @close-emit="closeModal">
+  <a-modal @close-emit="closeModal" :title="'Новый проект'" :opened="showModal">
     <form class="modal__form">
       <div class="modal_form-group">
-        <label>Кодовое название*</label>
-        <ainput placeholder="АС-101" />
-        <p class="valid-error">Заполните название</p>
+        <label for="codename">Кодовое название*</label>
+        <ainput
+          id="codename"
+          placeholder="АС-101"
+          v-model="form.codeName"
+          @on-touch="form.codeNameTouched = true"
+        />
+        <p class="valid-error">{{ codeNameValidation }}</p>
       </div>
       <div class="modal_form-group">
-        <label>Заказчик*</label>
-        <ainput placeholder='ООО "Пивозавр"' />
-        <p class="valid-error">Заполните информацию о заказчике</p>
+        <label for="customer">Заказчик*</label>
+        <ainput
+          id="customer"
+          placeholder='ООО "Пивозавр"'
+          v-model="form.customer"
+          @on-touch="form.customerTouched = true"
+        />
+        <p class="valid-error">{{ customerValidation }}</p>
       </div>
       <div class="modal_form-group">
-        <label>Описание проекта*</label>
-        <ainput placeholder="Установка обратного осмоса" />
-        <p class="valid-error">Заполните описание проекта</p>
+        <label for="description">Описание проекта*</label>
+        <ainput
+          id="description"
+          placeholder="Установка обратного осмоса"
+          v-model="form.description"
+          @on-touch="form.descriptionTouched = true"
+        />
+        <p class="valid-error">{{ descriptionValidation }}</p>
       </div>
       <div class="modal_form-group">
-        <label>Дата создания*</label>
-        <ainput type="date" />
-        <p class="valid-error">Выберите дату создания проекта</p>
+        <label for="date">Дата создания*</label>
+        <ainput
+          id="date"
+          type="date"
+          v-model="form.creationDate"
+          @on-touch="form.creationDateTouched = true"
+        />
+        <p class="valid-error">{{ creationDateValidation }}</p>
       </div>
 
       <div class="modal__actions">
-        <abutton @click="sendForm" type="button">Изменить</abutton>
+        <abutton @click="saveProject" type="button" :disabled="!formReady">Создать</abutton>
         <a @click="closeModal" class="form__back-link">Закрыть</a>
       </div>
     </form>
@@ -212,5 +307,8 @@ const closeModal = () => {
 .modal__form {
   display: grid;
   gap: 24px;
+}
+
+.modal__form-group {
 }
 </style>

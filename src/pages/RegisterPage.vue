@@ -211,13 +211,6 @@ const sendForm = async () => {
   gap: 24px;
 }
 
-label {
-  display: block;
-  color: rgb(87, 87, 87);
-  font-weight: 400;
-  margin-bottom: 8px;
-}
-
 .register-form__actions {
   display: flex;
   gap: 16px;

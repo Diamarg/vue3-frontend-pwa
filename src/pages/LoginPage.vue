@@ -63,7 +63,6 @@ const sendForm = async () => {
             placeholder="Имя пользователя"
             type="text"
             id="name-input"
-            @on-touch="form.userNameTouched = true"
           >
           </a-input>
         </div>
@@ -74,7 +73,6 @@ const sendForm = async () => {
             placeholder="Пароль"
             type="password"
             id="pass-input"
-            @on-touch="form.passwordTouched = true"
           ></a-input>
         </div>
       </div>

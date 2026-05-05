@@ -21,7 +21,7 @@ const props = defineProps({
       :type="props.type"
       v-model="model"
       autocomplete="off"
-      @input="$emit('onTouch')"
+      @focusout="$emit('onTouch')"
     />
   </div>
 </template>
