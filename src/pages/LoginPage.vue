@@ -104,6 +104,8 @@ const sendForm = async () => {
 }
 
 .login-form {
+  box-shadow: 4px 4px 20px -10px rgba(34, 60, 80, 0.2);
+
   max-width: 370px;
   display: grid;
   gap: 24px;

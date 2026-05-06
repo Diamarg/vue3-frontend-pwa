@@ -15,8 +15,10 @@ const props = defineProps({
         {{ props.codename }}
       </div>
       <div v-if="isAdmin" class="project-card__actions">
-        <a class="project-card__link project-card__link--edit">Редактировать</a
-        ><a class="project-card__link project-card__link--delete">Удалить</a>
+        <a class="project-card__link project-card__link--edit">Изменить</a
+        ><a class="project-card__link project-card__link--delete" @click="$emit('onDelete')"
+          >Удалить</a
+        >
       </div>
     </div>
     <hr />
@@ -37,8 +39,9 @@ const props = defineProps({
     <hr />
     <div class="project-card__links">
       <a class="project-card__link project-card__link--outline">Галерея</a>
-      <a class="project-card__link project-card__link--outline">Кабельный журнал</a>
+      <a class="project-card__link project-card__link--outline">Файлы</a>
       <a class="project-card__link project-card__link--outline">Сборки</a>
+      <a class="project-card__link project-card__link--outline">Кабельный журнал</a>
     </div>
   </div>
 </template>
@@ -47,9 +50,11 @@ const props = defineProps({
 
 <style scoped>
 .project-card {
+  box-shadow: 4px 4px 20px -10px rgba(34, 60, 80, 0.2);
+
   display: grid;
   border-radius: 8px;
-  border-color: #d9d9d9;
+  border-color: rgb(230, 230, 230);
   border-style: solid;
   border-width: 1px;
   background-color: rgb(255, 255, 255);
@@ -120,7 +125,7 @@ const props = defineProps({
 
 .project-card__link--outline {
   padding: 8px 24px;
-  border: 1px solid #d9d9d9;
+  border: 1px solid rgb(230, 230, 230);
   border-radius: 8px;
   transition: all 0.3s;
 }

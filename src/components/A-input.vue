@@ -36,7 +36,7 @@ const props = defineProps({
   border-radius: 8px;
   border-style: solid;
   border-width: 1px;
-  border-color: #d9d9d9;
+  border-color: rgb(230, 230, 230);
   cursor: pointer;
   min-height: 30px;
   width: 100%;

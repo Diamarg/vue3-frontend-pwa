@@ -128,6 +128,19 @@ const saveProject = async () => {
   }
 }
 
+const deleteProject = async (project) => {
+  if (confirm(`Вы действительно хотите удалить проект ${project.codeName} (ID - ${project.id})?`)) {
+    try {
+      await projectsApi.deleteProject(project.id)
+      toast.success(`Проект ${project.codeName} был удалён!`)
+    } catch (error) {
+      toast.error('Ошибка удаления! ' + error)
+    } finally {
+      fethProjects()
+    }
+  }
+}
+
 const closeModal = () => {
   showModal.value = false
 }
@@ -158,13 +171,17 @@ onMounted(async () => {
       <div v-if="!loading" class="projects-cards">
         <ProjectCard
           v-for="project in filteredProjects"
+          :key="project.id"
           :codename="project.codeName"
           :customer="project.customer"
           :description="project.description"
           :creation-date="project.dateOfCreation"
           :is-admin="authStore.isAdmin"
+          @on-delete="deleteProject(project)"
         />
-        <div v-if="filteredProjects == 0" class="project-cards__notfound">Проекты не найдены!</div>
+        <div v-if="filteredProjects == 0" class="project-cards__notfound">
+          По запросу '{{ searchBar }}' не найдено проектов.
+        </div>
       </div>
       <div v-else class="project-cards__loading">Загрузка...</div>
     </div>
@@ -185,7 +202,7 @@ onMounted(async () => {
         <label for="customer">Заказчик*</label>
         <ainput
           id="customer"
-          placeholder='ООО "Пивозавр"'
+          placeholder="Название объекта"
           v-model="form.customer"
           @on-touch="form.customerTouched = true"
         />
@@ -195,7 +212,7 @@ onMounted(async () => {
         <label for="description">Описание проекта*</label>
         <ainput
           id="description"
-          placeholder="Установка обратного осмоса"
+          placeholder="Состав или вид оборудования, особенности и т.д."
           v-model="form.description"
           @on-touch="form.descriptionTouched = true"
         />
@@ -238,9 +255,11 @@ onMounted(async () => {
 .projects-headbar {
   display: grid;
   gap: 24px;
+  box-shadow: 4px 4px 30px -10px rgba(34, 60, 80, 0.2);
+
   grid-template-columns: 5fr minmax(150px, 1fr);
   border-radius: 8px;
-  border-color: #d9d9d9;
+  border-color: rgb(230, 230, 230);
   border-style: solid;
   border-width: 1px;
   background-color: rgb(255, 255, 255);
@@ -269,13 +288,16 @@ onMounted(async () => {
 .projects-cards {
   display: grid;
   gap: 24px;
+  box-shadow: 4px 4px 30px -10px rgba(34, 60, 80, 0.2);
+
   grid-template-columns: repeat(auto-fit, minmax(280px, auto));
   border-radius: 8px;
-  border-color: #d9d9d9;
+  border-color: rgb(230, 230, 230);
   border-style: solid;
   border-width: 1px;
   background-color: rgb(255, 255, 255);
   padding: 24px;
+  margin-bottom: 24px;
 }
 
 @media (min-width: 900px) {
@@ -307,8 +329,5 @@ onMounted(async () => {
 .modal__form {
   display: grid;
   gap: 24px;
-}
-
-.modal__form-group {
 }
 </style>

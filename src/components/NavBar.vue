@@ -45,13 +45,15 @@ const handleLogout = () => {
 <style scoped>
 .navbar {
   display: grid;
+  box-shadow: 4px 4px 30px -10px rgba(34, 60, 80, 0.2);
+
   grid-template-columns: 1fr 2fr 1fr;
   align-items: center;
   justify-items: center;
   height: 65px;
   border-color: rgba(0, 0, 0, 0);
   border-bottom-width: 1px;
-  border-bottom-color: #d9d9d9;
+  border-bottom-color: rgb(230, 230, 230);
   border-style: solid;
   background-color: rgb(255, 255, 255);
 }
