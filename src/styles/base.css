@@ -43,6 +43,14 @@ label {
   margin-bottom: 8px;
 }
 
+.global-container {
+  height: 100vh;
+  max-width: 1400px;
+  margin-inline: auto;
+  padding-inline: 20px;
+  width: 100%;
+}
+
 .valid-error {
   font-weight: 300;
   font-size: 14px;

@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import LoginPage from '@/pages/LoginPage.vue'
 import RegisterPage from '@/pages/RegisterPage.vue'
 import ProjectsPage from '@/pages/ProjectsPage.vue'
+import GalleryPage from '@/pages/GalleryPage.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -9,6 +10,12 @@ const router = createRouter({
     { path: '/login', component: LoginPage, meta: { guest: true } },
     { path: '/register', component: RegisterPage, meta: { guest: true } },
     { path: '/', component: ProjectsPage, props: true, meta: { requiresAuth: true } },
+    {
+      path: '/:projectId/gallery',
+      component: GalleryPage,
+      props: true,
+      meta: { requiresAuth: true },
+    },
   ],
 })
 

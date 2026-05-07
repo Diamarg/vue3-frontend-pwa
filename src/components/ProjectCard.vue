@@ -27,10 +27,6 @@ const props = defineProps({
         <span class="project-card__customer-label">Заказчик:</span
         ><span class="project-card__customer-text">{{ props.customer }}</span>
       </div>
-      <!-- <div class="project-card__description">
-        <span class="project-card__description-label">Описание:</span
-        ><span class="project-card__description-text">{{ props.description }}</span>
-      </div> -->
     </div>
     <div class="project-card__creation">
       <span class="project-card__creation-label">Создано:</span
@@ -38,10 +34,16 @@ const props = defineProps({
     </div>
     <hr />
     <div class="project-card__links">
-      <a class="project-card__link project-card__link--outline">Галерея</a>
-      <a class="project-card__link project-card__link--outline">Файлы</a>
-      <a class="project-card__link project-card__link--outline">Сборки</a>
-      <a class="project-card__link project-card__link--outline">Кабельный журнал</a>
+      <a class="project-card__link project-card__link--outline" @click="$emit('toGallery')"
+        >Галерея</a
+      >
+      <a class="project-card__link project-card__link--outline" @click="$emit('toFiles')">Файлы</a>
+      <a class="project-card__link project-card__link--outline" @click="$emit('toAssemblies')"
+        >Сборки</a
+      >
+      <a class="project-card__link project-card__link--outline" @click="$emit('toCableJournal')"
+        >Кабельный журнал</a
+      >
     </div>
   </div>
 </template>
@@ -51,7 +53,6 @@ const props = defineProps({
 <style scoped>
 .project-card {
   box-shadow: 4px 4px 20px -10px rgba(34, 60, 80, 0.2);
-
   display: grid;
   border-radius: 8px;
   border-color: rgb(230, 230, 230);

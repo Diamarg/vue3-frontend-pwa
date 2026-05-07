@@ -15,7 +15,7 @@ const { toasts } = useToast()
 <style scoped>
 .toast-container {
   position: fixed;
-  top: 100px;
+  bottom: 100px;
   right: 30px;
   z-index: 9999;
   opacity: 0.85;

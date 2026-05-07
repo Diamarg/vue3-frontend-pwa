@@ -10,9 +10,11 @@ import AddIcon from '@/components/icons/AddIcon.vue'
 import AModal from '@/components/A-modal.vue'
 import { projectsApi } from '@/api/projects'
 import { useToast } from '@/composables/useToast'
+import { useRouter } from 'vue-router'
 
 const authStore = useAuthStore()
 const pageStore = usePageStore()
+const router = useRouter()
 
 const toast = useToast()
 
@@ -145,6 +147,22 @@ const closeModal = () => {
   showModal.value = false
 }
 
+const goToAssemblies = (projectId) => {
+  router.push(`/projects/${projectId}/assemblies`)
+}
+
+const goToGallery = (projectId) => {
+  router.push(`${projectId}/gallery`)
+}
+
+const goToFiles = (projectId) => {
+  router.push(`/projects/${projectId}/files`)
+}
+
+const goToCableLines = (projectId) => {
+  router.push(`/projects/${projectId}/cableLines`)
+}
+
 onMounted(async () => {
   fethProjects()
   pageStore.nowpage = 'Проекты'
@@ -178,6 +196,7 @@ onMounted(async () => {
           :creation-date="project.dateOfCreation"
           :is-admin="authStore.isAdmin"
           @on-delete="deleteProject(project)"
+          @to-gallery="goToGallery(project.id)"
         />
         <div v-if="filteredProjects == 0" class="project-cards__notfound">
           По запросу '{{ searchBar }}' не найдено проектов.
@@ -238,14 +257,6 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.global-container {
-  height: 100vh;
-  max-width: 1400px;
-  margin-inline: auto;
-  padding-inline: 20px;
-  width: 100%;
-}
-
 .projects {
   display: grid;
   gap: 24px;
@@ -256,7 +267,6 @@ onMounted(async () => {
   display: grid;
   gap: 24px;
   box-shadow: 4px 4px 30px -10px rgba(34, 60, 80, 0.2);
-
   grid-template-columns: 5fr minmax(150px, 1fr);
   border-radius: 8px;
   border-color: rgb(230, 230, 230);

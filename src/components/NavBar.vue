@@ -2,7 +2,7 @@
   <div class="navbar">
     <div class="navbar-pagename">{{ pageStore.nowpage }}</div>
     <div class="navbar-navlinks">
-      <a>Проекты</a>
+      <a @click="router.push('/')">Проекты</a>
       <a>Устройства</a>
     </div>
     <div v-if="authStore.user" class="navbar-logout">
