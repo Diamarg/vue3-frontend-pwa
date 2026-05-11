@@ -8,28 +8,46 @@ import AButton from '@/components/A-button.vue'
 
 const authStore = useAuthStore()
 const pageStore = usePageStore()
-const photos = ref([1])
+
+const scrollY = ref(0)
+
+const photos = ref([
+  1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 1, 2, 3, 4, 5,
+])
+
+const onScroll = () => {
+  scrollY.value = window.scrollY
+}
 
 const nullProjects = computed(() => {
   if (photos.value.length === 0) return true
   return false
 })
 
-const mouseOnCard = () => {
-  console.log('Мышь на карточке')
+const clickPhotoCard = () => {
+  console.log('клик')
 }
 
+const scrollToTop = () => {
+  window.scrollTo({ top: 0, left: 0, behavior: 'smooth' })
+}
+
+const showTopBtn = computed(() => scrollY.value > 100)
+
 onMounted(async () => {
-  pageStore.nowpage = 'Галерея'
+  pageStore.pageInfo.name = `Галерея - ${pageStore.pageInfo.projectName}`
+  window.addEventListener('scroll', onScroll, { passive: true })
+  onScroll()
   await authStore.fetchMe()
 })
 </script>
 
 <template>
   <div class="global-container">
+    <div v-if="showTopBtn" class="top-btn" @click="scrollToTop"></div>
     <div class="gallery">
       <div class="gallery__header">
-        <div class="gallery__filter">
+        <div v-if="!nullProjects" class="gallery__filter">
           <div class="gallery__date-from"><span>От: </span><a-input type="date" /></div>
           <div class="gallery__date-to"><span>До: </span><a-input type="date" /></div>
         </div>
@@ -37,9 +55,9 @@ onMounted(async () => {
       </div>
       <div v-if="nullProjects" class="gallery__null-photo">Ещё нет загруженных фотографий!</div>
       <div v-else class="gallery__cards">
-        <div v-for="photo in photos" class="gallery__card" @mouseenter="mouseOnCard">
+        <div v-for="photo in photos" class="gallery__card" @click="clickPhotoCard">
           <img class="gallery__image" />
-          <div class="gallery__date">Загружено: 26-01-2026</div>
+          <div class="gallery__date">26-01-2026</div>
         </div>
       </div>
     </div>
@@ -47,9 +65,25 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.top-btn {
+  position: fixed;
+  font-size: 16px;
+  font-weight: 300;
+  width: 200px;
+  height: 100%;
+  top: 0;
+  left: 0;
+  cursor: pointer;
+  color: rgb(72, 72, 194);
+  text-decoration: underline;
+}
+
+.top-btn:hover {
+  background-color: rgb(222, 255, 242, 0.5);
+}
+
 /* Базовые стили, общие для всех контейнеров галереи */
 .gallery__cards,
-.gallery__card,
 .gallery__header,
 .gallery__null-photo {
   box-shadow: 4px 4px 30px -10px rgba(34, 60, 80, 0.2);
@@ -75,8 +109,7 @@ onMounted(async () => {
 }
 /* Уникальные стили для одной карточки */
 .gallery__card {
-  box-shadow: 4px 4px 20px -10px rgba(34, 60, 80, 0.2);
-  grid-template-columns: 5fr minmax(150px, 1fr);
+  cursor: pointer;
 }
 
 /* Уникальные стили для пустого состояния */

@@ -151,8 +151,9 @@ const goToAssemblies = (projectId) => {
   router.push(`/projects/${projectId}/assemblies`)
 }
 
-const goToGallery = (projectId) => {
-  router.push(`${projectId}/gallery`)
+const goToGallery = (project) => {
+  router.push(`${project.id}/gallery`)
+  pageStore.pageInfo.projectName = project.codeName
 }
 
 const goToFiles = (projectId) => {
@@ -165,7 +166,7 @@ const goToCableLines = (projectId) => {
 
 onMounted(async () => {
   fethProjects()
-  pageStore.nowpage = 'Проекты'
+  pageStore.pageInfo.name = 'Проекты'
   await authStore.fetchMe()
 })
 </script>
@@ -196,7 +197,7 @@ onMounted(async () => {
           :creation-date="project.dateOfCreation"
           :is-admin="authStore.isAdmin"
           @on-delete="deleteProject(project)"
-          @to-gallery="goToGallery(project.id)"
+          @to-gallery="goToGallery(project)"
         />
         <div v-if="filteredProjects == 0" class="project-cards__notfound">
           По запросу '{{ searchBar }}' не найдено проектов.

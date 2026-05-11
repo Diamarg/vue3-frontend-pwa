@@ -1,6 +1,6 @@
 <template>
   <div class="navbar">
-    <div class="navbar-pagename">{{ pageStore.nowpage }}</div>
+    <div class="navbar-pagename">{{ pageStore.pageInfo.name }}</div>
     <div class="navbar-navlinks">
       <a @click="router.push('/')">Проекты</a>
       <a>Устройства</a>

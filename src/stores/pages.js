@@ -2,9 +2,12 @@ import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 
 export const usePageStore = defineStore('page', () => {
-  const nowpage = ref('')
+  const pageInfo = ref({
+    name: '',
+    projectName: '',
+  })
 
   return {
-    nowpage,
+    pageInfo,
   }
 })
