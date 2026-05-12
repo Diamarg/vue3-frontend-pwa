@@ -93,7 +93,7 @@ const sendForm = async () => {
 
 <template>
   <div class="register-container">
-    <form class="register-form" @submit.prevent="handleRegister">
+    <form class="register-form" @submit.prevent="">
       <div class="register-form__header">
         <h3>Регистрация</h3>
       </div>

@@ -17,6 +17,13 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
   ],
+  scrollBehavior(to, from, savedPosition) {
+    // 1. Восстанавливаем позицию при навигации через историю браузера
+    if (savedPosition) return savedPosition
+
+    // 2. При любом другом переходе → наверх
+    return { top: 0, left: 0, behavior: 'smooth' }
+  },
 })
 
 router.beforeEach((to) => {

@@ -126,6 +126,7 @@ const saveProject = async () => {
     toast.error(error)
   } finally {
     fethProjects()
+    form.value = {}
     showModal.value = false
   }
 }
@@ -179,7 +180,7 @@ onMounted(async () => {
             placeholder="Найти по имени проекта или заказчику..."
           ></ainput>
         </div>
-        <Abutton @click="showModal = true"
+        <Abutton class="sticky-button" @click="showModal = true"
           ><template #icon><add-icon color="white" /></template>Новый проект
         </Abutton>
       </div>
@@ -291,6 +292,10 @@ onMounted(async () => {
 
 .project-headbar__searchbar-label {
   align-content: center;
+}
+
+.sticky-button {
+  position: sticky;
 }
 
 .projects-cards {

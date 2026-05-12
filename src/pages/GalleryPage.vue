@@ -6,6 +6,17 @@ import { useAuthStore } from '@/stores/auth'
 import AInput from '@/components/A-input.vue'
 import AButton from '@/components/A-button.vue'
 import AModal from '@/components/A-modal.vue'
+import { galleryApi } from '@/api/gallery'
+import { projectsApi } from '@/api/projects'
+import { useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
+
+const props = defineProps({
+  projectId: { type: String, required: true },
+})
+
+const router = useRouter()
+const route = useRoute()
 
 const authStore = useAuthStore()
 const pageStore = usePageStore()
@@ -13,7 +24,14 @@ const pageStore = usePageStore()
 const scrollY = ref(0)
 const showModal = ref(false)
 const showPhotoModal = ref(false)
-const photos = ref([1])
+const photos = ref([])
+const project = ref({})
+const error = ref({})
+
+const files = ref([])
+
+const selectionMode = ref(false)
+const selectedPhotoIds = ref([])
 
 const onScroll = () => {
   scrollY.value = window.scrollY
@@ -25,7 +43,6 @@ const nullPhotos = computed(() => {
 })
 
 const clickPhotoCard = () => {
-  console.log('клик')
   showPhotoModal.value = true
 }
 
@@ -33,14 +50,56 @@ const scrollToTop = () => {
   window.scrollTo({ top: 0, left: 0, behavior: 'smooth' })
 }
 
+const submitUpload = () => {
+  console.log(files.value)
+}
+
 const showTopBtn = computed(() => scrollY.value > 100)
 
+const loadProject = async () => {
+  try {
+    project.value = await projectsApi.getProjectById(route.params.projectId)
+  } catch (error) {
+    console.error('Failed to load project:', error)
+    project.value = { codeName: `Проект #${projectId.value}`, customer: 'Заказчик' }
+  } finally {
+    pageStore.pageInfo.name = `Галерея - ${project.value.codeName}`
+    console.log(project)
+  }
+}
+
+const loadPhotos = async () => {
+  try {
+    const data = await galleryApi.getPhotos(route.params.projectId)
+    photos.value = data.map((photo) => ({
+      ...photo,
+      fileSize: photo.fileSize || 0,
+    }))
+  } catch (error) {
+    console.error('Failed to load photos:', error)
+    showToast('Ошибка при загрузке галереи', 'error')
+  } finally {
+    console.log(photos.value)
+  }
+}
+
+const handleFileChange = (event) => {
+  const newFiles = Array.from(event.target.files)
+  files.value = [...files.value, ...newFiles]
+  event.target.value = ''
+}
+
 onMounted(async () => {
-  pageStore.pageInfo.name = `Галерея - ${pageStore.pageInfo.projectName}`
+  loadProject()
+  loadPhotos()
   window.addEventListener('scroll', onScroll, { passive: true })
   onScroll()
   await authStore.fetchMe()
 })
+
+// onUnmounted(() => {
+//   window.removeEventListener('scroll')
+// })
 </script>
 
 <template>
@@ -59,16 +118,24 @@ onMounted(async () => {
       <div v-if="nullPhotos" class="gallery__null-photo">Ещё нет загруженных фотографий!</div>
       <div v-else class="gallery__cards">
         <div v-for="photo in photos" class="gallery__card" @click="clickPhotoCard(photo.id)">
-          <img class="gallery__image" />
-          <div class="gallery__date">26-01-2026</div>
+          <img class="gallery__image-preview" />
         </div>
       </div>
     </div>
   </div>
   <a-modal title="Загрузка фотографий" :opened="showModal" @close-emit="showModal = false">
-    <form enctype="multipart/form-data">
+    <form enctype="multipart/form-data" @submit.prevent="submitUpload">
       <label>Выберите фото с устройства</label>
-      <a-input type="file" multiple></a-input>
+      <a-input
+        accept="image/*"
+        v-model="files"
+        class="form-input"
+        type="file"
+        placeholder="Выберите файлы"
+        multiple
+        @change="handleFileChange"
+      ></a-input>
+      <a-button>Загрузить</a-button>
     </form>
   </a-modal>
   <a-modal
@@ -84,19 +151,15 @@ onMounted(async () => {
 <style scoped>
 .top-btn {
   position: fixed;
-  font-size: 16px;
-  font-weight: 300;
-  width: 200px;
+  width: 260px;
   height: 100%;
   top: 0;
   left: 0;
   cursor: pointer;
-  color: rgb(72, 72, 194);
-  text-decoration: underline;
 }
 
 .top-btn:hover {
-  background-color: rgb(222, 255, 242, 0.5);
+  background-image: linear-gradient(90deg, #e0eefa, #fafafa);
 }
 
 /* Базовые стили, общие для всех контейнеров галереи */
@@ -149,8 +212,8 @@ onMounted(async () => {
 }
 
 /* Остальные стили без изменений */
-.gallery__image {
-  background-color: rgb(122, 129, 128);
+.gallery__image-preview {
+  background-color: rgb(94, 94, 94);
   width: 100%;
   height: 200px;
   object-fit: cover; /* Добавлено для корректного отображения фото */
@@ -164,5 +227,8 @@ onMounted(async () => {
 .image {
   min-width: 900px;
   min-height: 600px;
+}
+.form-input {
+  margin-bottom: 24px;
 }
 </style>
