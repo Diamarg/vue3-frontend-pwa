@@ -65,8 +65,7 @@ const props = defineProps({
   background: #fff;
   border-radius: 8px;
   padding: 24px;
-  width: 100%;
-  max-width: 500px; /* Максимальная ширина */
+  min-width: 500px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
   position: relative;
   /* Опционально: запретить контенту вылезать за пределы */

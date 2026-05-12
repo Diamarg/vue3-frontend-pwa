@@ -9,21 +9,21 @@ const props = defineProps({
   id: { type: String },
   placeholder: { type: String, default: '' },
   type: { type: String, default: 'text' },
+  multiple: { type: Boolean, default: false },
 })
 </script>
 
 <template>
-  <div>
-    <input
-      :id="id"
-      class="input"
-      :placeholder="props.placeholder"
-      :type="props.type"
-      v-model="model"
-      autocomplete="off"
-      @focusout="$emit('onTouch')"
-    />
-  </div>
+  <input
+    :multiple="props.multiple"
+    :id="id"
+    class="input"
+    :placeholder="props.placeholder"
+    :type="props.type"
+    v-model="model"
+    autocomplete="off"
+    @focusout="$emit('onTouch')"
+  />
 </template>
 
 <style scoped>

@@ -143,10 +143,6 @@ const deleteProject = async (project) => {
   }
 }
 
-const closeModal = () => {
-  showModal.value = false
-}
-
 const goToAssemblies = (projectId) => {
   router.push(`/projects/${projectId}/assemblies`)
 }
@@ -206,7 +202,8 @@ onMounted(async () => {
       <div v-else class="project-cards__loading">Загрузка...</div>
     </div>
   </div>
-  <a-modal @close-emit="closeModal" :title="'Новый проект'" :opened="showModal">
+
+  <a-modal @close-emit="showModal = false" :title="'Новый проект'" :opened="showModal">
     <form class="modal__form">
       <div class="modal_form-group">
         <label for="codename">Кодовое название*</label>
@@ -251,7 +248,7 @@ onMounted(async () => {
 
       <div class="modal__actions">
         <abutton @click="saveProject" type="button" :disabled="!formReady">Создать</abutton>
-        <a @click="closeModal" class="form__back-link">Закрыть</a>
+        <a @click="showModal = false" class="form__back-link">Закрыть</a>
       </div>
     </form>
   </a-modal>
