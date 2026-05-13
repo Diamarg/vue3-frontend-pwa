@@ -28,7 +28,15 @@ const photos = ref([])
 const project = ref({})
 const error = ref({})
 
-const files = ref([])
+const uploadForm = ref({
+  files: [],
+})
+
+const files = ref([
+  {
+    name: '',
+  },
+])
 
 const selectionMode = ref(false)
 const selectedPhotoIds = ref([])
@@ -85,8 +93,16 @@ const loadPhotos = async () => {
 
 const handleFileChange = (event) => {
   const newFiles = Array.from(event.target.files)
-  files.value = [...files.value, ...newFiles]
-  event.target.value = ''
+  console.log('новые файлы: ', newFiles)
+  uploadForm.value.files = [...uploadForm.value.files, ...newFiles]
+  console.log('files.value ', uploadForm.value.files)
+  // event.target.value = ''
+}
+
+const deleteFileString = (index) => {
+  console.log(index)
+  uploadForm.value.files.splice(index, 1)
+  console.log(uploadForm.value.files)
 }
 
 onMounted(async () => {
@@ -128,13 +144,19 @@ onMounted(async () => {
       <label>Выберите фото с устройства</label>
       <a-input
         accept="image/*"
-        v-model="files"
         class="form-input"
         type="file"
         placeholder="Выберите файлы"
         multiple
         @change="handleFileChange"
       ></a-input>
+      <div class="file-names">
+        <div v-for="(file, index) in uploadForm.files" class="file-string">
+          <div class="file-name">{{ file.name }}</div>
+          <!-- <div class="file-delete" @click="uploadForm.files.splice(index, 1)">X</div> -->
+          <div class="file-delete" @click="deleteFileString(index)">X</div>
+        </div>
+      </div>
       <a-button>Загрузить</a-button>
     </form>
   </a-modal>
@@ -230,5 +252,28 @@ onMounted(async () => {
 }
 .form-input {
   margin-bottom: 24px;
+}
+
+.file-names {
+  margin-bottom: 25px;
+}
+
+.file-string {
+  display: flex;
+  justify-content: space-between;
+}
+
+.file-name {
+  margin-bottom: 8px;
+}
+
+.file-delete {
+  font-weight: 400;
+  color: rgb(78, 78, 78);
+  cursor: pointer;
+}
+
+.file-delete:hover {
+  color: rgb(3, 3, 3);
 }
 </style>

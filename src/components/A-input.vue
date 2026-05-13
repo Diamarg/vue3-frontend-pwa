@@ -1,6 +1,4 @@
 <script setup>
-import { computed, watch, ref } from 'vue'
-
 const emit = defineEmits(['onTouch'])
 
 const model = defineModel()
