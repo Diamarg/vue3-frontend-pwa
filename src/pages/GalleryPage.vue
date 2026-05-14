@@ -134,6 +134,7 @@ onMounted(async () => {
       <div v-if="nullPhotos" class="gallery__null-photo">Ещё нет загруженных фотографий!</div>
       <div v-else class="gallery__cards">
         <div v-for="photo in photos" class="gallery__card" @click="clickPhotoCard(photo.id)">
+          <div class="gallery__card-delet-chech">O</div>
           <img class="gallery__image-preview" />
         </div>
       </div>
