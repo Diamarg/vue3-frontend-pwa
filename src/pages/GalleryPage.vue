@@ -12,7 +12,7 @@ import { useRouter } from 'vue-router'
 import { useRoute } from 'vue-router'
 
 const props = defineProps({
-  projectId: { type: String, required: true },
+  projectId: '',
 })
 
 const router = useRouter()
@@ -83,10 +83,10 @@ const loadProject = async () => {
     project.value = await projectsApi.getProjectById(route.params.projectId)
   } catch (error) {
     console.error('Failed to load project:', error)
-    project.value = { codeName: `Проект #${projectId.value}`, customer: 'Заказчик' }
+    project.value = { codeName: `Проект #${project.value.id}`, customer: 'Заказчик' }
   } finally {
     pageStore.pageInfo.name = `Галерея - ${project.value.codeName}`
-    console.log(project)
+    console.log(project.value)
   }
 }
 
@@ -165,7 +165,7 @@ async function loadPhoto(photo) {
       <div v-if="nullPhotos" class="gallery__null-photo">Ещё нет загруженных фотографий!</div>
       <div v-else class="gallery__cards">
         <div v-for="photo in photos" class="gallery__card" @click="clickPhotoCard(photo.id)">
-          <img class="gallery__image-preview" />
+          <img class="gallery__image-preview" @mouseenter="loadPhoto(photo)" :alt="imgUrl" />
         </div>
       </div>
     </div>
