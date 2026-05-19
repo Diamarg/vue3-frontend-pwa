@@ -28,15 +28,11 @@ const photos = ref([])
 const project = ref({})
 const error = ref({})
 
+const imgUrl = ref('')
+
 const uploadForm = ref({
   files: [],
 })
-
-const files = ref([
-  {
-    name: '',
-  },
-])
 
 const selectionMode = ref(false)
 const selectedPhotoIds = ref([])
@@ -46,8 +42,7 @@ const onScroll = () => {
 }
 
 const nullPhotos = computed(() => {
-  if (photos.value.length === 0) return true
-  return false
+  return photos.value.length === 0 ? true : false
 })
 
 const clickPhotoCard = () => {
@@ -58,8 +53,27 @@ const scrollToTop = () => {
   window.scrollTo({ top: 0, left: 0, behavior: 'smooth' })
 }
 
-const submitUpload = () => {
-  console.log(files.value)
+const submitUpload = async () => {
+  if (!uploadForm.value.files.length) {
+    console.log('Нет файлов для загрузки')
+    return
+  }
+
+  const formData = new FormData()
+
+  for (const file of uploadForm.value.files) {
+    console.log('uploadForm.value.files: ', uploadForm.value.files)
+    console.log('File: ', file)
+    formData.append('files', file)
+  }
+
+  try {
+    await galleryApi.uploadPhoto(project.value.id, formData)
+    console.log('Загружаем: ', formData)
+    loadPhotos()
+  } catch (error) {
+    console.log('Ошибка: ', error)
+  }
 }
 
 const showTopBtn = computed(() => scrollY.value > 100)
@@ -87,7 +101,6 @@ const loadPhotos = async () => {
     console.error('Failed to load photos:', error)
     showToast('Ошибка при загрузке галереи', 'error')
   } finally {
-    console.log(photos.value)
   }
 }
 
@@ -96,7 +109,7 @@ const handleFileChange = (event) => {
   console.log('новые файлы: ', newFiles)
   uploadForm.value.files = [...uploadForm.value.files, ...newFiles]
   console.log('files.value ', uploadForm.value.files)
-  // event.target.value = ''
+  event.target.value = ''
 }
 
 const deleteFileString = (index) => {
@@ -112,6 +125,24 @@ onMounted(async () => {
   onScroll()
   await authStore.fetchMe()
 })
+
+async function loadPhoto(photo) {
+  try {
+    const blob = await galleryApi.getPhotoFile(photo.projectId, photo.id)
+    imgUrl.value = URL.createObjectURL(blob)
+    console.log(imgUrl.value)
+    return url
+  } catch (error) {
+    console.log(error)
+  }
+}
+
+// onBeforeUnmount(() => {
+//   Object.values(imageUrls.value).forEach((url) => {
+//     URL.revokeObjectURL(url)
+//   })
+//   imageUrls.value = {}
+// })
 
 // onUnmounted(() => {
 //   window.removeEventListener('scroll')
@@ -134,7 +165,6 @@ onMounted(async () => {
       <div v-if="nullPhotos" class="gallery__null-photo">Ещё нет загруженных фотографий!</div>
       <div v-else class="gallery__cards">
         <div v-for="photo in photos" class="gallery__card" @click="clickPhotoCard(photo.id)">
-          <div class="gallery__card-delet-chech">O</div>
           <img class="gallery__image-preview" />
         </div>
       </div>
@@ -155,7 +185,7 @@ onMounted(async () => {
         <div v-for="(file, index) in uploadForm.files" class="file-string">
           <div class="file-name">{{ file.name }}</div>
           <!-- <div class="file-delete" @click="uploadForm.files.splice(index, 1)">X</div> -->
-          <div class="file-delete" @click="deleteFileString(index)">X</div>
+          <div class="file-delete" @click="deleteFileString(index)">&times;</div>
         </div>
       </div>
       <a-button>Загрузить</a-button>
@@ -261,11 +291,17 @@ onMounted(async () => {
 
 .file-string {
   display: flex;
+  gap: 24px;
+  text-align: center;
   justify-content: space-between;
 }
 
 .file-name {
   margin-bottom: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 400px;
 }
 
 .file-delete {
