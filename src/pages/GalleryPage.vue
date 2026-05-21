@@ -10,6 +10,8 @@ import { galleryApi } from '@/api/gallery'
 import { projectsApi } from '@/api/projects'
 import { useRouter } from 'vue-router'
 import { useRoute } from 'vue-router'
+import { api } from '../api/index'
+import { isFileLoadingAllowed } from 'vite'
 
 const props = defineProps({
   projectId: '',
@@ -27,6 +29,8 @@ const showPhotoModal = ref(false)
 const photos = ref([])
 const project = ref({})
 const error = ref({})
+const imgUrls = ref([])
+const isLoadingPhotos = ref(false)
 
 const imgUrl = ref('')
 
@@ -44,10 +48,6 @@ const onScroll = () => {
 const nullPhotos = computed(() => {
   return photos.value.length === 0 ? true : false
 })
-
-const clickPhotoCard = () => {
-  showPhotoModal.value = true
-}
 
 const scrollToTop = () => {
   window.scrollTo({ top: 0, left: 0, behavior: 'smooth' })
@@ -91,16 +91,39 @@ const loadProject = async () => {
 }
 
 const loadPhotos = async () => {
+  isLoadingPhotos.value = true
   try {
     const data = await galleryApi.getPhotos(route.params.projectId)
     photos.value = data.map((photo) => ({
       ...photo,
       fileSize: photo.fileSize || 0,
     }))
+
+    imgUrls.value = {}
+    for (const photo of photos.value) {
+      try {
+        const blob = await galleryApi.getPhotoFile(photo.projectId, photo.id)
+        imgUrls.value[photo.id] = URL.createObjectURL(blob)
+      } catch (error) {
+        console.log('Ошибка загрузки фотографий: ', error)
+      }
+    }
   } catch (error) {
     console.error('Failed to load photos:', error)
     showToast('Ошибка при загрузке галереи', 'error')
   } finally {
+    isLoadingPhotos.value = false
+  }
+}
+
+async function loadPhoto(photo) {
+  try {
+    const blob = await galleryApi.getPhotoFile(photo.projectId, photo.id)
+    imgUrl.value = URL.createObjectURL(blob)
+    showPhotoModal.value = true
+    console.log(imgUrl.value)
+  } catch (error) {
+    console.log(error)
   }
 }
 
@@ -125,17 +148,6 @@ onMounted(async () => {
   onScroll()
   await authStore.fetchMe()
 })
-
-async function loadPhoto(photo) {
-  try {
-    const blob = await galleryApi.getPhotoFile(photo.projectId, photo.id)
-    imgUrl.value = URL.createObjectURL(blob)
-    console.log(imgUrl.value)
-    return url
-  } catch (error) {
-    console.log(error)
-  }
-}
 
 // onBeforeUnmount(() => {
 //   Object.values(imageUrls.value).forEach((url) => {
@@ -164,8 +176,8 @@ async function loadPhoto(photo) {
       </div>
       <div v-if="nullPhotos" class="gallery__null-photo">Ещё нет загруженных фотографий!</div>
       <div v-else class="gallery__cards">
-        <div v-for="photo in photos" class="gallery__card" @click="clickPhotoCard(photo.id)">
-          <img class="gallery__image-preview" @mouseenter="loadPhoto(photo)" :alt="imgUrl" />
+        <div v-for="(photo, index) in photos" class="gallery__card" @click="loadPhoto(photo)">
+          <img class="gallery__image-preview" :src="imgUrls[photo.id]" />
         </div>
       </div>
     </div>
@@ -197,7 +209,9 @@ async function loadPhoto(photo) {
     @close-emit="showPhotoModal = false"
     @click.self="showPhotoModal = false"
   >
-    <div class="image"></div>
+    <div>
+      <img class="image" :src="imgUrl" />
+    </div>
   </a-modal>
 </template>
 
@@ -278,8 +292,11 @@ async function loadPhoto(photo) {
 }
 
 .image {
-  min-width: 900px;
-  min-height: 600px;
+  max-height: 75vh;
+  max-width: 90vw;
+  width: auto;
+  height: auto;
+  object-fit: contain;
 }
 .form-input {
   margin-bottom: 24px;
