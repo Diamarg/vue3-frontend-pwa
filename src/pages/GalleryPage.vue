@@ -10,8 +10,6 @@ import { galleryApi } from '@/api/gallery'
 import { projectsApi } from '@/api/projects'
 import { useRouter } from 'vue-router'
 import { useRoute } from 'vue-router'
-import { api } from '../api/index'
-import { isFileLoadingAllowed } from 'vite'
 
 const props = defineProps({
   projectId: '',
@@ -29,10 +27,14 @@ const showPhotoModal = ref(false)
 const photos = ref([])
 const project = ref({})
 const error = ref({})
-const imgUrls = ref([])
+const imgUrls = ref({})
 const isLoadingPhotos = ref(false)
 
 const imgUrl = ref('')
+const openedImage = ref({
+  url: '',
+  date: '',
+})
 
 const uploadForm = ref({
   files: [],
@@ -117,15 +119,21 @@ const loadPhotos = async () => {
 }
 
 async function loadPhoto(photo) {
+  console.log(photo.uploadedAt)
   try {
     const blob = await galleryApi.getPhotoFile(photo.projectId, photo.id)
-    imgUrl.value = URL.createObjectURL(blob)
+    // imgUrl.value = URL.createObjectURL(blob)
+    openedImage.value.url = URL.createObjectURL(blob)
+    openedImage.value.date = photo.uploadedAt
     showPhotoModal.value = true
-    console.log(imgUrl.value)
+
+    console.log(blob)
   } catch (error) {
     console.log(error)
   }
 }
+
+const showNextImage = () => {}
 
 const handleFileChange = (event) => {
   const newFiles = Array.from(event.target.files)
@@ -139,6 +147,19 @@ const deleteFileString = (index) => {
   console.log(index)
   uploadForm.value.files.splice(index, 1)
   console.log(uploadForm.value.files)
+}
+
+const formatShortDate = (isoString) => {
+  if (!isoString) return '—'
+
+  const date = new Date(isoString)
+  if (isNaN(date.getTime())) return '—' // защита от невалидных строк
+
+  return new Intl.DateTimeFormat('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    year: '2-digit',
+  }).format(date)
 }
 
 onMounted(async () => {
@@ -210,8 +231,9 @@ onMounted(async () => {
     @click.self="showPhotoModal = false"
   >
     <div>
-      <img class="image" :src="imgUrl" />
+      <img class="image" :src="openedImage.url" @click="showNextImage" />
     </div>
+    <div class="image__date">Загружено: {{ formatShortDate(openedImage.date) }}</div>
   </a-modal>
 </template>
 
@@ -329,5 +351,12 @@ onMounted(async () => {
 
 .file-delete:hover {
   color: rgb(3, 3, 3);
+}
+
+.image__date {
+  margin-top: 20px;
+  text-align: center;
+  font-weight: 400;
+  color: #6d6d6d;
 }
 </style>
