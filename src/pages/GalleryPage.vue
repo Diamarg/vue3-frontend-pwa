@@ -25,12 +25,13 @@ const scrollY = ref(0)
 const showModal = ref(false)
 const showPhotoModal = ref(false)
 const photos = ref([])
+const startDate = ref('')
+const endDate = ref('')
 const project = ref({})
 const error = ref({})
 const imgUrls = ref({})
 const isLoadingPhotos = ref(false)
 
-const imgUrl = ref('')
 const openedImage = ref({
   url: '',
   date: '',
@@ -78,6 +79,10 @@ const submitUpload = async () => {
   }
 }
 
+const filteredPhotos = computed(() => {
+  filteredPhotos = photos.value.dateOfCreation
+})
+
 const showTopBtn = computed(() => scrollY.value > 100)
 
 const loadProject = async () => {
@@ -122,7 +127,6 @@ async function loadPhoto(photo) {
   console.log(photo.uploadedAt)
   try {
     const blob = await galleryApi.getPhotoFile(photo.projectId, photo.id)
-    // imgUrl.value = URL.createObjectURL(blob)
     openedImage.value.url = URL.createObjectURL(blob)
     openedImage.value.date = photo.uploadedAt
     showPhotoModal.value = true
@@ -188,8 +192,12 @@ onMounted(async () => {
     <div class="gallery">
       <div class="gallery__header">
         <div v-if="!nullPhotos" class="gallery__filter">
-          <div class="gallery__date-from"><span>От: </span><a-input type="date" /></div>
-          <div class="gallery__date-to"><span>До: </span><a-input type="date" /></div>
+          <div class="gallery__date-from">
+            <span>От: </span><a-input v-model="startDate" type="date" />
+          </div>
+          <div class="gallery__date-to">
+            <span>До: </span><a-input v-model="endDate" type="date" />
+          </div>
         </div>
         <div class="gallery__add-btn btn">
           <a-button @click="showModal = true">Загрузить фото</a-button>
