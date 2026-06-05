@@ -294,6 +294,16 @@ onMounted(async () => {
   align-content: center;
 }
 
+.projects-headbar__searchinput {
+  box-shadow: 4px 4px 20px -10px rgba(34, 60, 80, 0.1);
+  transition: all 0.3s;
+}
+
+.projects-headbar__searchinput:hover {
+  box-shadow: 4px 4px 20px -10px rgba(34, 60, 80, 0.3);
+  border-color: rgb(210, 210, 210);
+}
+
 .sticky-button {
   position: sticky;
 }

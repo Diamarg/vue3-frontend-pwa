@@ -80,7 +80,9 @@ const submitUpload = async () => {
 }
 
 const filteredPhotos = computed(() => {
-  filteredPhotos = photos.value.dateOfCreation
+  filteredPhotos = photos.value.filter((value) => {
+    return value
+  })
 })
 
 const showTopBtn = computed(() => scrollY.value > 100)

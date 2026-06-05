@@ -57,6 +57,12 @@ const props = defineProps({
   border-width: 1px;
   background-color: rgb(255, 255, 255);
   padding: 24px;
+  transition: all 0.5s;
+}
+
+.project-card:hover {
+  box-shadow: 4px 4px 20px -10px rgba(44, 70, 90, 0.4);
+  border-color: rgb(210, 210, 210);
 }
 
 .project-card__header {

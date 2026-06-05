@@ -39,7 +39,6 @@ const props = defineProps({
   min-height: 30px;
   width: 100%;
 }
-
 .valid-error {
   font-weight: 200;
   font-size: 13px;
