@@ -144,8 +144,9 @@ const deleteProject = async (project) => {
   }
 }
 
-const goToAssemblies = (projectId) => {
-  router.push(`/projects/${projectId}/assemblies`)
+const goToAssemblies = (project) => {
+  router.push(`${project.id}/assemblies`)
+  pageStore.pageInfo.projectName = project.codeName
 }
 
 const goToGallery = (project) => {
@@ -153,13 +154,14 @@ const goToGallery = (project) => {
   pageStore.pageInfo.projectName = project.codeName
 }
 
-const goToFiles = (projectId) => {
-  router.push(`/projects/${projectId}/files`)
+const goToFiles = (project) => {
+  router.push(`${project.id}/files`)
+  pageStore.pageInfo.projectName = project.codeName
 }
 
-const goToCableLines = (projectId) => {
-  router.push(`/projects/${projectId}/cableLines`)
-}
+// const goToCableLines = (projectId) => {
+//   router.push(`/projects/${projectId}/cableLines`)
+// }
 
 onMounted(async () => {
   fethProjects()
@@ -195,6 +197,8 @@ onMounted(async () => {
           :is-admin="authStore.isAdmin"
           @on-delete="deleteProject(project)"
           @to-gallery="goToGallery(project)"
+          @to-assemblies="goToAssemblies(project)"
+          @to-files="goToFiles(project)"
         />
         <div v-if="filteredProjects == 0" class="project-cards__notfound">
           По запросу '{{ searchBar }}' не найдено проектов.
@@ -301,7 +305,6 @@ onMounted(async () => {
 
 .projects-headbar__searchinput:hover {
   box-shadow: 4px 4px 20px -10px rgba(34, 60, 80, 0.3);
-  border-color: rgb(210, 210, 210);
 }
 
 .sticky-button {

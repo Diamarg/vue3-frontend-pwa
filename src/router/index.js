@@ -3,6 +3,8 @@ import LoginPage from '@/pages/LoginPage.vue'
 import RegisterPage from '@/pages/RegisterPage.vue'
 import ProjectsPage from '@/pages/ProjectsPage.vue'
 import GalleryPage from '@/pages/GalleryPage.vue'
+import AssembliesPage from '@/pages/AssembliesPage.vue'
+import FilesPage from '@/pages/FilesPage.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -13,6 +15,18 @@ const router = createRouter({
     {
       path: '/:projectId/gallery',
       component: GalleryPage,
+      props: true,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/:projectId/assemblies',
+      component: AssembliesPage,
+      props: true,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/:projectId/files',
+      component: FilesPage,
       props: true,
       meta: { requiresAuth: true },
     },
