@@ -270,7 +270,7 @@ onMounted(async () => {
   display: grid;
   gap: 24px;
   box-shadow: 4px 4px 30px -10px rgba(34, 60, 80, 0.2);
-  grid-template-columns: 5fr minmax(150px, 1fr);
+  grid-template-columns: 7fr minmax(150px, 1fr);
   border-radius: 8px;
   border-color: rgb(230, 230, 230);
   border-style: solid;
