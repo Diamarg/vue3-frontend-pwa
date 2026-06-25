@@ -209,7 +209,8 @@ onBeforeUnmount(() => {
           class="gallery__card"
           @click="loadPhoto(photo)"
         >
-          <img class="gallery__image-preview" :src="imgUrls[photo.id]" />
+          <img v-if="imgUrls[photo.id]" class="gallery__image-preview" :src="imgUrls[photo.id]" />
+          <img v-else class="gallery__image-placeholder" src="/src/img/loading.jpg" />
         </div>
       </div>
     </div>
@@ -313,7 +314,8 @@ onBeforeUnmount(() => {
 }
 
 .gallery__filter {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 24px;
 }
 
@@ -324,7 +326,8 @@ onBeforeUnmount(() => {
   gap: 20px;
 }
 
-.gallery__image-preview {
+.gallery__image-preview,
+.gallery__image-placeholder {
   background-color: rgb(94, 94, 94);
   width: 100%;
   height: 200px;

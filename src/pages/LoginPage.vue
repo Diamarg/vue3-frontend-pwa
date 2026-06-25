@@ -45,7 +45,7 @@ const sendForm = async () => {
 
   const redirectPath = route.query.redirect || '/'
   router.push(redirectPath)
-  toast.info(`${authStore.user.fullName} (${authStore.user.userName}) входит в систему`)
+  toast.info(`Вход выполнен: ${authStore.user.fullName}`)
 }
 </script>
 

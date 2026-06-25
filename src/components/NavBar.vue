@@ -3,6 +3,7 @@
     <div class="navbar-pagename">{{ pageStore.pageInfo.name }}</div>
     <div class="navbar-navlinks">
       <a @click="router.push('/')">Проекты</a>
+      <a v-if="authStore.isAdmin" @click="toAdminPanel">Администрирование</a>
       <!-- <a>Устройства</a> -->
     </div>
     <div v-if="authStore.user" class="navbar-logout">
@@ -34,6 +35,10 @@ onMounted(() => {
     isAdmin.value = false
   }
 })
+
+const toAdminPanel = () => {
+  router.push('/admin')
+}
 
 const handleLogout = () => {
   toast.info(`${authStore.user.fullName} (${authStore.user.userName}) выходит из системы`)

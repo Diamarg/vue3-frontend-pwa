@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import AdminPanelPage from '@/pages/AdminPanelPage.vue'
 import LoginPage from '@/pages/LoginPage.vue'
 import RegisterPage from '@/pages/RegisterPage.vue'
 import ProjectsPage from '@/pages/ProjectsPage.vue'
@@ -9,6 +10,7 @@ import FilesPage from '@/pages/FilesPage.vue'
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
+    { path: '/admin', component: AdminPanelPage, meta: { guest: false, requiresAuth: true } },
     { path: '/login', component: LoginPage, meta: { guest: true } },
     { path: '/register', component: RegisterPage, meta: { guest: true } },
     { path: '/', component: ProjectsPage, props: true, meta: { requiresAuth: true } },
