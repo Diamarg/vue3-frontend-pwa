@@ -3,7 +3,7 @@
     <div class="navbar-pagename">{{ pageStore.pageInfo.name }}</div>
     <div class="navbar-navlinks">
       <a @click="router.push('/')">Проекты</a>
-      <a v-if="authStore.isAdmin" @click="toAdminPanel">Администрирование</a>
+      <a v-if="authStore.isAdmin" @click="toAdminPanel">Админка</a>
       <!-- <a>Устройства</a> -->
     </div>
     <div v-if="authStore.user" class="navbar-logout">

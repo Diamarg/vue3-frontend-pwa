@@ -229,8 +229,12 @@ onBeforeUnmount(() => {
           @click="loadPhoto(photo)"
         >
           <img v-if="imgUrls[photo.id]" class="gallery__image-preview" :src="imgUrls[photo.id]"></img>
-          <img v-else class="gallery__image-placeholder" src="/src/img/loading.jpg" />
-          <div v-if="authStore.isAdmin" class="gallery__image-delete" @click.stop="deletePhotoHandler(photo)">Удалить</div>
+          <img v-else class="gallery__image-placeholder" src="/src/img/camera.png" />
+          <div class="gallery__image-footer">
+            <div class="gallery__image-date"> {{ formatShortDate(photo.uploadedAt) }}</div>
+            <div v-if="authStore.isAdmin" class="gallery__image-delete" @click.stop="deletePhotoHandler(photo)">Удалить</div>
+          </div>
+          
         </div>
       </div>
     </div>
@@ -319,8 +323,6 @@ onBeforeUnmount(() => {
 }
 
 .gallery__card {
-
-  position: relative;
   cursor: pointer;
   transition: transform 0.2s;
 }
@@ -348,27 +350,40 @@ onBeforeUnmount(() => {
   gap: 20px;
 }
 
+
 .gallery__image-preview,
 .gallery__image-placeholder {
-  background-color: rgb(94, 94, 94);
   width: 100%;
   height: 200px;
   object-fit: cover;
   border-radius: 4px;
 }
 
-.gallery__image-delete {
-  position: absolute;
-  top: 5px;
-  right: 5px;
+.gallery__image-footer {
+  margin-top: 8px; 
+  gap: 12px;
+  display: flex;
+  justify-content: space-between;
   font-size: 14px;
   font-weight: 400;
-  z-index: 10;
-  color: rgb(216, 7, 7)
+  align-items: center;
+  justify-content: center;
+}
+
+
+.gallery__image-date {
+
+}
+
+.gallery__image-delete {
+
+  color: rgb(145, 26, 26);
+
+  transition: all 0.2s;
 }
 .gallery__image-delete:hover {
-  color: rgb(241, 6, 6);
-  font-weight: 600;
+  color: rgb(219, 21, 21);
+
 }
 
 .image {

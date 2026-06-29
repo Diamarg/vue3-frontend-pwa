@@ -37,10 +37,8 @@ const props = defineProps({
       <a class="project-card__link project-card__link--outline" @click="$emit('toGallery')"
         >Галерея</a
       >
-      <a class="project-card__link project-card__link--outline" @click="$emit('toFiles')">Файлы</a>
-      <a class="project-card__link project-card__link--outline" @click="$emit('toAssemblies')"
-        >Сборки</a
-      >
+      <!-- <a class="project-card__link project-card__link--outline" @click="$emit('toFiles')">Файлы</a> -->
+      <!-- <a class="project-card__link project-card__link--outline" @click="$emit('toAssemblies')">Сборки</a> -->
     </div>
   </div>
 </template>
