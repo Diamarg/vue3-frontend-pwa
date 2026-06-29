@@ -88,8 +88,8 @@ const submitUpload = async () => {
 
   try {
     await galleryApi.uploadPhoto(project.value.id, formData)
-    showModal.value = false
     uploadForm.value.files = []
+    showModal.value = false
     await loadPhotos()
   } catch (error) {
     console.error('Ошибка загрузки:', error)
@@ -166,7 +166,6 @@ const deletePhotoHandler = async (photo) => {
   }
 
 } else {
-  // пользователь нажал "Отмена"
   console.log('Удаление фото отменено!');
 }
   
@@ -231,7 +230,7 @@ onBeforeUnmount(() => {
         >
           <img v-if="imgUrls[photo.id]" class="gallery__image-preview" :src="imgUrls[photo.id]"></img>
           <img v-else class="gallery__image-placeholder" src="/src/img/loading.jpg" />
-          <div v-if="authStore.isAdmin" class="gallery__image-delete" @click.stop="deletePhotoHandler(photo)">&times</div>
+          <div v-if="authStore.isAdmin" class="gallery__image-delete" @click.stop="deletePhotoHandler(photo)">Удалить</div>
         </div>
       </div>
     </div>
@@ -327,7 +326,7 @@ onBeforeUnmount(() => {
 }
 
 .gallery__card:hover {
-  transform: scale(1.02);
+  transform: scale(1.00);
 }
 
 .gallery__header {
@@ -362,13 +361,14 @@ onBeforeUnmount(() => {
   position: absolute;
   top: 5px;
   right: 5px;
-  font-size: 20px;
-  font-weight: 500;
+  font-size: 14px;
+  font-weight: 400;
   z-index: 10;
-  color: rgb(119, 119, 119)
+  color: rgb(216, 7, 7)
 }
 .gallery__image-delete:hover {
   color: rgb(241, 6, 6);
+  font-weight: 600;
 }
 
 .image {
