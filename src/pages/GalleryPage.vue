@@ -152,6 +152,26 @@ const loadPhoto = async (photo) => {
   }
 }
 
+const deletePhotoHandler = async (photo) => {
+  if (!project.value?.id || !photo?.id) {
+  console.warn('Некорректные данные для удаления');
+  return;
+}
+  if (confirm('Вы уверены, что хотите удалить это фото?')) {
+  try {
+    await galleryApi.deletePhoto(project.value.id, photo.id)
+    await loadPhotos()
+  } catch (error) {
+    console.error("Ошибка удаления фото", error)
+  }
+
+} else {
+  // пользователь нажал "Отмена"
+  console.log('Удаление фото отменено!');
+}
+  
+}
+
 const handleFileChange = (event) => {
   const newFiles = Array.from(event.target.files)
   uploadForm.value.files = [...uploadForm.value.files, ...newFiles]
@@ -209,8 +229,9 @@ onBeforeUnmount(() => {
           class="gallery__card"
           @click="loadPhoto(photo)"
         >
-          <img v-if="imgUrls[photo.id]" class="gallery__image-preview" :src="imgUrls[photo.id]" />
+          <img v-if="imgUrls[photo.id]" class="gallery__image-preview" :src="imgUrls[photo.id]"></img>
           <img v-else class="gallery__image-placeholder" src="/src/img/loading.jpg" />
+          <div v-if="authStore.isAdmin" class="gallery__image-delete" @click.stop="deletePhotoHandler(photo)">&times</div>
         </div>
       </div>
     </div>
@@ -299,6 +320,8 @@ onBeforeUnmount(() => {
 }
 
 .gallery__card {
+
+  position: relative;
   cursor: pointer;
   transition: transform 0.2s;
 }
@@ -333,6 +356,19 @@ onBeforeUnmount(() => {
   height: 200px;
   object-fit: cover;
   border-radius: 4px;
+}
+
+.gallery__image-delete {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  font-size: 20px;
+  font-weight: 500;
+  z-index: 10;
+  color: rgb(119, 119, 119)
+}
+.gallery__image-delete:hover {
+  color: rgb(241, 6, 6);
 }
 
 .image {
