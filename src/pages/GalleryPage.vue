@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
+import { computed, ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { usePageStore } from '@/stores/pages'
 import { useAuthStore } from '@/stores/auth'
@@ -8,6 +8,8 @@ import AButton from '@/components/A-button.vue'
 import AModal from '@/components/A-modal.vue'
 import { galleryApi } from '@/api/gallery'
 import { projectsApi } from '@/api/projects'
+import { formatShortDate, parseLocalDate } from '@/utils/dateFormatter'
+
 
 const props = defineProps({
   projectId: '',
@@ -21,8 +23,8 @@ const scrollY = ref(0)
 const showModal = ref(false)
 const showPhotoModal = ref(false)
 const photos = ref([])
-const startDate = ref('')
-const endDate = ref('')
+const startDate = ref(null)
+const endDate = ref(null)
 const project = ref({})
 const imgUrls = ref({})
 const isLoadingPhotos = ref(false)
@@ -36,16 +38,20 @@ const uploadForm = ref({
   files: [],
 })
 
-const shortDateFormatter = new Intl.DateTimeFormat('ru-RU', {
-  day: '2-digit',
-  month: '2-digit',
-  year: '2-digit',
-})
+watch(startDate, (newStartDate) => {
+  if (!newStartDate) return
 
-const parseLocalDate = (str) => {
-  const [y, m, d] = str.split('-').map(Number)
-  return new Date(y, m - 1, d)
-}
+  // Пример 1: Если endDate пустая, делаем её равной startDate
+  if (!endDate.value) {
+    // endDate.value = 
+    console.log(newStartDate)
+    const nowTimestamp = new Date().getTime();
+    const shortDate = formatShortDate(nowTimestamp)
+    console.log(shortDate)
+    endDate.value = shortDate;
+  } 
+
+})
 
 const hasPhotos = computed(() => photos.value.length > 0)
 
@@ -68,13 +74,6 @@ const onScroll = () => {
 const scrollToTop = () => {
   window.scrollTo({ top: 0, left: 0, behavior: 'smooth' })
 }
-
-const formatShortDate = (timestamp) => {
-  if (!timestamp) return '—'
-  const date = new Date(timestamp)
-  return isNaN(date.getTime()) ? '—' : shortDateFormatter.format(date)
-}
-
 const submitUpload = async () => {
   if (!uploadForm.value.files.length) {
     console.log('Нет файлов для загрузки')
@@ -148,6 +147,7 @@ const loadPhoto = async (photo) => {
     openedImage.value.date = photo.uploadedAt
     showPhotoModal.value = true
   } catch (error) {
+    alert('Ошибка загрузки фото с сервера')
     console.error('Ошибка загрузки фото:', error)
   }
 }
@@ -187,6 +187,7 @@ onMounted(async () => {
   window.addEventListener('scroll', onScroll, { passive: true })
   onScroll()
   await authStore.fetchMe()
+  console.log(formatShortDate('2025-12-05'))
 })
 
 onBeforeUnmount(() => {

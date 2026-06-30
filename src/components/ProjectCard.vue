@@ -6,6 +6,23 @@ const props = defineProps({
   creationDate: { type: String, default: '09.06.89' },
   isAdmin: { type: Boolean, default: false },
 })
+
+const formatShortDate = (timestamp) => {
+  if (!timestamp) return '—'
+  const date = new Date(timestamp)
+  return isNaN(date.getTime()) ? '—' : shortDateFormatter.format(date)
+}
+
+const shortDateFormatter = new Intl.DateTimeFormat('ru-RU', {
+  day: '2-digit',
+  month: '2-digit',
+  year: '2-digit',
+})
+
+const parseLocalDate = (str) => {
+  const [y, m, d] = str.split('-').map(Number)
+  return new Date(y, m - 1, d)
+}
 </script>
 
 <template>
@@ -30,7 +47,7 @@ const props = defineProps({
     </div>
     <div class="project-card__creation">
       <span class="project-card__creation-label">Создано:</span
-      ><span class="project-card__creation-date">{{ props.creationDate }}</span>
+      ><span class="project-card__creation-date">{{ formatShortDate(props.creationDate) }}</span>
     </div>
     <hr />
     <div class="project-card__links">
