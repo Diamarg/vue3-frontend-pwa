@@ -8,7 +8,7 @@ import AButton from '@/components/A-button.vue'
 import AModal from '@/components/A-modal.vue'
 import { galleryApi } from '@/api/gallery'
 import { projectsApi } from '@/api/projects'
-import { formatShortDate, parseLocalDate } from '@/utils/dateFormatter'
+import { formatShortDate, parseLocalDate, convertDateFormat } from '@/utils/dateFormatter'
 
 
 const props = defineProps({
@@ -41,17 +41,42 @@ const uploadForm = ref({
 watch(startDate, (newStartDate) => {
   if (!newStartDate) return
 
-  // Пример 1: Если endDate пустая, делаем её равной startDate
-  if (!endDate.value) {
-    // endDate.value = 
-    console.log(newStartDate)
+
+
+  if (!endDate.value ) {
     const nowTimestamp = new Date().getTime();
     const shortDate = formatShortDate(nowTimestamp)
-    console.log(shortDate)
-    endDate.value = shortDate;
-  } 
+    endDate.value = convertDateFormat(shortDate) ;
+  }
+
+  if (startDate.value > endDate.value) {
+    endDate.value = startDate.value
+  }
+})
+
+watch(endDate, (newEndDate) => {
+  if (!newEndDate) return
+
+
+  if (!startDate.value) {
+    startDate.value = '2001-01-01'
+  }
+
+  if (endDate.value < startDate.value) {
+    startDate.value = endDate.value
+    console.log("endDate: ", endDate.value)
+  }
 
 })
+
+const hasDateFilterOn = computed(() => {
+  if (startDate.value && endDate.value) return true
+})
+
+const resetDateFilter = () => {
+  startDate.value = null
+  endDate.value = null
+}
 
 const hasPhotos = computed(() => photos.value.length > 0)
 
@@ -216,8 +241,13 @@ onBeforeUnmount(() => {
           <div class="gallery__date-to">
             <span>До: </span><a-input v-model="endDate" type="date" />
           </div>
+          <div>
+            <a-button v-if="hasDateFilterOn" @click="resetDateFilter">Сброс</a-button>
+          </div>
+            
         </div>
-        <div class="gallery__add-btn btn">
+        
+        <div>
           <a-button @click="showModal = true">Загрузить фото</a-button>
         </div>
       </div>
@@ -340,7 +370,7 @@ onBeforeUnmount(() => {
 
 .gallery__filter {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 24px;
 }
 
@@ -373,7 +403,7 @@ onBeforeUnmount(() => {
 
 
 .gallery__image-date {
-
+ 
 }
 
 .gallery__image-delete {

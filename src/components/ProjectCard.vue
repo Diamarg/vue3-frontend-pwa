@@ -1,28 +1,15 @@
 <script setup>
+import { formatShortDate, parseLocalDate } from '@/utils/dateFormatter'
+
 const props = defineProps({
   codename: { type: String, default: 'АС__' },
   customer: { type: String, default: 'заказчик' },
   description: { type: String, default: 'описание' },
   creationDate: { type: String, default: '09.06.89' },
   isAdmin: { type: Boolean, default: false },
+  photosCount: { type: Number, default: 0 },
+  filesCount: { type: Number, default: 0 },
 })
-
-const formatShortDate = (timestamp) => {
-  if (!timestamp) return '—'
-  const date = new Date(timestamp)
-  return isNaN(date.getTime()) ? '—' : shortDateFormatter.format(date)
-}
-
-const shortDateFormatter = new Intl.DateTimeFormat('ru-RU', {
-  day: '2-digit',
-  month: '2-digit',
-  year: '2-digit',
-})
-
-const parseLocalDate = (str) => {
-  const [y, m, d] = str.split('-').map(Number)
-  return new Date(y, m - 1, d)
-}
 </script>
 
 <template>
@@ -39,16 +26,23 @@ const parseLocalDate = (str) => {
       </div>
     </div>
     <hr />
-    <div class="project-card__content">
-      <div class="project-card__customer">
-        <span class="project-card__customer-label">Заказчик:</span
-        ><span class="project-card__customer-text">{{ props.customer }}</span>
-      </div>
+    <div class="project-card__line">
+      <span class="project-card__line-label">Заказчик:</span
+      ><span class="project-card__line-text">{{ props.customer }}</span>
     </div>
-    <div class="project-card__creation">
-      <span class="project-card__creation-label">Создано:</span
-      ><span class="project-card__creation-date">{{ formatShortDate(props.creationDate) }}</span>
+    <div class="project-card__line">
+      <span class="project-card__line-label">Создано:</span
+      ><span class="project-card__line-text">{{ formatShortDate(props.creationDate) }}</span>
     </div>
+    <hr />
+    <div class="project-card__line">
+      <span class="project-card__line-label">Фотографий:</span
+      ><span class="project-card__line-text">{{ photosCount ? photosCount : 'нет' }}</span>
+    </div>
+    <!-- <div class="project-card__line">
+      <span class="project-card__line-label">Файлов:</span
+      ><span class="project-card__line-text">{{ filesCount ? filesCount : 'нет' }}</span>
+    </div> -->
     <hr />
     <div class="project-card__links">
       <a class="project-card__link project-card__link--outline" @click="$emit('toGallery')"
@@ -102,31 +96,22 @@ const parseLocalDate = (str) => {
 .project-card__content {
   color: rgb(82, 82, 82);
 }
-.project-card__customer {
+.project-card__line {
   display: flex;
   justify-content: space-between;
-  margin-block: 24px;
+  margin-block: 12px;
 }
 
 .project-card__description {
   margin-bottom: 24px;
 }
 
-.project-card__creation {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 24px;
-}
-
-.project-card__creation-label,
-.project-card__customer-label,
-.project-card__description-label {
+.project-card__line-label {
   font-weight: 400;
   color: rgb(150, 150, 150);
 }
 
-.project-card__customer-text,
-.project-card__creation-date {
+.project-card__line-text {
   font-weight: 300;
   color: rgb(109, 109, 109);
 }
