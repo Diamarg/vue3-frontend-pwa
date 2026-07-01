@@ -30,6 +30,7 @@ const endDate = ref(null)
 const project = ref({})
 const imgUrls = ref({})
 const isLoadingPhotos = ref(false)
+const hasReversedPhotos = ref(false)
 
 const openedImage = ref({
   url: '',
@@ -123,15 +124,36 @@ const hasPhotos = computed(() => photos.value.length > 0)
  * Вычисляет отфильтрованный список фотографий по диапазону дат.
  * Если фильтр не задан — возвращает все фотографии.
  */
+/**
+ * Вычисляет отфильтрованный список фотографий по диапазону дат.
+ * Если фильтр не задан — возвращает все фотографии.
+ * Учитывает флаг сортировки (hasReversedPhotos).
+ */
 const filteredPhotos = computed(() => {
-  if (!startDate.value || !endDate.value) return photos.value
+  let result = photos.value
 
-  const MS_PER_DAY = 24 * 60 * 60 * 1000
-  const start = parseLocalDate(startDate.value).getTime()
-  const end = parseLocalDate(endDate.value).getTime() + MS_PER_DAY
+  // Применяем фильтр по датам, если он задан
+  if (startDate.value && endDate.value) {
+    const MS_PER_DAY = 24 * 60 * 60 * 1000
+    const start = parseLocalDate(startDate.value).getTime()
+    const end = parseLocalDate(endDate.value).getTime() + MS_PER_DAY
 
-  return photos.value.filter((photo) => photo.uploadedAt >= start && photo.uploadedAt < end)
+    result = photos.value.filter((photo) => photo.uploadedAt >= start && photo.uploadedAt < end)
+  }
+
+  // Применяем реверс, если включён
+  if (hasReversedPhotos.value) {
+    result = result.toReversed()
+  }
+
+  return result
 })
+
+const reversePhotos = () => {
+  hasReversedPhotos.value = !hasReversedPhotos.value
+  console.log(hasReversedPhotos.value)
+  console.log(filteredPhotos.value)
+}
 
 /** Вычисляет, нужно ли показывать кнопку "наверх" (при скролле более 100px) */
 const showTopBtn = computed(() => scrollY.value > 100)
@@ -318,7 +340,14 @@ onBeforeUnmount(() => {
             <span>До: </span><a-input v-model="endDate" type="date" />
           </div>
           <div>
-            <a-button v-if="hasDateFilterOn" @click="resetDateFilter">Сброс</a-button>
+            <a-button @click="reversePhotos"
+              >Cначала {{ hasReversedPhotos ? 'новые' : 'старые' }}</a-button
+            >
+          </div>
+          <div>
+            <a-button v-if="hasDateFilterOn" @click="resetDateFilter"
+              >Сброс ({{ filteredPhotos.length }} фото)</a-button
+            >
           </div>
         </div>
 
@@ -387,8 +416,8 @@ onBeforeUnmount(() => {
   position: fixed;
   width: 48px;
   height: 48px;
-  bottom: 24px;
-  right: 24px;
+  bottom: 100px;
+  left: 100px;
   border-radius: 50%;
   background: rgba(0, 0, 0, 0.6);
   cursor: pointer;
@@ -450,7 +479,10 @@ onBeforeUnmount(() => {
 
 .gallery__filter {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  max-width: 810px;
+  align-items: center;
+  justify-items: center;
   gap: 24px;
 }
 
