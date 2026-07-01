@@ -1,5 +1,9 @@
-<script setup></script>
+<script setup>
+import CabinetEditor from '@/components/CabinetEditor.vue'
+</script>
 
 <template>
-  <div>Админ Панель</div>
+  <div class="global-container">
+    <CabinetEditor />
+  </div>
 </template>
