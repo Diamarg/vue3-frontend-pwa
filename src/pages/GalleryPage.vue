@@ -189,10 +189,9 @@ const submitUpload = async () => {
     showModal.value = false
     toast.success('Фотографии успешно загружены')
     resetDateFilter()
-    toast.info('Фильтр по дате сброшен')
     await loadPhotos()
   } catch (error) {
-    console.error('Ошибка загрузки:', error)
+    toast.error('Ошибка загрузки:', error)
   }
 }
 
@@ -201,7 +200,7 @@ const loadProject = async () => {
   try {
     project.value = await projectsApi.getProjectById(route.params.projectId)
   } catch (error) {
-    console.error('Failed to load project:', error)
+    console.error('Ошибка загрузки проекта:', error)
     project.value = { codeName: 'Неизвестный проект', customer: 'Заказчик' }
   }
   pageStore.pageInfo.name = `Галерея "${project.value.codeName}"`
@@ -256,7 +255,7 @@ const loadPhoto = async (photo) => {
     openedImage.value.date = photo.uploadedAt
     showPhotoModal.value = true
   } catch (error) {
-    alert('Ошибка загрузки фото с сервера')
+    toast.error('Ошибка загрузки фото с сервера')
     console.error('Ошибка загрузки фото:', error)
   }
 }
@@ -346,7 +345,7 @@ onBeforeUnmount(() => {
           </div>
           <div>
             <a-button v-if="hasDateFilterOn" @click="resetDateFilter"
-              >Сброс ({{ filteredPhotos.length }} фото)</a-button
+              >Сброс фильтра ({{ filteredPhotos.length }} фото)</a-button
             >
           </div>
         </div>
@@ -479,8 +478,8 @@ onBeforeUnmount(() => {
 
 .gallery__filter {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr 1fr;
-  max-width: 810px;
+  grid-template-columns: max-content max-content max-content max-content;
+
   align-items: center;
   justify-items: center;
   gap: 24px;
