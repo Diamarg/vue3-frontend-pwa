@@ -92,27 +92,74 @@
           </div>
         </div>
 
+        <!-- Добавление устройств -->
         <div class="sidebar-section">
-          <h3 class="section-title">Устройства</h3>
-          <div class="device-list">
+          <h3 class="section-title">Добавить устройства</h3>
+          <div class="device-selection-list">
             <div
               v-for="dev in devicePalette"
               :key="dev.id"
-              :class="['device-item', { used: isDeviceFullyUsed(dev.id) }]"
-              :draggable="!isDeviceFullyUsed(dev.id)"
-              @dragstart="onDragStart($event, dev)"
+              :class="[
+                'device-selection-item',
+                { 'device-selection-item--complete': isDeviceFullyUsed(dev.id) },
+              ]"
             >
-              <div class="device-info">
-                <span class="device-name">{{ dev.name }}</span>
-                <span class="device-size">{{ dev.w }}×{{ dev.h }}</span>
+              <div class="device-selection-info">
+                <input
+                  type="checkbox"
+                  :id="`dev-check-${dev.id}`"
+                  v-model="selectedDevices[dev.id]"
+                  :disabled="isDeviceFullyUsed(dev.id)"
+                  class="device-checkbox"
+                />
+                <label :for="`dev-check-${dev.id}`" class="device-selection-name">
+                  {{ dev.name }}
+                </label>
+                <span class="device-selection-size">{{ dev.w }}×{{ dev.h }}</span>
               </div>
-              <div class="device-meta">
-                <span class="quantity-badge">
-                  {{ getDeviceUsedCount(dev.id) }}/{{ dev.quantity }}
+              <div class="device-selection-controls" v-if="!isDeviceFullyUsed(dev.id)">
+                <span class="device-selection-available">
+                  На панели: {{ getDeviceUsedCount(dev.id) }}/{{ dev.quantity }}
                 </span>
-                <span v-if="isDeviceFullyUsed(dev.id)" class="used-badge">✓</span>
+                <div class="quantity-control">
+                  <button
+                    @click="decrementQuantity(dev.id)"
+                    class="qty-btn"
+                    :disabled="!selectedDevices[dev.id]"
+                  >
+                    −
+                  </button>
+                  <input
+                    type="number"
+                    v-model.number="deviceQuantities[dev.id]"
+                    class="qty-input"
+                    :min="1"
+                    :max="getAvailableQuantity(dev.id)"
+                    :disabled="!selectedDevices[dev.id]"
+                  />
+                  <button
+                    @click="incrementQuantity(dev.id)"
+                    class="qty-btn"
+                    :disabled="!selectedDevices[dev.id]"
+                  >
+                    +
+                  </button>
+                </div>
               </div>
+              <span v-else class="fully-used-label">✓ Все добавлены</span>
             </div>
+          </div>
+          <button @click="addSelectedDevices" class="action-button" :disabled="!canAddDevices">
+            <span class="button-icon">⚡</span>
+            <span>Добавить выбранные</span>
+          </button>
+        </div>
+
+        <!-- Статус устройств на панели -->
+        <div class="sidebar-section" v-if="allDevicesAdded">
+          <div class="status-indicator status-indicator--success">
+            <span class="status-icon">✓</span>
+            <span>Все устройства добавлены</span>
           </div>
         </div>
 
@@ -182,8 +229,6 @@
               class="canvas"
               :class="{ 'measure-mode': isMeasuring, 'select-mode': isSelecting }"
               :style="canvasStyle"
-              @drop="onDrop"
-              @dragover.prevent
               @click="onCanvasClick"
               @mousemove="onCanvasMouseMove"
               @mousedown="onCanvasMouseDown"
@@ -333,7 +378,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onUnmounted } from 'vue'
+import { ref, computed, reactive, onUnmounted, watch } from 'vue'
 
 // --- КОНСТАНТЫ И НАСТРОЙКИ ---
 const GRID_STEP_MM = 5
@@ -371,6 +416,154 @@ const selectedItem = ref(null)
 const selectedItems = ref([])
 let nextId = 1
 let boxCounter = 1
+
+// --- ДОБАВЛЕНИЕ УСТРОЙСТВ ---
+const selectedDevices = reactive({})
+const deviceQuantities = reactive({})
+
+// Инициализация
+devicePalette.forEach((dev) => {
+  selectedDevices[dev.id] = false
+  deviceQuantities[dev.id] = 1
+})
+
+// Автоматически выставляем максимальное количество при выборе чекбокса
+watch(
+  selectedDevices,
+  (newVal, oldVal) => {
+    devicePalette.forEach((dev) => {
+      if (newVal[dev.id] && !oldVal[dev.id]) {
+        deviceQuantities[dev.id] = getAvailableQuantity(dev.id)
+      }
+      if (!newVal[dev.id] && oldVal[dev.id]) {
+        deviceQuantities[dev.id] = 1
+      }
+    })
+  },
+  { deep: true },
+)
+
+// Обновляем количество при изменении числа устройств на панели
+watch(
+  items,
+  () => {
+    devicePalette.forEach((dev) => {
+      if (selectedDevices[dev.id]) {
+        const available = getAvailableQuantity(dev.id)
+        if (deviceQuantities[dev.id] > available) {
+          deviceQuantities[dev.id] = available
+        }
+        if (available === 0) {
+          selectedDevices[dev.id] = false
+        }
+      }
+    })
+  },
+  { deep: true },
+)
+
+const getAvailableQuantity = (devId) => {
+  const dev = devicePalette.find((d) => d.id === devId)
+  if (!dev) return 0
+  return Math.max(0, dev.quantity - getDeviceUsedCount(devId))
+}
+
+const canAddDevices = computed(() => {
+  return devicePalette.some(
+    (dev) =>
+      selectedDevices[dev.id] && getAvailableQuantity(dev.id) > 0 && deviceQuantities[dev.id] > 0,
+  )
+})
+
+const allDevicesAdded = computed(() => {
+  return devicePalette.every((dev) => isDeviceFullyUsed(dev.id))
+})
+
+const incrementQuantity = (devId) => {
+  const available = getAvailableQuantity(devId)
+  if (deviceQuantities[devId] < available) {
+    deviceQuantities[devId]++
+  }
+}
+
+const decrementQuantity = (devId) => {
+  if (deviceQuantities[devId] > 1) {
+    deviceQuantities[devId]--
+  }
+}
+
+const addSelectedDevices = () => {
+  const devicesToAdd = []
+
+  devicePalette.forEach((dev) => {
+    if (selectedDevices[dev.id] && deviceQuantities[dev.id] > 0) {
+      const qty = Math.min(deviceQuantities[dev.id], getAvailableQuantity(dev.id))
+      for (let i = 0; i < qty; i++) {
+        devicesToAdd.push({ ...dev })
+      }
+    }
+  })
+
+  if (devicesToAdd.length === 0) return
+
+  let currentX = 0
+  let currentY = 0
+
+  if (items.value.length > 0) {
+    const lastItem = items.value[items.value.length - 1]
+    currentX = lastItem.x + lastItem.w
+    currentY = lastItem.y
+  }
+
+  devicesToAdd.forEach((dev) => {
+    const itemWidth = Math.round(dev.w / GRID_STEP_MM)
+    const itemHeight = Math.round(dev.h / GRID_STEP_MM)
+
+    if (currentX + itemWidth > panelGridW.value) {
+      currentX = 0
+      currentY += itemHeight
+    }
+
+    if (currentY + itemHeight > panelGridH.value) {
+      let placed = false
+      for (let y = 0; y <= panelGridH.value - itemHeight && !placed; y++) {
+        for (let x = 0; x <= panelGridW.value - itemWidth && !placed; x++) {
+          const testItem = { x, y, w: itemWidth, h: itemHeight }
+          if (isValidPosition(testItem)) {
+            currentX = x
+            currentY = y
+            placed = true
+          }
+        }
+      }
+
+      if (!placed) {
+        alert(`Не удалось разместить "${dev.name}". Нет свободного места.`)
+        return
+      }
+    }
+
+    const newItem = {
+      id: nextId++,
+      type: 'device',
+      deviceId: dev.id,
+      name: dev.name,
+      x: currentX,
+      y: currentY,
+      w: itemWidth,
+      h: itemHeight,
+    }
+
+    items.value.push(newItem)
+    currentX += itemWidth
+  })
+
+  // Сбрасываем выбор
+  devicePalette.forEach((dev) => {
+    selectedDevices[dev.id] = false
+    deviceQuantities[dev.id] = 1
+  })
+}
 
 // --- СОСТОЯНИЕ ИЗМЕРЕНИЯ ---
 const isMeasuring = ref(false)
@@ -469,7 +662,6 @@ const getMarkStyle = (cellValue, axis) => {
 
 // --- ПЛАВАЮЩИЕ КНОПКИ ДЕЙСТВИЙ ---
 const floatingActionsStyle = computed(() => {
-  // Показываем для любого одиночного выделенного элемента (и устройства, и короба)
   if (!selectedItem.value) return { display: 'none' }
 
   const item = selectedItem.value
@@ -585,29 +777,6 @@ const applyOrthogonal = (point) => {
     return { x: point.x, y: pointA.value.y }
   } else {
     return { x: pointA.value.x, y: point.y }
-  }
-}
-
-const getCellsFromEvent = (e) => {
-  const el = e.currentTarget
-  const rect = el.getBoundingClientRect()
-  const scale = currentScale.value
-
-  const screenX = e.clientX - rect.left
-  const screenY = e.clientY - rect.top
-
-  const nativeX = screenX / scale
-  const nativeY = screenY / scale
-
-  const contentX = nativeX - el.clientLeft
-  const contentY = nativeY - el.clientTop
-
-  const cellX = contentX / PIXELS_PER_GRID_UNIT
-  const cellY = contentY / PIXELS_PER_GRID_UNIT
-
-  return {
-    x: snapToGrid(cellX),
-    y: snapToGrid(cellY),
   }
 }
 
@@ -729,44 +898,6 @@ const onPanelChange = () => {
   selectedItem.value = null
   selectedItems.value = []
   resetMeasure()
-}
-
-let draggingFromPalette = null
-const onDragStart = (e, dev) => {
-  if (isDeviceFullyUsed(dev.id)) {
-    e.preventDefault()
-    return
-  }
-
-  draggingFromPalette = dev
-  e.dataTransfer.effectAllowed = 'copy'
-}
-
-const onDrop = (e) => {
-  if (!draggingFromPalette || isMeasuring.value) return
-
-  if (isDeviceFullyUsed(draggingFromPalette.id)) {
-    draggingFromPalette = null
-    return
-  }
-
-  const { x, y } = getCellsFromEvent(e)
-
-  const newItem = {
-    id: nextId++,
-    type: 'device',
-    deviceId: draggingFromPalette.id,
-    name: draggingFromPalette.name,
-    x: x,
-    y: y,
-    w: mmToCells(draggingFromPalette.w),
-    h: mmToCells(draggingFromPalette.h),
-  }
-
-  if (isValidPosition(newItem)) {
-    items.value.push(newItem)
-  }
-  draggingFromPalette = null
 }
 
 const addBox = () => {
@@ -916,22 +1047,23 @@ const onPointerMove = (e) => {
     PIXELS_PER_GRID_UNIT
 
   if (dragState) {
-    const newPositions = dragState.startPositions.map((pos, idx) => ({
-      x: snapToGrid(pos.x + rawDx),
-      y: snapToGrid(pos.y + rawDy),
-    }))
+    // Каждый элемент перемещается независимо с ограничением по границам
+    dragState.startPositions.forEach((pos, idx) => {
+      const item = dragState.items[idx]
+      let newX = snapToGrid(pos.x + rawDx)
+      let newY = snapToGrid(pos.y + rawDy)
 
-    const allValid = newPositions.every((pos, idx) => {
-      const testItem = { ...dragState.items[idx], x: pos.x, y: pos.y }
-      return isValidPosition(testItem)
+      // Ограничиваем по X
+      if (newX < 0) newX = 0
+      if (newX + item.w > panelGridW.value) newX = panelGridW.value - item.w
+
+      // Ограничиваем по Y
+      if (newY < 0) newY = 0
+      if (newY + item.h > panelGridH.value) newY = panelGridH.value - item.h
+
+      item.x = newX
+      item.y = newY
     })
-
-    if (allValid) {
-      newPositions.forEach((pos, idx) => {
-        dragState.items[idx].x = pos.x
-        dragState.items[idx].y = pos.y
-      })
-    }
   }
 
   if (resizeState) {
@@ -962,13 +1094,14 @@ const onPointerMove = (e) => {
       newH = startItemH - clampedDy
     }
 
-    const tempItem = { ...resizeState.item, x: newX, y: newY, w: newW, h: newH }
-    if (isValidPosition(tempItem)) {
-      resizeState.item.x = newX
-      resizeState.item.y = newY
-      resizeState.item.w = newW
-      resizeState.item.h = newH
-    }
+    // Ограничиваем размер по границам панели
+    if (newX + newW > panelGridW.value) newW = panelGridW.value - newX
+    if (newY + newH > panelGridH.value) newH = panelGridH.value - newY
+
+    resizeState.item.x = newX
+    resizeState.item.y = newY
+    resizeState.item.w = newW
+    resizeState.item.h = newH
 
     // Обновляем позицию мыши для tooltip
     const canvas = document.querySelector('.canvas')
@@ -1257,94 +1390,171 @@ onUnmounted(() => {
   font-family: 'Courier New', monospace;
 }
 
-/* Устройства */
-.device-list {
+/* Выбор устройств */
+.device-selection-list {
   display: grid;
-  gap: 6px;
-  max-height: 200px;
+  gap: 8px;
+  max-height: 400px;
   overflow-y: auto;
   padding-right: 4px;
 }
 
-.device-list::-webkit-scrollbar {
+.device-selection-list::-webkit-scrollbar {
   width: 6px;
 }
 
-.device-list::-webkit-scrollbar-track {
+.device-selection-list::-webkit-scrollbar-track {
   background: #f1f1f1;
   border-radius: 3px;
 }
 
-.device-list::-webkit-scrollbar-thumb {
+.device-selection-list::-webkit-scrollbar-thumb {
   background: #cbd5e0;
   border-radius: 3px;
 }
 
-.device-list::-webkit-scrollbar-thumb:hover {
+.device-selection-list::-webkit-scrollbar-thumb:hover {
   background: #a0aec0;
 }
 
-.device-item {
+.device-selection-item {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 10px;
-  background-color: white;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
   border: 1px solid rgb(230, 230, 230);
   border-radius: 6px;
-  cursor: grab;
-  transition: all 0.3s;
+  transition: all 0.2s;
 }
 
-.device-item:hover:not(.used) {
-  box-shadow: 4px 4px 20px -10px rgba(34, 60, 80, 0.3);
+.device-selection-item:hover {
   border-color: #cbd5e0;
+  background: #f7fafc;
 }
 
-.device-item.used {
-  background-color: #f7fafc;
-  cursor: not-allowed;
-  opacity: 0.6;
+.device-selection-item--complete {
+  background-color: #f0fdf4;
+  border-color: #86efac;
 }
 
-.device-info {
-  display: grid;
-  gap: 2px;
+.device-selection-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.device-name {
+.device-checkbox {
+  width: 16px;
+  height: 16px;
+  accent-color: #6366f1;
+  cursor: pointer;
+}
+
+.device-selection-name {
   font-size: 13px;
   font-weight: 500;
   color: #2d3748;
+  cursor: pointer;
+  flex: 1;
 }
 
-.device-size {
+.device-selection-size {
   font-size: 11px;
   color: #718096;
 }
 
-.device-meta {
+.device-selection-controls {
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: space-between;
+  padding-left: 24px;
 }
 
-.quantity-badge {
-  padding: 3px 8px;
-  background-color: #e0e7ff;
-  color: #4338ca;
-  border-radius: 10px;
+.device-selection-available {
   font-size: 11px;
-  font-weight: 600;
+  color: #718096;
 }
 
-.used-badge {
-  padding: 3px 6px;
-  background-color: #10b981;
-  color: white;
-  border-radius: 10px;
+.quantity-control {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.qty-btn {
+  width: 24px;
+  height: 24px;
+  border: 1px solid rgb(230, 230, 230);
+  background: white;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  color: #4a5568;
+}
+
+.qty-btn:hover:not(:disabled) {
+  background: #f7fafc;
+  border-color: #cbd5e0;
+}
+
+.qty-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.qty-input {
+  width: 45px;
+  height: 24px;
+  border: 1px solid rgb(230, 230, 230);
+  border-radius: 4px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 500;
+  color: #2d3748;
+}
+
+.qty-input:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+}
+
+.qty-input:disabled {
+  background: #f7fafc;
+  opacity: 0.6;
+}
+
+.fully-used-label {
   font-size: 11px;
+  color: #10b981;
   font-weight: 600;
+  padding-left: 24px;
+}
+
+/* Статус */
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.status-indicator--success {
+  background-color: #d1fae5;
+  color: #065f46;
+  border: 1px solid #86efac;
+}
+
+.status-icon {
+  font-size: 16px;
+  font-weight: 700;
 }
 
 /* Кнопки действий */
@@ -1365,9 +1575,14 @@ onUnmounted(() => {
   transition: all 0.3s;
 }
 
-.action-button:hover {
+.action-button:hover:not(:disabled) {
   background-color: #4f46e5;
   box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.action-button:disabled {
+  background-color: #cbd5e0;
+  cursor: not-allowed;
 }
 
 .action-button--danger {
@@ -1409,7 +1624,7 @@ onUnmounted(() => {
   font-weight: 600;
 }
 
-/* Холст - центрируется и подстраивается */
+/* Холст */
 .editor-canvas-wrapper {
   background-color: rgb(255, 255, 255);
   border-radius: 8px;
@@ -1616,7 +1831,7 @@ onUnmounted(() => {
   line-height: 1.2;
 }
 
-/* Tooltip с размерами рядом с курсором */
+/* Tooltip с размерами */
 .size-tooltip {
   position: absolute;
   background: rgba(45, 55, 72, 0.95);
