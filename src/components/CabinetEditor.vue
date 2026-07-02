@@ -1,262 +1,339 @@
 <template>
-  <div class="editor-container">
-    <!-- Боковая панель управления -->
-    <aside class="sidebar">
-      <h2>Редактор панелей</h2>
-
-      <div class="section">
-        <h3>Выбор панели</h3>
-        <select v-model="selectedPanelId" @change="onPanelChange">
-          <option v-for="p in panels" :key="p.id" :value="p.id">
-            {{ p.name }} ({{ p.h }}x{{ p.w }} мм)
-          </option>
-        </select>
-      </div>
-
-      <div class="section">
-        <h3>Масштаб: {{ zoomPercent }}%</h3>
-        <input
-          type="range"
-          min="30"
-          max="200"
-          step="5"
-          v-model.number="zoomPercent"
-          class="zoom-slider"
-        />
-      </div>
-
-      <div class="section">
-        <h3>Инструменты</h3>
-        <button @click="toggleMeasureMode" :class="['btn-tool', { active: isMeasuring }]">
-          📏 {{ isMeasuring ? 'Измерение ВКЛ' : 'Измерить расстояние' }}
-        </button>
-        <button
-          v-if="isMeasuring"
-          @click="toggleOrthogonal"
-          :class="['btn-tool btn-ortho', { active: isOrthogonal }]"
-          :disabled="!isMeasuring"
-        >
-          ⊞ {{ isOrthogonal ? 'Ортогональный ВКЛ' : 'Ортогональный режим' }}
-        </button>
-        <button v-if="pointA || pointB" @click="resetMeasure" class="btn-reset">
-          ✕ Сбросить измерение
-        </button>
-      </div>
-
-      <div class="section" v-if="pointA && pointB">
-        <h3>Результат измерения</h3>
-        <p v-if="isOrthogonal" class="mode-hint">📐 Ортогональный режим</p>
-        <p><b>Расстояние:</b> {{ measureResult.distance }} мм</p>
-        <p><b>ΔX:</b> {{ measureResult.dx }} мм</p>
-        <p><b>ΔY:</b> {{ measureResult.dy }} мм</p>
-        <p class="coords"><b>A:</b> ({{ pointA.x }}, {{ pointA.y }})</p>
-        <p class="coords"><b>B:</b> ({{ pointB.x }}, {{ pointB.y }})</p>
-      </div>
-
-      <div class="section">
-        <h3>Устройства (Фикс. размер)</h3>
-        <div
-          v-for="dev in devicePalette"
-          :key="dev.id"
-          :class="['palette-item', 'device', { used: isDeviceFullyUsed(dev.id) }]"
-          :draggable="!isDeviceFullyUsed(dev.id)"
-          @dragstart="onDragStart($event, dev)"
-        >
-          <span>{{ dev.name }}</span>
-          <small>{{ dev.w }}x{{ dev.h }} мм</small>
-          <span class="quantity-badge"> {{ getDeviceUsedCount(dev.id) }}/{{ dev.quantity }} </span>
-          <span v-if="isDeviceFullyUsed(dev.id)" class="used-badge">✓ Все добавлены</span>
+  <div class="global-container">
+    <div class="editor-layout">
+      <!-- Боковая панель управления -->
+      <aside class="editor-sidebar">
+        <div class="sidebar-section">
+          <h2 class="sidebar-title">Редактор панелей</h2>
         </div>
-      </div>
 
-      <div class="section">
-        <h3>Короба (Изменяемый размер)</h3>
-        <button @click="addBox" class="btn-add">+ Добавить короб</button>
-      </div>
-
-      <div class="section" v-if="selectedItems.length > 0">
-        <h3>Выбрано: {{ selectedItems.length }}</h3>
-        <button @click="deleteSelectedItems" class="btn-delete">Удалить выбранные</button>
-        <button
-          v-if="selectedItems.length === 1 && selectedItem?.type === 'box'"
-          @click="copyItem"
-          class="btn-copy"
-        >
-          📋 Копировать
-        </button>
-      </div>
-
-      <div class="section" v-if="selectedItem && selectedItems.length === 1">
-        <h3>Свойства</h3>
-        <p>Тип: {{ selectedItem.type === 'device' ? 'Устройство' : 'Короб' }}</p>
-        <p>Размер: {{ selectedItem.w * GRID_STEP_MM }}x{{ selectedItem.h * GRID_STEP_MM }} мм</p>
-        <p>
-          Позиция: X:{{ selectedItem.x * GRID_STEP_MM }}, Y:{{ selectedItem.y * GRID_STEP_MM }} мм
-        </p>
-      </div>
-    </aside>
-
-    <!-- Основная область (Холст) -->
-    <main class="canvas-wrapper" ref="canvasWrapper">
-      <div class="canvas-container" :style="containerStyle">
-        <!-- Разметка по оси Y (слева) -->
-        <div class="ruler ruler-y">
-          <div
-            v-for="mark in yMarks"
-            :key="mark.id"
-            class="ruler-mark"
-            :style="getMarkStyle(mark.value, 'y')"
-          >
-            <span class="mark-label">{{ mark.value * GRID_STEP_MM }}</span>
+        <div class="sidebar-section">
+          <div class="form-group">
+            <label for="panel-select">Панель</label>
+            <select
+              id="panel-select"
+              v-model="selectedPanelId"
+              @change="onPanelChange"
+              class="form-select"
+            >
+              <option v-for="p in panels" :key="p.id" :value="p.id">
+                {{ p.name }} ({{ p.h }}x{{ p.w }})
+              </option>
+            </select>
           </div>
         </div>
 
-        <!-- Разметка по оси X (сверху) -->
-        <div class="ruler ruler-x">
-          <div
-            v-for="mark in xMarks"
-            :key="mark.id"
-            class="ruler-mark"
-            :style="getMarkStyle(mark.value, 'x')"
-          >
-            <span class="mark-label">{{ mark.value * GRID_STEP_MM }}</span>
+        <div class="sidebar-section">
+          <div class="form-group">
+            <label>Масштаб: {{ zoomPercent }}%</label>
+            <input
+              type="range"
+              min="30"
+              max="200"
+              step="5"
+              v-model.number="zoomPercent"
+              class="zoom-slider"
+            />
           </div>
         </div>
 
-        <!-- Холст с панелью -->
-        <div
-          class="canvas"
-          :class="{ 'measure-mode': isMeasuring, 'select-mode': isSelecting }"
-          :style="canvasStyle"
-          @drop="onDrop"
-          @dragover.prevent
-          @click="onCanvasClick"
-          @mousemove="onCanvasMouseMove"
-          @mousedown="onCanvasMouseDown"
-        >
-          <!-- SVG для отрисовки линии измерения и рамки выделения -->
-          <svg
-            v-if="pointA || isMeasuring || (isSelecting && selectionStart)"
-            class="measure-svg"
-            :width="panelGridW * PIXELS_PER_GRID_UNIT"
-            :height="panelGridH * PIXELS_PER_GRID_UNIT"
-          >
-            <!-- Рамка выделения -->
-            <rect
-              v-if="isSelecting && selectionStart && selectionCurrent"
-              :x="Math.min(selectionStart.x, selectionCurrent.x)"
-              :y="Math.min(selectionStart.y, selectionCurrent.y)"
-              :width="Math.abs(selectionCurrent.x - selectionStart.x)"
-              :height="Math.abs(selectionCurrent.y - selectionStart.y)"
-              fill="rgba(59, 130, 246, 0.2)"
-              stroke="#3b82f6"
-              stroke-width="2"
-              stroke-dasharray="4 4"
-            />
+        <div class="sidebar-section">
+          <h3 class="section-title">Инструменты</h3>
+          <div class="tools-grid">
+            <button
+              @click="toggleMeasureMode"
+              :class="['icon-button', { active: isMeasuring }]"
+              title="Измерить расстояние"
+            >
+              📏
+            </button>
+            <button
+              v-if="isMeasuring"
+              @click="toggleOrthogonal"
+              :class="['icon-button', 'icon-button--ortho', { active: isOrthogonal }]"
+              title="Ортогональный режим"
+            >
+              ⊞
+            </button>
+            <button @click="addBox" class="icon-button icon-button--add" title="Добавить короб">
+              ▢
+            </button>
+          </div>
+        </div>
 
-            <!-- Линия измерения -->
-            <line
-              v-if="isMeasuring && pointA && previewPoint"
-              :x1="mmToPx(pointA.x)"
-              :y1="mmToPx(pointA.y)"
-              :x2="mmToPx(previewPoint.x)"
-              :y2="mmToPx(previewPoint.y)"
-              stroke="#8b5cf6"
-              stroke-width="1.5"
-              stroke-dasharray="4 4"
-              opacity="0.6"
-            />
-            <line
-              v-if="pointA && pointB"
-              :x1="mmToPx(pointA.x)"
-              :y1="mmToPx(pointA.y)"
-              :x2="mmToPx(pointB.x)"
-              :y2="mmToPx(pointB.y)"
-              stroke="#8b5cf6"
-              stroke-width="2"
-              stroke-dasharray="6 3"
-            />
-            <circle
-              v-if="pointA"
-              :cx="mmToPx(pointA.x)"
-              :cy="mmToPx(pointA.y)"
-              r="5"
-              fill="#8b5cf6"
-              stroke="white"
-              stroke-width="2"
-            />
-            <circle
-              v-if="pointB"
-              :cx="mmToPx(pointB.x)"
-              :cy="mmToPx(pointB.y)"
-              r="5"
-              fill="#8b5cf6"
-              stroke="white"
-              stroke-width="2"
-            />
-          </svg>
+        <div class="sidebar-section" v-if="pointA && pointB">
+          <h3 class="section-title">Измерение</h3>
+          <div class="measure-result">
+            <p v-if="isOrthogonal" class="mode-hint"><span class="hint-icon">📐</span> Орто</p>
+            <div class="result-grid">
+              <div class="result-item">
+                <span class="result-label">L:</span>
+                <span class="result-value">{{ measureResult.distance }} мм</span>
+              </div>
+              <div class="result-item">
+                <span class="result-label">ΔX:</span>
+                <span class="result-value">{{ measureResult.dx }} мм</span>
+              </div>
+              <div class="result-item">
+                <span class="result-label">ΔY:</span>
+                <span class="result-value">{{ measureResult.dy }} мм</span>
+              </div>
+            </div>
+            <div class="coords-grid">
+              <div class="coord-item">
+                <span class="coord-label">A:</span>
+                <span class="coord-value">({{ pointA.x }}, {{ pointA.y }})</span>
+              </div>
+              <div class="coord-item">
+                <span class="coord-label">B:</span>
+                <span class="coord-value">({{ pointB.x }}, {{ pointB.y }})</span>
+              </div>
+            </div>
+          </div>
+        </div>
 
-          <!-- Элементы на панели -->
-          <div
-            v-for="item in items"
-            :key="item.id"
-            :class="['panel-item', item.type, { selected: selectedItems.includes(item) }]"
-            :style="getItemStyle(item)"
-            @pointerdown="startDrag($event, item)"
-          >
-            <div class="item-label">{{ item.name }}</div>
+        <div class="sidebar-section">
+          <h3 class="section-title">Устройства</h3>
+          <div class="device-list">
+            <div
+              v-for="dev in devicePalette"
+              :key="dev.id"
+              :class="['device-item', { used: isDeviceFullyUsed(dev.id) }]"
+              :draggable="!isDeviceFullyUsed(dev.id)"
+              @dragstart="onDragStart($event, dev)"
+            >
+              <div class="device-info">
+                <span class="device-name">{{ dev.name }}</span>
+                <span class="device-size">{{ dev.w }}×{{ dev.h }}</span>
+              </div>
+              <div class="device-meta">
+                <span class="quantity-badge">
+                  {{ getDeviceUsedCount(dev.id) }}/{{ dev.quantity }}
+                </span>
+                <span v-if="isDeviceFullyUsed(dev.id)" class="used-badge">✓</span>
+              </div>
+            </div>
+          </div>
+        </div>
 
-            <!-- Отображение размеров при изменении размера -->
-            <div v-if="item.type === 'box' && resizingItem === item" class="size-tooltip">
-              {{ item.w * GRID_STEP_MM }} × {{ item.h * GRID_STEP_MM }} мм
+        <div class="sidebar-section" v-if="selectedItems.length > 1">
+          <h3 class="section-title">Выбрано: {{ selectedItems.length }}</h3>
+          <button @click="deleteSelectedItems" class="action-button action-button--danger">
+            <span class="button-icon">🗑</span>
+            <span>Удалить выбранные</span>
+          </button>
+        </div>
+
+        <div class="sidebar-section" v-if="selectedItem && selectedItems.length === 1">
+          <h3 class="section-title">Свойства</h3>
+          <div class="properties-grid">
+            <div class="property-item">
+              <span class="property-label">Тип:</span>
+              <span class="property-value">{{
+                selectedItem.type === 'device' ? 'Устройство' : 'Короб'
+              }}</span>
+            </div>
+            <div class="property-item">
+              <span class="property-label">Размер:</span>
+              <span class="property-value"
+                >{{ selectedItem.w * GRID_STEP_MM }}×{{ selectedItem.h * GRID_STEP_MM }} мм</span
+              >
+            </div>
+            <div class="property-item">
+              <span class="property-label">Позиция:</span>
+              <span class="property-value"
+                >X:{{ selectedItem.x * GRID_STEP_MM }}, Y:{{ selectedItem.y * GRID_STEP_MM }}</span
+              >
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Основная область (Холст) -->
+      <main class="editor-canvas-wrapper" ref="canvasWrapper">
+        <div class="canvas-scaler" :style="canvasScalerStyle">
+          <div class="canvas-container" :style="containerStyle">
+            <!-- Разметка по оси Y (слева) -->
+            <div class="ruler ruler-y">
+              <div
+                v-for="mark in yMarks"
+                :key="mark.id"
+                class="ruler-mark"
+                :style="getMarkStyle(mark.value, 'y')"
+              >
+                <span class="mark-label">{{ mark.value * GRID_STEP_MM }}</span>
+              </div>
             </div>
 
-            <!-- 8 ручек изменения размера для коробов (только если выбран один короб) -->
-            <template
-              v-if="item.type === 'box' && selectedItems.length === 1 && selectedItems[0] === item"
+            <!-- Разметка по оси X (сверху) -->
+            <div class="ruler ruler-x">
+              <div
+                v-for="mark in xMarks"
+                :key="mark.id"
+                class="ruler-mark"
+                :style="getMarkStyle(mark.value, 'x')"
+              >
+                <span class="mark-label">{{ mark.value * GRID_STEP_MM }}</span>
+              </div>
+            </div>
+
+            <!-- Холст с панелью -->
+            <div
+              class="canvas"
+              :class="{ 'measure-mode': isMeasuring, 'select-mode': isSelecting }"
+              :style="canvasStyle"
+              @drop="onDrop"
+              @dragover.prevent
+              @click="onCanvasClick"
+              @mousemove="onCanvasMouseMove"
+              @mousedown="onCanvasMouseDown"
             >
+              <!-- SVG для отрисовки линии измерения и рамки выделения -->
+              <svg
+                v-if="pointA || isMeasuring || (isSelecting && selectionStart)"
+                class="measure-svg"
+                :width="panelGridW * PIXELS_PER_GRID_UNIT"
+                :height="panelGridH * PIXELS_PER_GRID_UNIT"
+              >
+                <rect
+                  v-if="isSelecting && selectionStart && selectionCurrent"
+                  :x="Math.min(selectionStart.x, selectionCurrent.x)"
+                  :y="Math.min(selectionStart.y, selectionCurrent.y)"
+                  :width="Math.abs(selectionCurrent.x - selectionStart.x)"
+                  :height="Math.abs(selectionCurrent.y - selectionStart.y)"
+                  fill="rgba(59, 130, 246, 0.15)"
+                  stroke="#3b82f6"
+                  stroke-width="2"
+                  stroke-dasharray="4 4"
+                />
+                <line
+                  v-if="isMeasuring && pointA && previewPoint"
+                  :x1="mmToPx(pointA.x)"
+                  :y1="mmToPx(pointA.y)"
+                  :x2="mmToPx(previewPoint.x)"
+                  :y2="mmToPx(previewPoint.y)"
+                  stroke="#6366f1"
+                  stroke-width="1.5"
+                  stroke-dasharray="4 4"
+                  opacity="0.7"
+                />
+                <line
+                  v-if="pointA && pointB"
+                  :x1="mmToPx(pointA.x)"
+                  :y1="mmToPx(pointA.y)"
+                  :x2="mmToPx(pointB.x)"
+                  :y2="mmToPx(pointB.y)"
+                  stroke="#6366f1"
+                  stroke-width="2"
+                  stroke-dasharray="6 3"
+                />
+                <circle
+                  v-if="pointA"
+                  :cx="mmToPx(pointA.x)"
+                  :cy="mmToPx(pointA.y)"
+                  r="5"
+                  fill="#6366f1"
+                  stroke="white"
+                  stroke-width="2"
+                />
+                <circle
+                  v-if="pointB"
+                  :cx="mmToPx(pointB.x)"
+                  :cy="mmToPx(pointB.y)"
+                  r="5"
+                  fill="#6366f1"
+                  stroke="white"
+                  stroke-width="2"
+                />
+              </svg>
+
+              <!-- Плавающие кнопки действий для выделенного элемента -->
               <div
-                class="resize-handle resize-nw"
-                @pointerdown.stop="startResize($event, item, 'nw')"
-              ></div>
+                v-if="selectedItems.length === 1 && selectedItem"
+                class="floating-actions"
+                :style="floatingActionsStyle"
+              >
+                <button
+                  v-if="selectedItem?.type === 'box'"
+                  @pointerdown.stop="copyItem"
+                  class="floating-btn floating-btn--copy"
+                  title="Копировать"
+                >
+                  📋
+                </button>
+                <button
+                  @pointerdown.stop="deleteSelectedItems"
+                  class="floating-btn floating-btn--delete"
+                  title="Удалить"
+                >
+                  🗑
+                </button>
+              </div>
+
+              <!-- Tooltip с размерами рядом с курсором -->
+              <div v-if="resizeState && mousePosition" class="size-tooltip" :style="tooltipStyle">
+                {{ resizeState.item.w * GRID_STEP_MM }} × {{ resizeState.item.h * GRID_STEP_MM }} мм
+              </div>
+
+              <!-- Элементы на панели -->
               <div
-                class="resize-handle resize-n"
-                @pointerdown.stop="startResize($event, item, 'n')"
-              ></div>
-              <div
-                class="resize-handle resize-ne"
-                @pointerdown.stop="startResize($event, item, 'ne')"
-              ></div>
-              <div
-                class="resize-handle resize-e"
-                @pointerdown.stop="startResize($event, item, 'e')"
-              ></div>
-              <div
-                class="resize-handle resize-se"
-                @pointerdown.stop="startResize($event, item, 'se')"
-              ></div>
-              <div
-                class="resize-handle resize-s"
-                @pointerdown.stop="startResize($event, item, 's')"
-              ></div>
-              <div
-                class="resize-handle resize-sw"
-                @pointerdown.stop="startResize($event, item, 'sw')"
-              ></div>
-              <div
-                class="resize-handle resize-w"
-                @pointerdown.stop="startResize($event, item, 'w')"
-              ></div>
-            </template>
+                v-for="item in items"
+                :key="item.id"
+                :class="['panel-item', item.type, { selected: selectedItems.includes(item) }]"
+                :style="getItemStyle(item)"
+                @pointerdown="startDrag($event, item)"
+              >
+                <div class="item-label">{{ item.name }}</div>
+
+                <template
+                  v-if="
+                    item.type === 'box' && selectedItems.length === 1 && selectedItems[0] === item
+                  "
+                >
+                  <div
+                    class="resize-handle resize-nw"
+                    @pointerdown.stop="startResize($event, item, 'nw')"
+                  ></div>
+                  <div
+                    class="resize-handle resize-n"
+                    @pointerdown.stop="startResize($event, item, 'n')"
+                  ></div>
+                  <div
+                    class="resize-handle resize-ne"
+                    @pointerdown.stop="startResize($event, item, 'ne')"
+                  ></div>
+                  <div
+                    class="resize-handle resize-e"
+                    @pointerdown.stop="startResize($event, item, 'e')"
+                  ></div>
+                  <div
+                    class="resize-handle resize-se"
+                    @pointerdown.stop="startResize($event, item, 'se')"
+                  ></div>
+                  <div
+                    class="resize-handle resize-s"
+                    @pointerdown.stop="startResize($event, item, 's')"
+                  ></div>
+                  <div
+                    class="resize-handle resize-sw"
+                    @pointerdown.stop="startResize($event, item, 'sw')"
+                  ></div>
+                  <div
+                    class="resize-handle resize-w"
+                    @pointerdown.stop="startResize($event, item, 'w')"
+                  ></div>
+                </template>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-    </main>
+      </main>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onUnmounted } from 'vue'
 
 // --- КОНСТАНТЫ И НАСТРОЙКИ ---
 const GRID_STEP_MM = 5
@@ -310,7 +387,7 @@ const selectionCurrent = ref(null)
 const justFinishedSelection = ref(false)
 
 // --- СОСТОЯНИЕ RESIZE ---
-const resizingItem = ref(null)
+const mousePosition = ref(null)
 
 const measureResult = computed(() => {
   if (!pointA.value || !pointB.value) return { distance: 0, dx: 0, dy: 0 }
@@ -357,6 +434,11 @@ const yMarks = computed(() => {
 })
 
 // --- СТИЛИ ---
+const canvasScalerStyle = computed(() => ({
+  width: `${(RULER_SIZE + panelGridW.value * PIXELS_PER_GRID_UNIT) * currentScale.value}px`,
+  height: `${(RULER_SIZE + panelGridH.value * PIXELS_PER_GRID_UNIT) * currentScale.value}px`,
+}))
+
 const containerStyle = computed(() => ({
   width: `${RULER_SIZE + panelGridW.value * PIXELS_PER_GRID_UNIT}px`,
   height: `${RULER_SIZE + panelGridH.value * PIXELS_PER_GRID_UNIT}px`,
@@ -384,6 +466,34 @@ const getMarkStyle = (cellValue, axis) => {
     ? { left: `${cellValue * PIXELS_PER_GRID_UNIT}px` }
     : { top: `${cellValue * PIXELS_PER_GRID_UNIT}px` }
 }
+
+// --- ПЛАВАЮЩИЕ КНОПКИ ДЕЙСТВИЙ ---
+const floatingActionsStyle = computed(() => {
+  // Показываем для любого одиночного выделенного элемента (и устройства, и короба)
+  if (!selectedItem.value) return { display: 'none' }
+
+  const item = selectedItem.value
+  const centerX = (item.x + item.w / 2) * PIXELS_PER_GRID_UNIT
+  const topY = item.y * PIXELS_PER_GRID_UNIT
+
+  const showBelow = item.y < 5
+  const yOffset = showBelow ? item.h * PIXELS_PER_GRID_UNIT + 8 : -44
+
+  return {
+    left: `${centerX}px`,
+    top: `${topY + yOffset}px`,
+  }
+})
+
+// --- TOOLTIP С РАЗМЕРАМИ ---
+const tooltipStyle = computed(() => {
+  if (!mousePosition.value) return { display: 'none' }
+
+  return {
+    left: `${mousePosition.value.x + 15}px`,
+    top: `${mousePosition.value.y - 10}px`,
+  }
+})
 
 // --- УТИЛИТЫ ---
 const mmToCells = (mm) => Math.round(mm / GRID_STEP_MM)
@@ -524,10 +634,9 @@ const resetMeasure = () => {
 }
 
 // --- ЛОГИКА ВЫДЕЛЕНИЯ РАМКОЙ ---
-const canvasEl = ref(null)
-
 const onCanvasMouseDown = (e) => {
   if (e.target.closest('.panel-item')) return
+  if (e.target.closest('.floating-actions')) return
   if (isMeasuring.value) return
 
   const el = e.currentTarget
@@ -550,7 +659,7 @@ const onWindowMouseMove = (e) => {
   }
 }
 
-const onWindowMouseUp = (e) => {
+const onWindowMouseUp = () => {
   if (!isSelecting.value) return
 
   if (selectionStart.value && selectionCurrent.value) {
@@ -579,6 +688,7 @@ const onWindowMouseUp = (e) => {
 
 const onCanvasClick = (e) => {
   if (e.target.closest('.panel-item')) return
+  if (e.target.closest('.floating-actions')) return
 
   if (justFinishedSelection.value) {
     return
@@ -616,10 +726,8 @@ const onCanvasMouseMove = (e) => {
 
 // --- ЛОГИКА ДОБАВЛЕНИЯ ---
 const onPanelChange = () => {
-  items.value = []
   selectedItem.value = null
   selectedItems.value = []
-  boxCounter = 1
   resetMeasure()
 }
 
@@ -703,8 +811,7 @@ const copyItem = () => {
 
   const original = selectedItem.value
 
-  // Создаём копию со смещением
-  const offset = 10 // Смещение на 10 ячеек (50мм)
+  const offset = 10
   let newX = original.x + offset
   let newY = original.y + offset
 
@@ -718,13 +825,11 @@ const copyItem = () => {
     h: original.h,
   }
 
-  // Проверяем, помещается ли копия в доступное место
   if (isValidPosition(copiedBox)) {
     items.value.push(copiedBox)
     selectedItems.value = [copiedBox]
     selectedItem.value = copiedBox
   } else {
-    // Если не помещается, ищем свободное место
     let placed = false
     for (let y = 0; y <= panelGridH.value - copiedBox.h && !placed; y++) {
       for (let x = 0; x <= panelGridW.value - copiedBox.w && !placed; x++) {
@@ -783,7 +888,6 @@ const startResize = (e, item, direction) => {
   if (isMeasuring.value || isSelecting.value) return
   e.preventDefault()
   selectedItem.value = item
-  resizingItem.value = item
 
   resizeState = {
     type: 'resize',
@@ -865,13 +969,19 @@ const onPointerMove = (e) => {
       resizeState.item.w = newW
       resizeState.item.h = newH
     }
+
+    // Обновляем позицию мыши для tooltip
+    const canvas = document.querySelector('.canvas')
+    if (canvas) {
+      mousePosition.value = getPxFromEvent(e, canvas)
+    }
   }
 }
 
 const onPointerUp = () => {
   dragState = null
   resizeState = null
-  resizingItem.value = null
+  mousePosition.value = null
   window.removeEventListener('pointermove', onPointerMove)
   window.removeEventListener('pointerup', onPointerUp)
 }
@@ -885,229 +995,497 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-* {
-  box-sizing: border-box;
-}
-.editor-container {
-  display: flex;
-  height: 100vh;
+/* Глобальный контейнер */
+.global-container {
+  min-height: 100vh;
+  background-color: #f5f7fa;
+  padding: 16px;
   font-family:
-    system-ui,
-    -apple-system,
-    sans-serif;
-  background-color: #f3f4f6;
-  color: #1f2937;
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  color: #2d3748;
 }
 
-.sidebar {
-  width: 280px;
-  background: #fff;
-  border-right: 1px solid #e5e7eb;
-  padding: 20px;
+/* Основной layout */
+.editor-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 16px;
+  height: calc(100vh - 32px);
+}
+
+@media (max-width: 1024px) {
+  .editor-layout {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+}
+
+/* Боковая панель */
+.editor-sidebar {
+  background-color: rgb(255, 255, 255);
+  border-radius: 8px;
+  border: 1px solid rgb(230, 230, 230);
+  box-shadow: 4px 4px 30px -10px rgba(34, 60, 80, 0.2);
+  padding: 16px;
   overflow-y: auto;
-  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.05);
-}
-.sidebar h2 {
-  margin-top: 0;
-  font-size: 1.25rem;
-}
-.sidebar h3 {
-  font-size: 0.9rem;
-  text-transform: uppercase;
-  color: #6b7280;
-  margin: 20px 0 10px;
-}
-.section {
-  margin-bottom: 20px;
-  border-bottom: 1px solid #f3f4f6;
-  padding-bottom: 15px;
+  display: grid;
+  gap: 16px;
+  align-content: start;
 }
 
-select,
-button,
-input[type='range'] {
+.sidebar-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+  color: #2d3748;
+}
+
+.section-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #718096;
+  margin: 0 0 8px 0;
+  letter-spacing: 0.5px;
+}
+
+.sidebar-section {
+  display: grid;
+  gap: 8px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgb(230, 230, 230);
+}
+
+.sidebar-section:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+/* Формы */
+.form-group {
+  display: grid;
+  gap: 6px;
+}
+
+.form-group label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #4a5568;
+}
+
+.form-select {
   width: 100%;
-  padding: 8px 12px;
-  border: 1px solid #d1d5db;
+  padding: 8px 10px;
+  border: 1px solid rgb(230, 230, 230);
   border-radius: 6px;
-  background: #fff;
-  font-size: 14px;
+  background-color: white;
+  font-size: 13px;
+  color: #2d3748;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.form-select:hover {
+  box-shadow: 4px 4px 20px -10px rgba(34, 60, 80, 0.3);
+}
+
+.form-select:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.zoom-slider {
+  width: 100%;
+  height: 5px;
+  border-radius: 3px;
+  background: #e2e8f0;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
   cursor: pointer;
 }
-button:hover {
-  background: #f9fafb;
-}
-.btn-add {
-  background: #3b82f6;
-  color: white;
-  border: none;
-  font-weight: 500;
-}
-.btn-add:hover {
-  background: #2563eb;
-}
-.btn-delete {
-  background: #ef4444;
-  color: white;
-  border: none;
-  margin-top: 10px;
-}
-.btn-copy {
-  background: #10b981;
-  color: white;
-  border: none;
-  font-weight: 500;
-  margin-top: 8px;
-}
-.btn-copy:hover {
-  background: #059669;
-}
-.btn-tool {
-  background: #8b5cf6;
-  color: white;
-  border: none;
-  font-weight: 500;
-  margin-bottom: 8px;
-}
-.btn-tool:hover {
-  background: #7c3aed;
-}
-.btn-tool.active {
-  background: #6d28d9;
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.3);
-}
-.btn-ortho {
-  background: #10b981;
-}
-.btn-ortho:hover {
-  background: #059669;
-}
-.btn-ortho.active {
-  background: #047857;
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3);
-}
-.btn-reset {
-  background: #f3f4f6;
-  color: #374151;
-  border: 1px solid #d1d5db;
-}
-.btn-reset:hover {
-  background: #e5e7eb;
-}
-.zoom-slider {
-  margin-top: 8px;
-  accent-color: #3b82f6;
+
+.zoom-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #6366f1;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s;
 }
 
-.palette-item {
-  padding: 10px;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  margin-bottom: 8px;
-  cursor: grab;
+.zoom-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
+}
+
+.zoom-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #6366f1;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Инструменты */
+.tools-grid {
   display: flex;
+  gap: 6px;
   flex-wrap: wrap;
-  justify-content: space-between;
+}
+
+.icon-button {
+  display: flex;
   align-items: center;
-  transition: all 0.2s;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgb(230, 230, 230);
+  border-radius: 6px;
+  background-color: white;
+  font-size: 18px;
+  cursor: pointer;
+  transition: all 0.3s;
   position: relative;
 }
-.palette-item:hover:not(.used) {
-  border-color: #3b82f6;
-  background: #eff6ff;
-}
-.palette-item small {
-  color: #6b7280;
-  font-size: 12px;
-  width: 100%;
+
+.icon-button:hover {
+  box-shadow: 4px 4px 20px -10px rgba(34, 60, 80, 0.3);
+  border-color: #cbd5e0;
+  transform: translateY(-1px);
 }
 
-.quantity-badge {
-  background: #dbeafe;
-  color: #1e40af;
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-size: 11px;
+.icon-button.active {
+  background-color: #6366f1;
+  border-color: #6366f1;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.icon-button--ortho.active {
+  background-color: #10b981;
+  border-color: #10b981;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.icon-button--add {
+  background-color: #f59e0b;
+  color: white;
+  border-color: #f59e0b;
+}
+
+.icon-button--add:hover {
+  background-color: #d97706;
+  border-color: #d97706;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+}
+
+/* Результат измерения */
+.measure-result {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  background-color: #f7fafc;
+  border-radius: 6px;
+  border: 1px solid rgb(230, 230, 230);
+}
+
+.mode-hint {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  background-color: #d1fae5;
+  color: #065f46;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.hint-icon {
+  font-size: 13px;
+}
+
+.result-grid {
+  display: grid;
+  gap: 4px;
+}
+
+.result-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+}
+
+.result-label {
+  font-size: 12px;
+  color: #718096;
+  font-weight: 500;
+}
+
+.result-value {
+  font-size: 13px;
+  color: #2d3748;
   font-weight: 600;
 }
 
-.palette-item.used {
-  background: #f3f4f6;
-  border-color: #d1d5db;
+.coords-grid {
+  display: grid;
+  gap: 4px;
+  padding-top: 6px;
+  border-top: 1px solid rgb(230, 230, 230);
+}
+
+.coord-item {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+}
+
+.coord-label {
+  color: #718096;
+}
+
+.coord-value {
+  color: #4a5568;
+  font-family: 'Courier New', monospace;
+}
+
+/* Устройства */
+.device-list {
+  display: grid;
+  gap: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.device-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.device-list::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.device-list::-webkit-scrollbar-thumb {
+  background: #cbd5e0;
+  border-radius: 3px;
+}
+
+.device-list::-webkit-scrollbar-thumb:hover {
+  background: #a0aec0;
+}
+
+.device-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  background-color: white;
+  border: 1px solid rgb(230, 230, 230);
+  border-radius: 6px;
+  cursor: grab;
+  transition: all 0.3s;
+}
+
+.device-item:hover:not(.used) {
+  box-shadow: 4px 4px 20px -10px rgba(34, 60, 80, 0.3);
+  border-color: #cbd5e0;
+}
+
+.device-item.used {
+  background-color: #f7fafc;
   cursor: not-allowed;
   opacity: 0.6;
 }
 
-.used-badge {
-  background: #10b981;
-  color: white;
-  padding: 2px 8px;
+.device-info {
+  display: grid;
+  gap: 2px;
+}
+
+.device-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: #2d3748;
+}
+
+.device-size {
+  font-size: 11px;
+  color: #718096;
+}
+
+.device-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.quantity-badge {
+  padding: 3px 8px;
+  background-color: #e0e7ff;
+  color: #4338ca;
   border-radius: 10px;
   font-size: 11px;
   font-weight: 600;
-  width: 100%;
-  text-align: center;
-  margin-top: 6px;
 }
 
-.canvas-wrapper {
-  flex: 1;
+.used-badge {
+  padding: 3px 6px;
+  background-color: #10b981;
+  color: white;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Кнопки действий */
+.action-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  border-radius: 6px;
+  background-color: #6366f1;
+  color: white;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.action-button:hover {
+  background-color: #4f46e5;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.action-button--danger {
+  background-color: #ef4444;
+}
+
+.action-button--danger:hover {
+  background-color: #dc2626;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.button-icon {
+  font-size: 15px;
+}
+
+/* Свойства */
+.properties-grid {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  background-color: #f7fafc;
+  border-radius: 6px;
+  border: 1px solid rgb(230, 230, 230);
+}
+
+.property-item {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+}
+
+.property-label {
+  color: #718096;
+  font-weight: 500;
+}
+
+.property-value {
+  color: #2d3748;
+  font-weight: 600;
+}
+
+/* Холст - центрируется и подстраивается */
+.editor-canvas-wrapper {
+  background-color: rgb(255, 255, 255);
+  border-radius: 8px;
+  border: 1px solid rgb(230, 230, 230);
+  box-shadow: 4px 4px 30px -10px rgba(34, 60, 80, 0.2);
+  padding: 24px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
   overflow: auto;
-  padding: 40px;
+}
+
+.canvas-scaler {
   position: relative;
+  flex-shrink: 0;
 }
 
 .canvas-container {
-  position: relative;
-  display: inline-block;
+  position: absolute;
+  top: 0;
+  left: 0;
 }
 
+/* Линейки */
 .ruler {
   position: absolute;
-  background-color: #f9fafb;
-  border: 1px solid #d1d5db;
+  background-color: #f7fafc;
+  border: 1px solid rgb(230, 230, 230);
   overflow: visible;
 }
+
 .ruler-x {
   left: 30px;
   top: 0;
   height: 30px;
-  border-bottom: 2px solid #9ca3af;
+  border-bottom: 2px solid #cbd5e0;
 }
+
 .ruler-y {
   left: 0;
   top: 30px;
   width: 30px;
-  border-right: 2px solid #9ca3af;
+  border-right: 2px solid #cbd5e0;
 }
+
 .ruler-mark {
   position: absolute;
 }
+
 .ruler-x .ruler-mark {
   top: 0;
   width: 1px;
   height: 100%;
-  border-left: 1px solid #9ca3af;
+  border-left: 1px solid #cbd5e0;
 }
+
 .ruler-y .ruler-mark {
   left: 0;
   height: 1px;
   width: 100%;
-  border-top: 1px solid #9ca3af;
+  border-top: 1px solid #cbd5e0;
 }
 
 .mark-label {
   position: absolute;
-  font-size: 12px;
-  color: #374151;
-  font-weight: 600;
+  font-size: 11px;
+  color: #718096;
+  font-weight: 500;
   white-space: nowrap;
 }
+
 .ruler-x .mark-label {
   bottom: 4px;
   left: 4px;
 }
+
 .ruler-y .mark-label {
   top: 4px;
   left: 6px;
@@ -1115,14 +1493,15 @@ button:hover {
   text-orientation: mixed;
 }
 
+/* Холст */
 .canvas {
   position: absolute;
-  background-color: #e5e7eb;
-  border: 2px solid #9ca3af;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  background-color: #f7fafc;
+  border: 2px solid #cbd5e0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   background-image:
-    linear-gradient(to right, #d1d5db 1px, transparent 1px),
-    linear-gradient(to bottom, #d1d5db 1px, transparent 1px);
+    linear-gradient(to right, #e2e8f0 1px, transparent 1px),
+    linear-gradient(to bottom, #e2e8f0 1px, transparent 1px);
 }
 
 .canvas.measure-mode {
@@ -1146,38 +1525,90 @@ button:hover {
   z-index: 5;
 }
 
+/* Плавающие кнопки действий */
+.floating-actions {
+  position: absolute;
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgb(230, 230, 230);
+  transform: translateX(-50%);
+  z-index: 100;
+  pointer-events: auto;
+}
+
+.floating-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  color: white;
+}
+
+.floating-btn--copy {
+  background-color: #10b981;
+}
+
+.floating-btn--copy:hover {
+  background-color: #059669;
+  transform: scale(1.05);
+}
+
+.floating-btn--delete {
+  background-color: #ef4444;
+}
+
+.floating-btn--delete:hover {
+  background-color: #dc2626;
+  transform: scale(1.05);
+}
+
+/* Элементы на панели */
 .panel-item {
   position: absolute;
-  border: 1px solid #4b5563;
+  border: 1px solid #cbd5e0;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: move;
   user-select: none;
-  transition:
-    box-shadow 0.2s,
-    border-color 0.2s;
+  transition: all 0.2s;
   overflow: visible;
   mix-blend-mode: multiply;
 }
+
 .panel-item.device {
-  background-color: rgba(96, 165, 250, 0.85);
-  color: #1e3a8a;
-  border-color: #3b82f6;
+  background-color: rgba(99, 102, 241, 0.85);
+  color: white;
+  border-color: #6366f1;
   border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
+
 .panel-item.box {
-  background-color: rgba(251, 191, 36, 0.4);
-  border: 2px dashed #d97706;
+  background-color: rgba(251, 191, 36, 0.3);
+  border: 2px dashed #f59e0b;
   border-radius: 2px;
 }
+
 .panel-item.selected {
   outline: 2px solid #ef4444;
   outline-offset: 2px;
   z-index: 10;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
 }
+
 .item-label {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   pointer-events: none;
   text-align: center;
@@ -1185,32 +1616,38 @@ button:hover {
   line-height: 1.2;
 }
 
+/* Tooltip с размерами рядом с курсором */
 .size-tooltip {
   position: absolute;
-  bottom: -30px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.85);
+  background: rgba(45, 55, 72, 0.95);
   color: white;
-  padding: 4px 10px;
+  padding: 6px 12px;
   border-radius: 4px;
   font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
   pointer-events: none;
   z-index: 30;
-  mix-blend-mode: normal;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
+/* Ручки изменения размера */
 .resize-handle {
   position: absolute;
-  background: #d97706;
-  border: 1px solid white;
+  background: #f59e0b;
+  border: 2px solid white;
   z-index: 20;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   width: 8px;
   height: 8px;
+  border-radius: 2px;
   mix-blend-mode: normal;
+  transition: all 0.2s;
+}
+
+.resize-handle:hover {
+  transform: scale(1.2);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
 }
 
 .resize-nw {
@@ -1240,37 +1677,25 @@ button:hover {
   transform: translateX(-50%);
   cursor: ns-resize;
 }
+
 .resize-s {
   bottom: -5px;
   left: 50%;
   transform: translateX(-50%);
   cursor: ns-resize;
 }
+
 .resize-w {
   left: -5px;
   top: 50%;
   transform: translateY(-50%);
   cursor: ew-resize;
 }
+
 .resize-e {
   right: -5px;
   top: 50%;
   transform: translateY(-50%);
   cursor: ew-resize;
-}
-
-.coords {
-  font-size: 12px;
-  color: #6b7280;
-  margin-top: 4px;
-}
-
-.mode-hint {
-  background: #d1fae5;
-  color: #065f46;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  margin-bottom: 8px;
 }
 </style>
