@@ -65,6 +65,42 @@
             >
               ═
             </button>
+            <button
+              @click="openDeviceModal"
+              class="icon-button icon-button--device"
+              title="Добавить устройство"
+            >
+              ⚡
+            </button>
+            <button
+              @click="exportProject"
+              class="icon-button icon-button--save"
+              title="Сохранить проект"
+            >
+              💾
+            </button>
+            <button
+              @click="triggerImport"
+              class="icon-button icon-button--load"
+              title="Загрузить проект"
+            >
+              📂
+            </button>
+            <button
+              @click="clearProject"
+              class="icon-button icon-button--clear"
+              title="Очистить проект"
+            >
+              🧹
+            </button>
+            <!-- Скрытый input для выбора файла -->
+            <input
+              ref="fileInput"
+              type="file"
+              accept=".json"
+              style="display: none"
+              @change="importProject"
+            />
           </div>
         </div>
 
@@ -104,6 +140,13 @@
             </select>
           </div>
         </div>
+        <!-- Статус: все устройства добавлены -->
+        <div v-if="allDevicesAdded" class="modal-status modal-status--success">
+          <span>Все устройства добавлены на монтажную панель</span>
+        </div>
+        <div v-else class="modal-status modal-status--not-success">
+          <span>Не все устройства добавлены на монтажную панель!</span>
+        </div>
 
         <div class="sidebar-section" v-if="pointA && pointB">
           <h3 class="section-title">Измерение</h3>
@@ -136,77 +179,6 @@
           </div>
         </div>
 
-        <!-- Добавление устройств -->
-        <div class="sidebar-section">
-          <h3 class="section-title">Добавить устройства</h3>
-          <div class="device-selection-list">
-            <div
-              v-for="dev in devicePalette"
-              :key="dev.id"
-              :class="[
-                'device-selection-item',
-                { 'device-selection-item--complete': isDeviceFullyUsed(dev.id) },
-              ]"
-            >
-              <div class="device-selection-info">
-                <input
-                  type="checkbox"
-                  :id="`dev-check-${dev.id}`"
-                  v-model="selectedDevices[dev.id]"
-                  :disabled="isDeviceFullyUsed(dev.id)"
-                  class="device-checkbox"
-                />
-                <label :for="`dev-check-${dev.id}`" class="device-selection-name">
-                  {{ dev.name }}
-                </label>
-                <span class="device-selection-size">{{ dev.w }}×{{ dev.h }}</span>
-              </div>
-              <div class="device-selection-controls" v-if="!isDeviceFullyUsed(dev.id)">
-                <span class="device-selection-available">
-                  На панели: {{ getDeviceUsedCount(dev.id) }}/{{ dev.quantity }}
-                </span>
-                <div class="quantity-control">
-                  <button
-                    @click="decrementQuantity(dev.id)"
-                    class="qty-btn"
-                    :disabled="!selectedDevices[dev.id]"
-                  >
-                    −
-                  </button>
-                  <input
-                    type="number"
-                    v-model.number="deviceQuantities[dev.id]"
-                    class="qty-input"
-                    :min="1"
-                    :max="getAvailableQuantity(dev.id)"
-                    :disabled="!selectedDevices[dev.id]"
-                  />
-                  <button
-                    @click="incrementQuantity(dev.id)"
-                    class="qty-btn"
-                    :disabled="!selectedDevices[dev.id]"
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-              <span v-else class="fully-used-label">✓ Все добавлены</span>
-            </div>
-          </div>
-          <button @click="addSelectedDevices" class="action-button" :disabled="!canAddDevices">
-            <span class="button-icon">⚡</span>
-            <span>Добавить выбранные</span>
-          </button>
-        </div>
-
-        <!-- Статус устройств на панели -->
-        <div class="sidebar-section" v-if="allDevicesAdded">
-          <div class="status-indicator status-indicator--success">
-            <span class="status-icon">✓</span>
-            <span>Все устройства добавлены</span>
-          </div>
-        </div>
-
         <div class="sidebar-section" v-if="selectedItems.length > 1">
           <h3 class="section-title">Выбрано: {{ selectedItems.length }}</h3>
           <button @click="deleteSelectedItems" class="action-button action-button--danger">
@@ -218,6 +190,10 @@
         <div class="sidebar-section" v-if="selectedItem && selectedItems.length === 1">
           <h3 class="section-title">Свойства</h3>
           <div class="properties-grid">
+            <div class="property-item">
+              <span class="property-label">ID:</span>
+              <span class="property-value">{{ selectedItem.id }}</span>
+            </div>
             <div class="property-item">
               <span class="property-label">Тип:</span>
               <span class="property-value">{{ getItemTypeName(selectedItem.type) }}</span>
@@ -505,6 +481,88 @@
         </div>
       </main>
     </div>
+
+    <!-- Модальное окно добавления устройств -->
+    <Teleport to="body">
+      <div v-if="showDeviceModal" class="modal-overlay" @click.self="closeDeviceModal">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3 class="modal-title">Добавить устройства</h3>
+            <button @click="closeDeviceModal" class="modal-close" title="Закрыть">✕</button>
+          </div>
+
+          <div class="modal-body">
+            <!-- Список устройств -->
+            <div class="device-selection-list">
+              <div
+                v-for="dev in devicePalette"
+                :key="dev.id"
+                :class="[
+                  'device-selection-item',
+                  { 'device-selection-item--complete': isDeviceFullyUsed(dev.id) },
+                ]"
+              >
+                <div class="device-selection-info">
+                  <input
+                    type="checkbox"
+                    :id="`modal-dev-check-${dev.id}`"
+                    v-model="selectedDevices[dev.id]"
+                    :disabled="isDeviceFullyUsed(dev.id)"
+                    class="device-checkbox"
+                  />
+                  <label :for="`modal-dev-check-${dev.id}`" class="device-selection-name">
+                    {{ dev.name }}
+                  </label>
+                  <span class="device-selection-size">{{ dev.w }}×{{ dev.h }}</span>
+                </div>
+                <div class="device-selection-controls" v-if="!isDeviceFullyUsed(dev.id)">
+                  <span class="device-selection-available">
+                    На панели: {{ getDeviceUsedCount(dev.id) }}/{{ dev.quantity }}
+                  </span>
+                  <div class="quantity-control">
+                    <button
+                      @click="decrementQuantity(dev.id)"
+                      class="qty-btn"
+                      :disabled="!selectedDevices[dev.id]"
+                    >
+                      −
+                    </button>
+                    <input
+                      type="number"
+                      v-model.number="deviceQuantities[dev.id]"
+                      class="qty-input"
+                      :min="1"
+                      :max="getAvailableQuantity(dev.id)"
+                      :disabled="!selectedDevices[dev.id]"
+                    />
+                    <button
+                      @click="incrementQuantity(dev.id)"
+                      class="qty-btn"
+                      :disabled="!selectedDevices[dev.id]"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+                <span v-else class="fully-used-label">✓ Все добавлены</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button
+              @click="addSelectedDevicesAndClose"
+              class="modal-btn modal-btn--primary"
+              :disabled="!canAddDevices"
+            >
+              <span class="button-icon">⚡</span>
+              <span>Добавить выбранные</span>
+            </button>
+            <button @click="closeDeviceModal" class="modal-btn modal-btn--secondary">Отмена</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -530,6 +588,17 @@ const zoomPercent = ref(40)
 const isGridEnabled = ref(true)
 const gridSizeMm = ref(10)
 
+// --- МОДАЛЬНОЕ ОКНО УСТРОЙСТВ ---
+const showDeviceModal = ref(false)
+
+const openDeviceModal = () => {
+  showDeviceModal.value = true
+}
+
+const closeDeviceModal = () => {
+  showDeviceModal.value = false
+}
+
 // --- ДАННЫЕ ---
 const panels = [
   { id: 1, name: 'Малая', w: 500, h: 500 },
@@ -540,12 +609,14 @@ const panels = [
   { id: 6, name: 'Мега', w: 1000, h: 1200 },
 ]
 
+// ID устройств — числовые по порядку (1, 2, 3, 4, 5, 6)
 const devicePalette = [
-  { id: 'dev1', name: 'Автомат 1P', w: 18, h: 70, quantity: 5 },
-  { id: 'dev2', name: 'Контактор', w: 36, h: 70, quantity: 3 },
-  { id: 'dev3', name: 'Реле', w: 50, h: 50, quantity: 4 },
-  { id: 'dev4', name: 'Блок питания', w: 90, h: 90, quantity: 2 },
-  { id: 'dev5', name: 'ПЧ', w: 190, h: 260, quantity: 1 },
+  { id: 1, name: 'Автомат 1P', w: 18, h: 70, quantity: 5 },
+  { id: 2, name: 'Контактор', w: 36, h: 70, quantity: 3 },
+  { id: 3, name: 'Реле', w: 50, h: 50, quantity: 4 },
+  { id: 4, name: 'Блок питания', w: 90, h: 90, quantity: 2 },
+  { id: 5, name: 'ПЧ', w: 190, h: 260, quantity: 1 },
+  { id: 6, name: 'ПЛК F5-40MR-DC', w: 172, h: 90, quantity: 1 },
 ]
 
 const selectedPanelId = ref(1)
@@ -652,26 +723,96 @@ const decrementQuantity = (devId) => {
   }
 }
 
-// --- Вспомогательная функция для поиска свободного места в рабочей зоне ---
-const findFreePosition = (width, height) => {
+// --- Функция для поиска центральной позиции в рабочей области ---
+const findCenterPosition = (width, height) => {
   const margin = panelMarginMm.value
-  const startX = margin
-  const startY = margin
+  const workAreaWidth = panelWidthMm.value - 2 * margin
+  const workAreaHeight = panelHeightMm.value - 2 * margin
 
-  if (isValidPosition({ x: startX, y: startY, w: width, h: height })) {
-    return { x: startX, y: startY }
+  const centerX = margin + (workAreaWidth - width) / 2
+  const centerY = margin + (workAreaHeight - height) / 2
+
+  return { x: centerX, y: centerY }
+}
+
+// --- Вспомогательная функция для поиска свободного места в рабочей зоне ---
+const findFreePosition = (width, height, itemType = 'device') => {
+  // Для коробов и DIN-реек — центральная позиция без проверки коллизий
+  if (itemType === 'box' || itemType === 'din-rail') {
+    return findCenterPosition(width, height)
   }
 
-  for (let y = startY; y <= panelHeightMm.value - margin - height; y++) {
-    for (let x = startX; x <= panelWidthMm.value - margin - width; x++) {
-      const testItem = { x, y, w: width, h: height }
-      if (isValidPosition(testItem)) {
-        return { x, y }
+  // Для устройств — размещение с выравниванием по сетке
+  const margin = panelMarginMm.value
+  const gridStep = isGridEnabled.value ? gridSizeMm.value : BASE_STEP_MM
+
+  let currentX = Math.ceil(margin / gridStep) * gridStep
+  let currentY = Math.ceil(margin / gridStep) * gridStep
+
+  const maxIterations = 10000
+  let iterations = 0
+
+  while (iterations < maxIterations) {
+    iterations++
+
+    // Если выходит за правую границу — перенос на новую строку
+    if (currentX + width > panelWidthMm.value - margin) {
+      currentX = Math.ceil(margin / gridStep) * gridStep
+      currentY = Math.ceil((currentY + height) / gridStep) * gridStep
+    }
+
+    // Если выходит за нижнюю границу — нет места
+    if (currentY + height > panelHeightMm.value - margin) {
+      return null
+    }
+
+    // Проверяем коллизии ТОЛЬКО с устройствами и коробами (игнорируем DIN-рейки)
+    const testItem = { x: currentX, y: currentY, w: width, h: height }
+    let hasCollision = false
+    let collisionItem = null
+
+    for (const existingItem of items.value) {
+      // Пропускаем DIN-рейки — устройства могут размещаться поверх них
+      if (existingItem.type === 'din-rail') {
+        continue
       }
+
+      if (checkCollision(testItem, existingItem)) {
+        hasCollision = true
+        collisionItem = existingItem
+        break
+      }
+    }
+
+    if (!hasCollision) {
+      return { x: currentX, y: currentY }
+    }
+
+    // Есть коллизия — сдвигаем вправо за элемент, выравнивая по сетке
+    const { w: collisionW } = getDisplaySize(collisionItem)
+    const endX = collisionItem.x + collisionW
+    currentX = Math.ceil(endX / gridStep) * gridStep
+
+    // Если endX уже кратно gridStep, сдвигаем на один шаг вперёд
+    if (currentX <= endX) {
+      currentX += gridStep
     }
   }
 
   return null
+}
+
+// Простая проверка пересечения (без зазора — зазор обеспечивается выравниванием по сетке)
+const checkCollision = (item1, item2) => {
+  const { w: w1, h: h1 } = getDisplaySize(item1)
+  const { w: w2, h: h2 } = getDisplaySize(item2)
+
+  return !(
+    item1.x + w1 <= item2.x ||
+    item2.x + w2 <= item1.x ||
+    item1.y + h1 <= item2.y ||
+    item2.y + h2 <= item1.y
+  )
 }
 
 const addSelectedDevices = () => {
@@ -692,7 +833,7 @@ const addSelectedDevices = () => {
     const itemWidth = dev.w
     const itemHeight = dev.h
 
-    const pos = findFreePosition(itemWidth, itemHeight)
+    const pos = findFreePosition(itemWidth, itemHeight, 'device')
 
     if (!pos) {
       alert(`Не удалось разместить "${dev.name}". Нет свободного места.`)
@@ -718,6 +859,12 @@ const addSelectedDevices = () => {
     selectedDevices[dev.id] = false
     deviceQuantities[dev.id] = 1
   })
+}
+
+// Добавление устройств с закрытием модального окна
+const addSelectedDevicesAndClose = () => {
+  addSelectedDevices()
+  closeDeviceModal()
 }
 
 // --- СОСТОЯНИЕ ИЗМЕРЕНИЯ ---
@@ -822,11 +969,20 @@ const getItemStyle = (item) => {
   const isSelected = selectedItems.value.includes(item)
   const { w, h } = getDisplaySize(item)
 
-  let zIndex = 5
+  // Иерархия z-index:
+  // - DIN-рейка: 1 (не выделена)
+  // - Короб: 15
+  // - Устройство: 20 (всегда поверх DIN-реек)
+  // - Выделенный элемент любого типа: 50 (поверх всего)
+  let zIndex = 15
   if (item.type === 'din-rail') {
-    zIndex = isSelected ? 10 : 1
-  } else if (isSelected) {
-    zIndex = 10
+    zIndex = 1
+  } else if (item.type === 'device') {
+    zIndex = 20
+  }
+
+  if (isSelected) {
+    zIndex = 50
   }
 
   return {
@@ -1133,7 +1289,7 @@ const addBox = () => {
     rotated: false,
   }
 
-  const pos = findFreePosition(newBox.w, newBox.h)
+  const pos = findFreePosition(newBox.w, newBox.h, 'box')
 
   if (pos) {
     newBox.x = pos.x
@@ -1159,7 +1315,7 @@ const addDinRail = () => {
     rotated: false,
   }
 
-  const pos = findFreePosition(newRail.w, newRail.h)
+  const pos = findFreePosition(newRail.w, newRail.h, 'din-rail')
 
   if (pos) {
     newRail.x = pos.x
@@ -1192,7 +1348,7 @@ const copyItem = () => {
     rotated: original.rotated,
   }
 
-  const pos = findFreePosition(w, h)
+  const pos = findFreePosition(w, h, original.type)
 
   if (pos) {
     copiedItem.x = pos.x
@@ -1456,6 +1612,153 @@ const onPointerUp = () => {
   window.removeEventListener('pointerup', onPointerUp)
 }
 
+// --- СОХРАНЕНИЕ И ЗАГРУЗКА ПРОЕКТА ---
+const fileInput = ref(null)
+
+const triggerImport = () => {
+  fileInput.value?.click()
+}
+
+// Формируем данные проекта для сохранения
+const buildProjectData = () => {
+  return {
+    version: '1.0',
+    timestamp: new Date().toISOString(),
+    selectedPanelId: selectedPanelId.value,
+    panelMarginMm: panelMarginMm.value,
+    zoomPercent: zoomPercent.value,
+    isGridEnabled: isGridEnabled.value,
+    gridSizeMm: gridSizeMm.value,
+    items: items.value.map((item) => ({ ...item })),
+    boxCounter: boxCounter,
+    railCounter: railCounter,
+    nextId: nextId,
+  }
+}
+
+// Fallback для браузеров без поддержки File System Access API
+const fallbackExport = () => {
+  const projectData = buildProjectData()
+  const jsonString = JSON.stringify(projectData, null, 2)
+  const blob = new Blob([jsonString], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `panel-project-${Date.now()}.json`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
+// Сохранение проекта через нативный диалог сохранения файла
+const exportProject = async () => {
+  const projectData = buildProjectData()
+  const jsonString = JSON.stringify(projectData, null, 2)
+
+  // Проверяем поддержку File System Access API
+  if ('showSaveFilePicker' in window) {
+    try {
+      const fileHandle = await window.showSaveFilePicker({
+        suggestedName: `panel-project-${Date.now()}.json`,
+        types: [
+          {
+            description: 'Файл проекта панели',
+            accept: { 'application/json': ['.json'] },
+          },
+        ],
+      })
+
+      const writable = await fileHandle.createWritable()
+      await writable.write(jsonString)
+      await writable.close()
+    } catch (error) {
+      // Пользователь отменил сохранение (AbortError) — ничего не делаем
+      if (error.name !== 'AbortError') {
+        console.error('Ошибка при сохранении файла:', error)
+        alert('Ошибка при сохранении файла: ' + error.message)
+      }
+    }
+  } else {
+    // Fallback для неподдерживаемых браузеров
+    fallbackExport()
+  }
+}
+
+const importProject = (event) => {
+  const file = event.target.files[0]
+  if (!file) return
+
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result)
+
+      // Валидация версии
+      if (data.version !== '1.0') {
+        alert('Неподдерживаемая версия формата проекта')
+        return
+      }
+
+      // Восстановление состояния
+      selectedPanelId.value = data.selectedPanelId || 1
+      panelMarginMm.value = data.panelMarginMm ?? 25
+      zoomPercent.value = data.zoomPercent ?? 40
+      isGridEnabled.value = data.isGridEnabled ?? true
+      gridSizeMm.value = data.gridSizeMm ?? 10
+      items.value = data.items || []
+      boxCounter = data.boxCounter || 1
+      railCounter = data.railCounter || 1
+      nextId =
+        data.nextId || (items.value.length > 0 ? Math.max(...items.value.map((i) => i.id)) + 1 : 1)
+
+      // Сброс выделения
+      selectedItem.value = null
+      selectedItems.value = []
+      resetMeasure()
+    } catch (error) {
+      alert('Ошибка при загрузке файла: ' + error.message)
+    }
+  }
+
+  reader.onerror = () => {
+    alert('Ошибка чтения файла')
+  }
+
+  reader.readAsText(file)
+
+  // Сброс input, чтобы можно было загрузить тот же файл повторно
+  event.target.value = ''
+}
+
+// --- ОЧИСТКА ПРОЕКТА ---
+const clearProject = () => {
+  // Если проект пустой — просто выходим
+  if (items.value.length === 0) {
+    return
+  }
+
+  const confirmed = confirm(
+    'Вы уверены, что хотите очистить проект?\n\nВсе элементы (короба, DIN-рейки, устройства) будут удалены. Это действие нельзя отменить.',
+  )
+
+  if (!confirmed) return
+
+  // Очистка всех элементов
+  items.value = []
+  selectedItem.value = null
+  selectedItems.value = []
+
+  // Сброс счётчиков
+  nextId = 1
+  boxCounter = 1
+  railCounter = 1
+
+  // Сброс измерения
+  resetMeasure()
+}
+
 onUnmounted(() => {
   window.removeEventListener('pointermove', onPointerMove)
   window.removeEventListener('pointerup', onPointerUp)
@@ -1478,7 +1781,7 @@ onUnmounted(() => {
 /* Основной layout */
 .editor-layout {
   display: grid;
-  grid-template-columns: 280px 1fr;
+  grid-template-columns: 350px 1fr;
   gap: 16px;
   height: calc(100vh - 32px);
 }
@@ -1615,6 +1918,7 @@ onUnmounted(() => {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
+  justify-content: center;
 }
 
 .icon-button {
@@ -1651,9 +1955,9 @@ onUnmounted(() => {
 }
 
 .icon-button--add {
-  background-color: #f59e0b;
-  color: white;
-  border-color: #f59e0b;
+  background-color: #ffffff;
+  color: rgb(12, 12, 12);
+  border-color: #e6e6e6;
 }
 
 .icon-button--add:hover {
@@ -1663,15 +1967,63 @@ onUnmounted(() => {
 }
 
 .icon-button--rail {
-  background-color: #64748b;
-  color: white;
-  border-color: #64748b;
+  background-color: #ffffff;
+  color: rgb(0, 0, 0);
+  border-color: #e6e6e6;
 }
 
 .icon-button--rail:hover {
   background-color: #475569;
   border-color: #475569;
   box-shadow: 0 4px 12px rgba(100, 116, 139, 0.3);
+}
+
+.icon-button--device {
+  background-color: #ffffff;
+  color: rgb(0, 0, 0);
+  border-color: #e6e6e6;
+}
+
+.icon-button--device:hover {
+  background-color: #8b5cf6;
+  border-color: #8b5cf6;
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+}
+
+.icon-button--save {
+  background-color: #ffffff;
+  color: white;
+  border-color: #e6e6e6;
+}
+
+.icon-button--save:hover {
+  background-color: #059669;
+  border-color: #059669;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.icon-button--load {
+  background-color: #ffffff;
+  color: white;
+  border-color: #e6e6e6;
+}
+
+.icon-button--load:hover {
+  background-color: #2563eb;
+  border-color: #2563eb;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.icon-button--clear {
+  background-color: #ffffff;
+  color: white;
+  border-color: #e6e6e6;
+}
+
+.icon-button--clear:hover {
+  background-color: #dc2626;
+  border-color: #dc2626;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
 }
 
 /* Сетка */
@@ -1687,6 +2039,7 @@ onUnmounted(() => {
   gap: 8px;
   cursor: pointer;
   user-select: none;
+  margin-bottom: 0px;
 }
 
 .grid-checkbox {
@@ -1780,171 +2133,41 @@ onUnmounted(() => {
   font-family: 'Courier New', monospace;
 }
 
-/* Выбор устройств */
-.device-selection-list {
+/* Свойства */
+.properties-grid {
   display: grid;
-  gap: 8px;
-  max-height: 400px;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-
-.device-selection-list::-webkit-scrollbar {
-  width: 6px;
-}
-
-.device-selection-list::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 3px;
-}
-
-.device-selection-list::-webkit-scrollbar-thumb {
-  background: #cbd5e0;
-  border-radius: 3px;
-}
-
-.device-selection-list::-webkit-scrollbar-thumb:hover {
-  background: #a0aec0;
-}
-
-.device-selection-item {
-  display: flex;
-  flex-direction: column;
   gap: 6px;
   padding: 10px;
-  border: 1px solid rgb(230, 230, 230);
+  background-color: #f7fafc;
   border-radius: 6px;
-  transition: all 0.2s;
+  border: 1px solid rgb(230, 230, 230);
 }
 
-.device-selection-item:hover {
-  border-color: #cbd5e0;
-  background: #f7fafc;
-}
-
-.device-selection-item--complete {
-  background-color: #f0fdf4;
-  border-color: #86efac;
-}
-
-.device-selection-info {
+.property-item {
   display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.device-checkbox {
-  width: 16px;
-  height: 16px;
-  accent-color: #6366f1;
-  cursor: pointer;
-}
-
-.device-selection-name {
-  font-size: 13px;
-  font-weight: 500;
-  color: #2d3748;
-  cursor: pointer;
-  flex: 1;
-}
-
-.device-selection-size {
-  font-size: 11px;
-  color: #718096;
-}
-
-.device-selection-controls {
-  display: flex;
-  align-items: center;
   justify-content: space-between;
-  padding-left: 24px;
-}
-
-.device-selection-available {
-  font-size: 11px;
-  color: #718096;
-}
-
-.quantity-control {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.qty-btn {
-  width: 24px;
-  height: 24px;
-  border: 1px solid rgb(230, 230, 230);
-  background: white;
-  border-radius: 4px;
-  font-size: 14px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-  color: #4a5568;
-}
-
-.qty-btn:hover:not(:disabled) {
-  background: #f7fafc;
-  border-color: #cbd5e0;
-}
-
-.qty-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.qty-input {
-  width: 45px;
-  height: 24px;
-  border: 1px solid rgb(230, 230, 230);
-  border-radius: 4px;
-  text-align: center;
   font-size: 12px;
+}
+
+.property-label {
+  color: #718096;
   font-weight: 500;
+}
+
+.property-value {
   color: #2d3748;
-}
-
-.qty-input:focus {
-  outline: none;
-  border-color: #6366f1;
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
-}
-
-.qty-input:disabled {
-  background: #f7fafc;
-  opacity: 0.6;
-}
-
-.fully-used-label {
-  font-size: 11px;
-  color: #10b981;
   font-weight: 600;
-  padding-left: 24px;
 }
 
-/* Статус */
-.status-indicator {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  border-radius: 6px;
-  font-size: 13px;
+.rotation-badge {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 1px 6px;
+  background-color: #e0e7ff;
+  color: #4338ca;
+  border-radius: 3px;
+  font-size: 10px;
   font-weight: 500;
-}
-
-.status-indicator--success {
-  background-color: #d1fae5;
-  color: #065f46;
-  border: 1px solid #86efac;
-}
-
-.status-icon {
-  font-size: 16px;
-  font-weight: 700;
 }
 
 /* Кнопки действий */
@@ -1986,43 +2209,6 @@ onUnmounted(() => {
 
 .button-icon {
   font-size: 15px;
-}
-
-/* Свойства */
-.properties-grid {
-  display: grid;
-  gap: 6px;
-  padding: 10px;
-  background-color: #f7fafc;
-  border-radius: 6px;
-  border: 1px solid rgb(230, 230, 230);
-}
-
-.property-item {
-  display: flex;
-  justify-content: space-between;
-  font-size: 12px;
-}
-
-.property-label {
-  color: #718096;
-  font-weight: 500;
-}
-
-.property-value {
-  color: #2d3748;
-  font-weight: 600;
-}
-
-.rotation-badge {
-  display: inline-block;
-  margin-left: 4px;
-  padding: 1px 6px;
-  background-color: #e0e7ff;
-  color: #4338ca;
-  border-radius: 3px;
-  font-size: 10px;
-  font-weight: 500;
 }
 
 /* Холст */
@@ -2199,21 +2385,22 @@ onUnmounted(() => {
   user-select: none;
   transition: all 0.2s;
   overflow: visible;
-  mix-blend-mode: multiply;
 }
 
 .panel-item.device {
-  background-color: rgba(99, 102, 241, 0.85);
+  background-color: rgba(99, 102, 241, 0.95);
   color: white;
   border-color: #6366f1;
   border-radius: 4px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  mix-blend-mode: normal;
 }
 
 .panel-item.box {
   background-color: rgba(251, 191, 36, 0.3);
   border: 2px dashed #f59e0b;
   border-radius: 2px;
+  mix-blend-mode: multiply;
 }
 
 /* DIN-рейка */
@@ -2240,8 +2427,8 @@ onUnmounted(() => {
 .panel-item.selected {
   outline: 2px solid #ef4444;
   outline-offset: 2px;
-  z-index: 10;
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
+  z-index: 50 !important;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
 }
 
 .item-label {
@@ -2339,5 +2526,283 @@ onUnmounted(() => {
   top: 50%;
   transform: translateY(-50%);
   cursor: ew-resize;
+}
+
+/* ==================== МОДАЛЬНОЕ ОКНО ==================== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.modal-content {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  width: 90%;
+  max-width: 600px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid rgb(230, 230, 230);
+}
+
+.modal-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+  color: #2d3748;
+}
+
+.modal-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  color: #718096;
+}
+
+.modal-close:hover {
+  background: #f7fafc;
+  color: #2d3748;
+}
+
+.modal-body {
+  padding: 20px 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.modal-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 12px;
+}
+
+.modal-status--success {
+  background-color: #d1fae5;
+  color: #065f46;
+  border: 1px solid #86efac;
+}
+
+.modal-status--not-success {
+  background-color: #fad1d1;
+  color: #5f0606;
+  border: 1px solid #ef8686;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid rgb(230, 230, 230);
+}
+
+.modal-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.modal-btn--primary {
+  background: #6366f1;
+  color: white;
+}
+
+.modal-btn--primary:hover:not(:disabled) {
+  background: #4f46e5;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.modal-btn--primary:disabled {
+  background: #cbd5e0;
+  cursor: not-allowed;
+}
+
+.modal-btn--secondary {
+  background: #f7fafc;
+  color: #4a5568;
+  border: 1px solid rgb(230, 230, 230);
+}
+
+.modal-btn--secondary:hover {
+  background: #edf2f7;
+}
+
+/* Список устройств в модалке */
+.device-selection-list {
+  display: grid;
+  gap: 8px;
+}
+
+.device-selection-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid rgb(230, 230, 230);
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.device-selection-item:hover {
+  border-color: #cbd5e0;
+  background: #f7fafc;
+}
+
+.device-selection-item--complete {
+  background-color: #f0fdf4;
+  border-color: #86efac;
+}
+
+.device-selection-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.device-checkbox {
+  width: 16px;
+  height: 16px;
+  accent-color: #6366f1;
+  cursor: pointer;
+}
+
+.device-selection-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: #2d3748;
+  cursor: pointer;
+  flex: 1;
+}
+
+.device-selection-size {
+  font-size: 11px;
+  color: #718096;
+}
+
+.device-selection-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-left: 24px;
+}
+
+.device-selection-available {
+  font-size: 11px;
+  color: #718096;
+}
+
+.quantity-control {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.qty-btn {
+  width: 24px;
+  height: 24px;
+  border: 1px solid rgb(230, 230, 230);
+  background: white;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  color: #4a5568;
+}
+
+.qty-btn:hover:not(:disabled) {
+  background: #f7fafc;
+  border-color: #cbd5e0;
+}
+
+.qty-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.qty-input {
+  width: 45px;
+  height: 24px;
+  border: 1px solid rgb(230, 230, 230);
+  border-radius: 4px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 500;
+  color: #2d3748;
+}
+
+.qty-input:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+}
+
+.qty-input:disabled {
+  background: #f7fafc;
+  opacity: 0.6;
+}
+
+.fully-used-label {
+  font-size: 11px;
+  color: #10b981;
+  font-weight: 600;
+  padding-left: 24px;
 }
 </style>
