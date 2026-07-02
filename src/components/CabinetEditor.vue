@@ -25,11 +25,11 @@
 
         <div class="sidebar-section">
           <div class="form-group">
-            <label>Масштаб: {{ zoomPercent }}%</label>
+            <label>Масштаб: {{ zoomPercent * 2 }}%</label>
             <input
               type="range"
-              min="30"
-              max="200"
+              min="10"
+              max="50"
               step="5"
               v-model.number="zoomPercent"
               class="zoom-slider"
@@ -58,6 +58,50 @@
             <button @click="addBox" class="icon-button icon-button--add" title="Добавить короб">
               ▢
             </button>
+            <button
+              @click="addDinRail"
+              class="icon-button icon-button--rail"
+              title="Добавить DIN-рейку"
+            >
+              ═
+            </button>
+          </div>
+        </div>
+
+        <!-- Настройки панели -->
+        <div class="sidebar-section">
+          <h3 class="section-title">Настройки панели</h3>
+          <div class="form-group">
+            <label for="panel-margin">Зона пустоты (мм)</label>
+            <input
+              id="panel-margin"
+              type="number"
+              min="0"
+              max="100"
+              step="5"
+              v-model.number="panelMarginMm"
+              class="form-input"
+            />
+          </div>
+        </div>
+
+        <!-- Сетка -->
+        <div class="sidebar-section">
+          <div class="grid-controls">
+            <label class="grid-toggle">
+              <input type="checkbox" v-model="isGridEnabled" class="grid-checkbox" />
+              <span class="grid-label">Сетка</span>
+            </label>
+            <select
+              v-if="isGridEnabled"
+              v-model.number="gridSizeMm"
+              class="form-select grid-size-select"
+            >
+              <option :value="5">5 мм</option>
+              <option :value="10">10 мм</option>
+              <option :value="20">20 мм</option>
+              <option :value="50">50 мм</option>
+            </select>
           </div>
         </div>
 
@@ -176,20 +220,19 @@
           <div class="properties-grid">
             <div class="property-item">
               <span class="property-label">Тип:</span>
-              <span class="property-value">{{
-                selectedItem.type === 'device' ? 'Устройство' : 'Короб'
-              }}</span>
+              <span class="property-value">{{ getItemTypeName(selectedItem.type) }}</span>
             </div>
             <div class="property-item">
               <span class="property-label">Размер:</span>
-              <span class="property-value"
-                >{{ selectedItem.w * GRID_STEP_MM }}×{{ selectedItem.h * GRID_STEP_MM }} мм</span
-              >
+              <span class="property-value">
+                {{ selectedItem.w }}×{{ selectedItem.h }} мм
+                <span v-if="selectedItem.rotated" class="rotation-badge">(повёрнуто)</span>
+              </span>
             </div>
             <div class="property-item">
               <span class="property-label">Позиция:</span>
               <span class="property-value"
-                >X:{{ selectedItem.x * GRID_STEP_MM }}, Y:{{ selectedItem.y * GRID_STEP_MM }}</span
+                >X:{{ selectedItem.x }} мм, Y:{{ selectedItem.y }} мм</span
               >
             </div>
           </div>
@@ -198,177 +241,265 @@
 
       <!-- Основная область (Холст) -->
       <main class="editor-canvas-wrapper" ref="canvasWrapper">
-        <div class="canvas-scaler" :style="canvasScalerStyle">
-          <div class="canvas-container" :style="containerStyle">
-            <!-- Разметка по оси Y (слева) -->
-            <div class="ruler ruler-y">
-              <div
-                v-for="mark in yMarks"
-                :key="mark.id"
-                class="ruler-mark"
-                :style="getMarkStyle(mark.value, 'y')"
-              >
-                <span class="mark-label">{{ mark.value * GRID_STEP_MM }}</span>
-              </div>
-            </div>
-
-            <!-- Разметка по оси X (сверху) -->
-            <div class="ruler ruler-x">
-              <div
-                v-for="mark in xMarks"
-                :key="mark.id"
-                class="ruler-mark"
-                :style="getMarkStyle(mark.value, 'x')"
-              >
-                <span class="mark-label">{{ mark.value * GRID_STEP_MM }}</span>
-              </div>
-            </div>
-
-            <!-- Холст с панелью -->
+        <div class="canvas-container" :style="containerStyle">
+          <!-- Разметка по оси Y (слева) -->
+          <div class="ruler ruler-y" :style="rulerYStyle">
             <div
-              class="canvas"
-              :class="{ 'measure-mode': isMeasuring, 'select-mode': isSelecting }"
-              :style="canvasStyle"
-              @click="onCanvasClick"
-              @mousemove="onCanvasMouseMove"
-              @mousedown="onCanvasMouseDown"
+              v-for="mark in yMarks"
+              :key="mark.id"
+              class="ruler-mark"
+              :style="getMarkStyle(mark.value, 'y')"
             >
-              <!-- SVG для отрисовки линии измерения и рамки выделения -->
-              <svg
-                v-if="pointA || isMeasuring || (isSelecting && selectionStart)"
-                class="measure-svg"
-                :width="panelGridW * PIXELS_PER_GRID_UNIT"
-                :height="panelGridH * PIXELS_PER_GRID_UNIT"
-              >
+              <span class="mark-label">{{ mark.value }}</span>
+            </div>
+          </div>
+
+          <!-- Разметка по оси X (сверху) -->
+          <div class="ruler ruler-x" :style="rulerXStyle">
+            <div
+              v-for="mark in xMarks"
+              :key="mark.id"
+              class="ruler-mark"
+              :style="getMarkStyle(mark.value, 'x')"
+            >
+              <span class="mark-label">{{ mark.value }}</span>
+            </div>
+          </div>
+
+          <!-- Холст с панелью -->
+          <div
+            class="canvas"
+            :class="{
+              'measure-mode': isMeasuring,
+              'select-mode': isSelecting,
+              'grid-enabled': isGridEnabled,
+            }"
+            :style="canvasStyle"
+            @click="onCanvasClick"
+            @mousemove="onCanvasMouseMove"
+            @mousedown="onCanvasMouseDown"
+          >
+            <!-- SVG для отрисовки линии измерения, рамки выделения и зоны пустоты -->
+            <svg class="measure-svg" :width="panelWidthPx" :height="panelHeightPx">
+              <!-- Зона пустоты (недоступная область) -->
+              <g v-if="panelMarginMm > 0" class="margin-zone">
+                <!-- Верхняя полоса -->
                 <rect
-                  v-if="isSelecting && selectionStart && selectionCurrent"
-                  :x="Math.min(selectionStart.x, selectionCurrent.x)"
-                  :y="Math.min(selectionStart.y, selectionCurrent.y)"
-                  :width="Math.abs(selectionCurrent.x - selectionStart.x)"
-                  :height="Math.abs(selectionCurrent.y - selectionStart.y)"
-                  fill="rgba(59, 130, 246, 0.15)"
-                  stroke="#3b82f6"
-                  stroke-width="2"
+                  x="0"
+                  y="0"
+                  :width="panelWidthPx"
+                  :height="panelMarginMm * PIXELS_PER_MM * currentScale"
+                  fill="rgba(239, 68, 68, 0.1)"
+                />
+                <!-- Нижняя полоса -->
+                <rect
+                  x="0"
+                  :y="(panelHeightMm - panelMarginMm) * PIXELS_PER_MM * currentScale"
+                  :width="panelWidthPx"
+                  :height="panelMarginMm * PIXELS_PER_MM * currentScale"
+                  fill="rgba(239, 68, 68, 0.1)"
+                />
+                <!-- Левая полоса -->
+                <rect
+                  x="0"
+                  :y="panelMarginMm * PIXELS_PER_MM * currentScale"
+                  :width="panelMarginMm * PIXELS_PER_MM * currentScale"
+                  :height="(panelHeightMm - 2 * panelMarginMm) * PIXELS_PER_MM * currentScale"
+                  fill="rgba(239, 68, 68, 0.1)"
+                />
+                <!-- Правая полоса -->
+                <rect
+                  :x="(panelWidthMm - panelMarginMm) * PIXELS_PER_MM * currentScale"
+                  :y="panelMarginMm * PIXELS_PER_MM * currentScale"
+                  :width="panelMarginMm * PIXELS_PER_MM * currentScale"
+                  :height="(panelHeightMm - 2 * panelMarginMm) * PIXELS_PER_MM * currentScale"
+                  fill="rgba(239, 68, 68, 0.1)"
+                />
+                <!-- Внутренняя рамка рабочей зоны -->
+                <rect
+                  :x="panelMarginMm * PIXELS_PER_MM * currentScale"
+                  :y="panelMarginMm * PIXELS_PER_MM * currentScale"
+                  :width="(panelWidthMm - 2 * panelMarginMm) * PIXELS_PER_MM * currentScale"
+                  :height="(panelHeightMm - 2 * panelMarginMm) * PIXELS_PER_MM * currentScale"
+                  fill="none"
+                  stroke="rgba(239, 68, 68, 0.3)"
+                  stroke-width="1"
                   stroke-dasharray="4 4"
                 />
-                <line
-                  v-if="isMeasuring && pointA && previewPoint"
-                  :x1="mmToPx(pointA.x)"
-                  :y1="mmToPx(pointA.y)"
-                  :x2="mmToPx(previewPoint.x)"
-                  :y2="mmToPx(previewPoint.y)"
-                  stroke="#6366f1"
-                  stroke-width="1.5"
-                  stroke-dasharray="4 4"
-                  opacity="0.7"
-                />
-                <line
-                  v-if="pointA && pointB"
-                  :x1="mmToPx(pointA.x)"
-                  :y1="mmToPx(pointA.y)"
-                  :x2="mmToPx(pointB.x)"
-                  :y2="mmToPx(pointB.y)"
-                  stroke="#6366f1"
-                  stroke-width="2"
-                  stroke-dasharray="6 3"
-                />
-                <circle
-                  v-if="pointA"
-                  :cx="mmToPx(pointA.x)"
-                  :cy="mmToPx(pointA.y)"
-                  r="5"
-                  fill="#6366f1"
-                  stroke="white"
-                  stroke-width="2"
-                />
-                <circle
-                  v-if="pointB"
-                  :cx="mmToPx(pointB.x)"
-                  :cy="mmToPx(pointB.y)"
-                  r="5"
-                  fill="#6366f1"
-                  stroke="white"
-                  stroke-width="2"
-                />
-              </svg>
+              </g>
 
-              <!-- Плавающие кнопки действий для выделенного элемента -->
-              <div
-                v-if="selectedItems.length === 1 && selectedItem"
-                class="floating-actions"
-                :style="floatingActionsStyle"
+              <rect
+                v-if="isSelecting && selectionStart && selectionCurrent"
+                :x="Math.min(selectionStart.x, selectionCurrent.x)"
+                :y="Math.min(selectionStart.y, selectionCurrent.y)"
+                :width="Math.abs(selectionCurrent.x - selectionStart.x)"
+                :height="Math.abs(selectionCurrent.y - selectionStart.y)"
+                fill="rgba(59, 130, 246, 0.15)"
+                stroke="#3b82f6"
+                stroke-width="2"
+                stroke-dasharray="4 4"
+              />
+              <line
+                v-if="isMeasuring && pointA && previewPoint"
+                :x1="mmToPx(pointA.x)"
+                :y1="mmToPx(pointA.y)"
+                :x2="mmToPx(previewPoint.x)"
+                :y2="mmToPx(previewPoint.y)"
+                stroke="#6366f1"
+                stroke-width="1.5"
+                stroke-dasharray="4 4"
+                opacity="0.7"
+              />
+              <line
+                v-if="pointA && pointB"
+                :x1="mmToPx(pointA.x)"
+                :y1="mmToPx(pointA.y)"
+                :x2="mmToPx(pointB.x)"
+                :y2="mmToPx(pointB.y)"
+                stroke="#6366f1"
+                stroke-width="2"
+                stroke-dasharray="6 3"
+              />
+              <circle
+                v-if="pointA"
+                :cx="mmToPx(pointA.x)"
+                :cy="mmToPx(pointA.y)"
+                r="5"
+                fill="#6366f1"
+                stroke="white"
+                stroke-width="2"
+              />
+              <circle
+                v-if="pointB"
+                :cx="mmToPx(pointB.x)"
+                :cy="mmToPx(pointB.y)"
+                r="5"
+                fill="#6366f1"
+                stroke="white"
+                stroke-width="2"
+              />
+            </svg>
+
+            <!-- Плавающие кнопки действий для выделенного элемента -->
+            <div
+              v-if="selectedItems.length === 1 && selectedItem"
+              class="floating-actions"
+              :style="floatingActionsStyle"
+            >
+              <button
+                v-if="selectedItem?.type === 'device' || selectedItem?.type === 'din-rail'"
+                @pointerdown.stop="rotateItem"
+                class="floating-btn floating-btn--rotate"
+                title="Повернуть на 90°"
               >
-                <button
-                  v-if="selectedItem?.type === 'box'"
-                  @pointerdown.stop="copyItem"
-                  class="floating-btn floating-btn--copy"
-                  title="Копировать"
-                >
-                  📋
-                </button>
-                <button
-                  @pointerdown.stop="deleteSelectedItems"
-                  class="floating-btn floating-btn--delete"
-                  title="Удалить"
-                >
-                  🗑
-                </button>
-              </div>
-
-              <!-- Tooltip с размерами рядом с курсором -->
-              <div v-if="resizeState && mousePosition" class="size-tooltip" :style="tooltipStyle">
-                {{ resizeState.item.w * GRID_STEP_MM }} × {{ resizeState.item.h * GRID_STEP_MM }} мм
-              </div>
-
-              <!-- Элементы на панели -->
-              <div
-                v-for="item in items"
-                :key="item.id"
-                :class="['panel-item', item.type, { selected: selectedItems.includes(item) }]"
-                :style="getItemStyle(item)"
-                @pointerdown="startDrag($event, item)"
+                ↻
+              </button>
+              <button
+                v-if="selectedItem?.type === 'box' || selectedItem?.type === 'din-rail'"
+                @pointerdown.stop="copyItem"
+                class="floating-btn floating-btn--copy"
+                title="Копировать"
               >
-                <div class="item-label">{{ item.name }}</div>
+                📋
+              </button>
+              <button
+                @pointerdown.stop="deleteSelectedItems"
+                class="floating-btn floating-btn--delete"
+                title="Удалить"
+              >
+                🗑
+              </button>
+            </div>
 
-                <template
-                  v-if="
-                    item.type === 'box' && selectedItems.length === 1 && selectedItems[0] === item
-                  "
-                >
+            <!-- Tooltip с размерами рядом с курсором -->
+            <div v-if="resizeState && mousePosition" class="size-tooltip" :style="tooltipStyle">
+              {{ resizeState.item.w }} × {{ resizeState.item.h }} мм
+            </div>
+
+            <!-- Элементы на панели -->
+            <div
+              v-for="item in items"
+              :key="item.id"
+              :class="[
+                'panel-item',
+                item.type,
+                { selected: selectedItems.includes(item) },
+                { 'din-rail-vertical': item.type === 'din-rail' && isRotated(item) },
+              ]"
+              :style="getItemStyle(item)"
+              @pointerdown="startDrag($event, item)"
+            >
+              <div class="item-label">{{ item.name }}</div>
+
+              <!-- Ручки изменения размера для коробов -->
+              <template
+                v-if="
+                  item.type === 'box' && selectedItems.length === 1 && selectedItems[0] === item
+                "
+              >
+                <div
+                  class="resize-handle resize-nw"
+                  @pointerdown.stop="startResize($event, item, 'nw')"
+                ></div>
+                <div
+                  class="resize-handle resize-n"
+                  @pointerdown.stop="startResize($event, item, 'n')"
+                ></div>
+                <div
+                  class="resize-handle resize-ne"
+                  @pointerdown.stop="startResize($event, item, 'ne')"
+                ></div>
+                <div
+                  class="resize-handle resize-e"
+                  @pointerdown.stop="startResize($event, item, 'e')"
+                ></div>
+                <div
+                  class="resize-handle resize-se"
+                  @pointerdown.stop="startResize($event, item, 'se')"
+                ></div>
+                <div
+                  class="resize-handle resize-s"
+                  @pointerdown.stop="startResize($event, item, 's')"
+                ></div>
+                <div
+                  class="resize-handle resize-sw"
+                  @pointerdown.stop="startResize($event, item, 'sw')"
+                ></div>
+                <div
+                  class="resize-handle resize-w"
+                  @pointerdown.stop="startResize($event, item, 'w')"
+                ></div>
+              </template>
+
+              <!-- Ручки изменения размера для DIN-рейки (только длина) -->
+              <template
+                v-if="
+                  item.type === 'din-rail' &&
+                  selectedItems.length === 1 &&
+                  selectedItems[0] === item
+                "
+              >
+                <template v-if="!isRotated(item)">
                   <div
-                    class="resize-handle resize-nw"
-                    @pointerdown.stop="startResize($event, item, 'nw')"
+                    class="resize-handle resize-w din-rail-handle"
+                    @pointerdown.stop="startResize($event, item, 'w')"
                   ></div>
                   <div
-                    class="resize-handle resize-n"
+                    class="resize-handle resize-e din-rail-handle"
+                    @pointerdown.stop="startResize($event, item, 'e')"
+                  ></div>
+                </template>
+                <template v-else>
+                  <div
+                    class="resize-handle resize-n din-rail-handle"
                     @pointerdown.stop="startResize($event, item, 'n')"
                   ></div>
                   <div
-                    class="resize-handle resize-ne"
-                    @pointerdown.stop="startResize($event, item, 'ne')"
-                  ></div>
-                  <div
-                    class="resize-handle resize-e"
-                    @pointerdown.stop="startResize($event, item, 'e')"
-                  ></div>
-                  <div
-                    class="resize-handle resize-se"
-                    @pointerdown.stop="startResize($event, item, 'se')"
-                  ></div>
-                  <div
-                    class="resize-handle resize-s"
+                    class="resize-handle resize-s din-rail-handle"
                     @pointerdown.stop="startResize($event, item, 's')"
                   ></div>
-                  <div
-                    class="resize-handle resize-sw"
-                    @pointerdown.stop="startResize($event, item, 'sw')"
-                  ></div>
-                  <div
-                    class="resize-handle resize-w"
-                    @pointerdown.stop="startResize($event, item, 'w')"
-                  ></div>
                 </template>
-              </div>
+              </template>
             </div>
           </div>
         </div>
@@ -381,12 +512,23 @@
 import { ref, computed, reactive, onUnmounted, watch } from 'vue'
 
 // --- КОНСТАНТЫ И НАСТРОЙКИ ---
-const GRID_STEP_MM = 5
-const PIXELS_PER_GRID_UNIT = 10
+const PIXELS_PER_MM = 2
+const BASE_STEP_MM = 1
 const RULER_SIZE = 30
 const RULER_MARK_STEP_MM = 50
 
-const zoomPercent = ref(80)
+const DIN_RAIL_WIDTH_MM = 35
+const DIN_RAIL_LENGTH_MM = 100
+const SNAP_THRESHOLD_MM = 10
+
+// Зона пустоты - настраиваемый отступ от краёв панели (по умолчанию 25мм)
+const panelMarginMm = ref(25)
+
+const zoomPercent = ref(40)
+
+// --- СОСТОЯНИЕ СЕТКИ ---
+const isGridEnabled = ref(true)
+const gridSizeMm = ref(10)
 
 // --- ДАННЫЕ ---
 const panels = [
@@ -395,6 +537,7 @@ const panels = [
   { id: 3, name: 'Широкая', w: 500, h: 700 },
   { id: 4, name: 'Большая', w: 600, h: 800 },
   { id: 5, name: 'Макси', w: 800, h: 1000 },
+  { id: 6, name: 'Мега', w: 1000, h: 1200 },
 ]
 
 const devicePalette = [
@@ -402,32 +545,50 @@ const devicePalette = [
   { id: 'dev2', name: 'Контактор', w: 36, h: 70, quantity: 3 },
   { id: 'dev3', name: 'Реле', w: 50, h: 50, quantity: 4 },
   { id: 'dev4', name: 'Блок питания', w: 90, h: 90, quantity: 2 },
+  { id: 'dev5', name: 'ПЧ', w: 190, h: 260, quantity: 1 },
 ]
 
 const selectedPanelId = ref(1)
 const currentPanel = computed(() => panels.find((p) => p.id === selectedPanelId.value))
-const currentScale = computed(() => zoomPercent.value / 100)
 
-const panelGridW = computed(() => Math.floor(currentPanel.value.w / GRID_STEP_MM))
-const panelGridH = computed(() => Math.floor(currentPanel.value.h / GRID_STEP_MM))
+const currentScale = computed(() => zoomPercent.value / 50)
+
+const panelWidthMm = computed(() => currentPanel.value.w)
+const panelHeightMm = computed(() => currentPanel.value.h)
+
+const panelWidthPx = computed(() => panelWidthMm.value * PIXELS_PER_MM)
+const panelHeightPx = computed(() => panelHeightMm.value * PIXELS_PER_MM)
+
+const scaledPanelWidthPx = computed(() => panelWidthPx.value * currentScale.value)
+const scaledPanelHeightPx = computed(() => panelHeightPx.value * currentScale.value)
+const scaledRulerSize = computed(() => RULER_SIZE * currentScale.value)
 
 const items = ref([])
 const selectedItem = ref(null)
 const selectedItems = ref([])
 let nextId = 1
 let boxCounter = 1
+let railCounter = 1
+
+// --- ПОВОРОТ ---
+const isRotated = (item) => !!item.rotated
+
+const getDisplaySize = (item) => {
+  return {
+    w: item.rotated ? item.h : item.w,
+    h: item.rotated ? item.w : item.h,
+  }
+}
 
 // --- ДОБАВЛЕНИЕ УСТРОЙСТВ ---
 const selectedDevices = reactive({})
 const deviceQuantities = reactive({})
 
-// Инициализация
 devicePalette.forEach((dev) => {
   selectedDevices[dev.id] = false
   deviceQuantities[dev.id] = 1
 })
 
-// Автоматически выставляем максимальное количество при выборе чекбокса
 watch(
   selectedDevices,
   (newVal, oldVal) => {
@@ -443,7 +604,6 @@ watch(
   { deep: true },
 )
 
-// Обновляем количество при изменении числа устройств на панели
 watch(
   items,
   () => {
@@ -492,6 +652,28 @@ const decrementQuantity = (devId) => {
   }
 }
 
+// --- Вспомогательная функция для поиска свободного места в рабочей зоне ---
+const findFreePosition = (width, height) => {
+  const margin = panelMarginMm.value
+  const startX = margin
+  const startY = margin
+
+  if (isValidPosition({ x: startX, y: startY, w: width, h: height })) {
+    return { x: startX, y: startY }
+  }
+
+  for (let y = startY; y <= panelHeightMm.value - margin - height; y++) {
+    for (let x = startX; x <= panelWidthMm.value - margin - width; x++) {
+      const testItem = { x, y, w: width, h: height }
+      if (isValidPosition(testItem)) {
+        return { x, y }
+      }
+    }
+  }
+
+  return null
+}
+
 const addSelectedDevices = () => {
   const devicesToAdd = []
 
@@ -506,41 +688,15 @@ const addSelectedDevices = () => {
 
   if (devicesToAdd.length === 0) return
 
-  let currentX = 0
-  let currentY = 0
-
-  if (items.value.length > 0) {
-    const lastItem = items.value[items.value.length - 1]
-    currentX = lastItem.x + lastItem.w
-    currentY = lastItem.y
-  }
-
   devicesToAdd.forEach((dev) => {
-    const itemWidth = Math.round(dev.w / GRID_STEP_MM)
-    const itemHeight = Math.round(dev.h / GRID_STEP_MM)
+    const itemWidth = dev.w
+    const itemHeight = dev.h
 
-    if (currentX + itemWidth > panelGridW.value) {
-      currentX = 0
-      currentY += itemHeight
-    }
+    const pos = findFreePosition(itemWidth, itemHeight)
 
-    if (currentY + itemHeight > panelGridH.value) {
-      let placed = false
-      for (let y = 0; y <= panelGridH.value - itemHeight && !placed; y++) {
-        for (let x = 0; x <= panelGridW.value - itemWidth && !placed; x++) {
-          const testItem = { x, y, w: itemWidth, h: itemHeight }
-          if (isValidPosition(testItem)) {
-            currentX = x
-            currentY = y
-            placed = true
-          }
-        }
-      }
-
-      if (!placed) {
-        alert(`Не удалось разместить "${dev.name}". Нет свободного места.`)
-        return
-      }
+    if (!pos) {
+      alert(`Не удалось разместить "${dev.name}". Нет свободного места.`)
+      return
     }
 
     const newItem = {
@@ -548,17 +704,16 @@ const addSelectedDevices = () => {
       type: 'device',
       deviceId: dev.id,
       name: dev.name,
-      x: currentX,
-      y: currentY,
+      x: pos.x,
+      y: pos.y,
       w: itemWidth,
       h: itemHeight,
+      rotated: false,
     }
 
     items.value.push(newItem)
-    currentX += itemWidth
   })
 
-  // Сбрасываем выбор
   devicePalette.forEach((dev) => {
     selectedDevices[dev.id] = false
     deviceQuantities[dev.id] = 1
@@ -607,11 +762,19 @@ const isDeviceFullyUsed = (devId) => {
   return getDeviceUsedCount(devId) >= dev.quantity
 }
 
+const getItemTypeName = (type) => {
+  const names = {
+    device: 'Устройство',
+    box: 'Короб',
+    'din-rail': 'DIN-рейка',
+  }
+  return names[type] || type
+}
+
 // --- РАЗМЕТКА (ЛИНЕЙКИ) ---
 const xMarks = computed(() => {
   const marks = []
-  const stepUnits = RULER_MARK_STEP_MM / GRID_STEP_MM
-  for (let i = 0; i <= panelGridW.value; i += stepUnits) {
+  for (let i = 0; i <= panelWidthMm.value; i += RULER_MARK_STEP_MM) {
     marks.push({ id: `x-${i}`, value: i })
   }
   return marks
@@ -619,45 +782,65 @@ const xMarks = computed(() => {
 
 const yMarks = computed(() => {
   const marks = []
-  const stepUnits = RULER_MARK_STEP_MM / GRID_STEP_MM
-  for (let i = 0; i <= panelGridH.value; i += stepUnits) {
+  for (let i = 0; i <= panelHeightMm.value; i += RULER_MARK_STEP_MM) {
     marks.push({ id: `y-${i}`, value: i })
   }
   return marks
 })
 
 // --- СТИЛИ ---
-const canvasScalerStyle = computed(() => ({
-  width: `${(RULER_SIZE + panelGridW.value * PIXELS_PER_GRID_UNIT) * currentScale.value}px`,
-  height: `${(RULER_SIZE + panelGridH.value * PIXELS_PER_GRID_UNIT) * currentScale.value}px`,
+const containerStyle = computed(() => ({
+  width: `${scaledRulerSize.value + scaledPanelWidthPx.value}px`,
+  height: `${scaledRulerSize.value + scaledPanelHeightPx.value}px`,
 }))
 
-const containerStyle = computed(() => ({
-  width: `${RULER_SIZE + panelGridW.value * PIXELS_PER_GRID_UNIT}px`,
-  height: `${RULER_SIZE + panelGridH.value * PIXELS_PER_GRID_UNIT}px`,
-  transform: `scale(${currentScale.value})`,
-  transformOrigin: 'top left',
+const rulerXStyle = computed(() => ({
+  left: `${scaledRulerSize.value}px`,
+  top: '0px',
+  height: `${scaledRulerSize.value}px`,
+  width: `${scaledPanelWidthPx.value}px`,
+}))
+
+const rulerYStyle = computed(() => ({
+  left: '0px',
+  top: `${scaledRulerSize.value}px`,
+  width: `${scaledRulerSize.value}px`,
+  height: `${scaledPanelHeightPx.value}px`,
 }))
 
 const canvasStyle = computed(() => ({
-  width: `${panelGridW.value * PIXELS_PER_GRID_UNIT}px`,
-  height: `${panelGridH.value * PIXELS_PER_GRID_UNIT}px`,
-  left: `${RULER_SIZE}px`,
-  top: `${RULER_SIZE}px`,
-  backgroundSize: `${PIXELS_PER_GRID_UNIT}px ${PIXELS_PER_GRID_UNIT}px`,
+  width: `${scaledPanelWidthPx.value}px`,
+  height: `${scaledPanelHeightPx.value}px`,
+  left: `${scaledRulerSize.value}px`,
+  top: `${scaledRulerSize.value}px`,
+  backgroundSize: isGridEnabled.value
+    ? `${gridSizeMm.value * PIXELS_PER_MM * currentScale.value}px ${gridSizeMm.value * PIXELS_PER_MM * currentScale.value}px`
+    : 'none',
 }))
 
-const getItemStyle = (item) => ({
-  left: `${item.x * PIXELS_PER_GRID_UNIT}px`,
-  top: `${item.y * PIXELS_PER_GRID_UNIT}px`,
-  width: `${item.w * PIXELS_PER_GRID_UNIT}px`,
-  height: `${item.h * PIXELS_PER_GRID_UNIT}px`,
-})
+const getItemStyle = (item) => {
+  const isSelected = selectedItems.value.includes(item)
+  const { w, h } = getDisplaySize(item)
 
-const getMarkStyle = (cellValue, axis) => {
-  return axis === 'x'
-    ? { left: `${cellValue * PIXELS_PER_GRID_UNIT}px` }
-    : { top: `${cellValue * PIXELS_PER_GRID_UNIT}px` }
+  let zIndex = 5
+  if (item.type === 'din-rail') {
+    zIndex = isSelected ? 10 : 1
+  } else if (isSelected) {
+    zIndex = 10
+  }
+
+  return {
+    left: `${item.x * PIXELS_PER_MM * currentScale.value}px`,
+    top: `${item.y * PIXELS_PER_MM * currentScale.value}px`,
+    width: `${w * PIXELS_PER_MM * currentScale.value}px`,
+    height: `${h * PIXELS_PER_MM * currentScale.value}px`,
+    zIndex: zIndex,
+  }
+}
+
+const getMarkStyle = (mmValue, axis) => {
+  const scaledPos = mmValue * PIXELS_PER_MM * currentScale.value
+  return axis === 'x' ? { left: `${scaledPos}px` } : { top: `${scaledPos}px` }
 }
 
 // --- ПЛАВАЮЩИЕ КНОПКИ ДЕЙСТВИЙ ---
@@ -665,11 +848,13 @@ const floatingActionsStyle = computed(() => {
   if (!selectedItem.value) return { display: 'none' }
 
   const item = selectedItem.value
-  const centerX = (item.x + item.w / 2) * PIXELS_PER_GRID_UNIT
-  const topY = item.y * PIXELS_PER_GRID_UNIT
+  const { w, h } = getDisplaySize(item)
+  const scale = currentScale.value
+  const centerX = (item.x + w / 2) * PIXELS_PER_MM * scale
+  const topY = item.y * PIXELS_PER_MM * scale
 
   const showBelow = item.y < 5
-  const yOffset = showBelow ? item.h * PIXELS_PER_GRID_UNIT + 8 : -44
+  const yOffset = showBelow ? h * PIXELS_PER_MM * scale + 8 : -44
 
   return {
     left: `${centerX}px`,
@@ -688,16 +873,22 @@ const tooltipStyle = computed(() => {
 })
 
 // --- УТИЛИТЫ ---
-const mmToCells = (mm) => Math.round(mm / GRID_STEP_MM)
-const snapToGrid = (val) => Math.round(val)
-const mmToPx = (mm) => (mm / GRID_STEP_MM) * PIXELS_PER_GRID_UNIT
+const snapToGrid = (val) => {
+  const step = isGridEnabled.value ? gridSizeMm.value : BASE_STEP_MM
+  return Math.round(val / step) * step
+}
 
+const mmToPx = (mm) => mm * PIXELS_PER_MM * currentScale.value
+
+// Проверка выхода за границы с учётом зоны пустоты
 const isOutOfBounds = (item) => {
+  const margin = panelMarginMm.value
+  const { w, h } = getDisplaySize(item)
   return (
-    item.x < 0 ||
-    item.y < 0 ||
-    item.x + item.w > panelGridW.value ||
-    item.y + item.h > panelGridH.value
+    item.x < margin ||
+    item.y < margin ||
+    item.x + w > panelWidthMm.value - margin ||
+    item.y + h > panelHeightMm.value - margin
   )
 }
 
@@ -706,10 +897,12 @@ const isValidPosition = (item) => {
 }
 
 const isFullyInsideSelection = (item, start, current) => {
-  const itemLeft = item.x * PIXELS_PER_GRID_UNIT
-  const itemTop = item.y * PIXELS_PER_GRID_UNIT
-  const itemRight = itemLeft + item.w * PIXELS_PER_GRID_UNIT
-  const itemBottom = itemTop + item.h * PIXELS_PER_GRID_UNIT
+  const scale = currentScale.value
+  const { w, h } = getDisplaySize(item)
+  const itemLeft = item.x * PIXELS_PER_MM * scale
+  const itemTop = item.y * PIXELS_PER_MM * scale
+  const itemRight = itemLeft + w * PIXELS_PER_MM * scale
+  const itemBottom = itemTop + h * PIXELS_PER_MM * scale
 
   const selectLeft = Math.min(start.x, current.x)
   const selectTop = Math.min(start.y, current.y)
@@ -724,23 +917,55 @@ const isFullyInsideSelection = (item, start, current) => {
   )
 }
 
+// --- ПРИМАГНИЧИВАНИЕ К DIN-РЕЙКЕ ---
+const findSnapPosition = (item, newX, newY) => {
+  let snappedX = newX
+  let snappedY = newY
+
+  const { w: itemW, h: itemH } = getDisplaySize(item)
+  const itemCenterX = newX + itemW / 2
+  const itemCenterY = newY + itemH / 2
+
+  for (const rail of items.value.filter((i) => i.type === 'din-rail')) {
+    const { w: railW, h: railH } = getDisplaySize(rail)
+    const railCenterX = rail.x + railW / 2
+    const railCenterY = rail.y + railH / 2
+    const isHorizontal = railW >= railH
+
+    if (isHorizontal) {
+      const isOverRail = itemCenterX >= rail.x && itemCenterX <= rail.x + railW
+      const isCloseY = Math.abs(itemCenterY - railCenterY) <= SNAP_THRESHOLD_MM
+
+      if (isOverRail && isCloseY) {
+        snappedY = snapToGrid(railCenterY - itemH / 2)
+      }
+    } else {
+      const isOverRail = itemCenterY >= rail.y && itemCenterY <= rail.y + railH
+      const isCloseX = Math.abs(itemCenterX - railCenterX) <= SNAP_THRESHOLD_MM
+
+      if (isOverRail && isCloseX) {
+        snappedX = snapToGrid(railCenterX - itemW / 2)
+      }
+    }
+  }
+
+  return { x: snappedX, y: snappedY }
+}
+
 // --- КООРДИНАТЫ ---
 const getMmFromEvent = (e) => {
   const el = e.currentTarget
   const rect = el.getBoundingClientRect()
-  const scale = currentScale.value
 
   const screenX = e.clientX - rect.left
   const screenY = e.clientY - rect.top
 
-  const nativeX = screenX / scale
-  const nativeY = screenY / scale
+  const contentX = screenX - el.clientLeft
+  const contentY = screenY - el.clientTop
 
-  const contentX = nativeX - el.clientLeft
-  const contentY = nativeY - el.clientTop
-
-  const mmX = (contentX / PIXELS_PER_GRID_UNIT) * GRID_STEP_MM
-  const mmY = (contentY / PIXELS_PER_GRID_UNIT) * GRID_STEP_MM
+  const scale = currentScale.value
+  const mmX = contentX / (PIXELS_PER_MM * scale)
+  const mmY = contentY / (PIXELS_PER_MM * scale)
 
   return {
     x: Math.round(mmX * 100) / 100,
@@ -750,16 +975,12 @@ const getMmFromEvent = (e) => {
 
 const getPxFromEvent = (e, el) => {
   const rect = el.getBoundingClientRect()
-  const scale = currentScale.value
 
   const screenX = e.clientX - rect.left
   const screenY = e.clientY - rect.top
 
-  const nativeX = screenX / scale
-  const nativeY = screenY / scale
-
-  const contentX = nativeX - el.clientLeft
-  const contentY = nativeY - el.clientTop
+  const contentX = screenX - el.clientLeft
+  const contentY = screenY - el.clientTop
 
   return {
     x: contentX,
@@ -901,84 +1122,119 @@ const onPanelChange = () => {
 }
 
 const addBox = () => {
-  const offset = (boxCounter - 1) * 10
   const newBox = {
     id: nextId++,
     type: 'box',
     name: `Короб ${boxCounter}`,
-    x: offset,
-    y: offset,
-    w: mmToCells(25),
-    h: mmToCells(25),
+    x: panelMarginMm.value,
+    y: panelMarginMm.value,
+    w: 40,
+    h: 40,
+    rotated: false,
   }
 
-  if (isValidPosition(newBox)) {
+  const pos = findFreePosition(newBox.w, newBox.h)
+
+  if (pos) {
+    newBox.x = pos.x
+    newBox.y = pos.y
     items.value.push(newBox)
     selectedItems.value = [newBox]
     selectedItem.value = newBox
     boxCounter++
   } else {
-    let placed = false
-    for (let y = 0; y <= panelGridH.value - newBox.h && !placed; y++) {
-      for (let x = 0; x <= panelGridW.value - newBox.w && !placed; x++) {
-        const testBox = { ...newBox, x, y }
-        if (isValidPosition(testBox)) {
-          newBox.x = x
-          newBox.y = y
-          items.value.push(newBox)
-          selectedItems.value = [newBox]
-          selectedItem.value = newBox
-          boxCounter++
-          placed = true
-        }
-      }
-    }
-    if (!placed) alert('Нет свободного места для нового короба!')
+    alert('Нет свободного места для нового короба!')
+  }
+}
+
+const addDinRail = () => {
+  const newRail = {
+    id: nextId++,
+    type: 'din-rail',
+    name: `DIN-рейка ${railCounter}`,
+    x: panelMarginMm.value,
+    y: panelMarginMm.value,
+    w: DIN_RAIL_LENGTH_MM,
+    h: DIN_RAIL_WIDTH_MM,
+    rotated: false,
+  }
+
+  const pos = findFreePosition(newRail.w, newRail.h)
+
+  if (pos) {
+    newRail.x = pos.x
+    newRail.y = pos.y
+    items.value.push(newRail)
+    selectedItems.value = [newRail]
+    selectedItem.value = newRail
+    railCounter++
+  } else {
+    alert('Нет свободного места для новой DIN-рейки!')
   }
 }
 
 const copyItem = () => {
-  if (!selectedItem.value || selectedItem.value.type !== 'box') return
+  if (!selectedItem.value) return
+  if (selectedItem.value.type !== 'box' && selectedItem.value.type !== 'din-rail') return
 
   const original = selectedItem.value
+  const isBox = original.type === 'box'
+  const { w, h } = getDisplaySize(original)
 
-  const offset = 10
-  let newX = original.x + offset
-  let newY = original.y + offset
-
-  const copiedBox = {
+  const copiedItem = {
     id: nextId++,
-    type: 'box',
-    name: `${original.name} (копия)`,
-    x: newX,
-    y: newY,
+    type: original.type,
+    name: isBox ? `Короб ${boxCounter}` : `DIN-рейка ${railCounter}`,
+    x: panelMarginMm.value,
+    y: panelMarginMm.value,
     w: original.w,
     h: original.h,
+    rotated: original.rotated,
   }
 
-  if (isValidPosition(copiedBox)) {
-    items.value.push(copiedBox)
-    selectedItems.value = [copiedBox]
-    selectedItem.value = copiedBox
+  const pos = findFreePosition(w, h)
+
+  if (pos) {
+    copiedItem.x = pos.x
+    copiedItem.y = pos.y
+    items.value.push(copiedItem)
+    selectedItems.value = [copiedItem]
+    selectedItem.value = copiedItem
+    if (isBox) boxCounter++
+    else railCounter++
   } else {
-    let placed = false
-    for (let y = 0; y <= panelGridH.value - copiedBox.h && !placed; y++) {
-      for (let x = 0; x <= panelGridW.value - copiedBox.w && !placed; x++) {
-        const testBox = { ...copiedBox, x, y }
-        if (isValidPosition(testBox)) {
-          copiedBox.x = x
-          copiedBox.y = y
-          items.value.push(copiedBox)
-          selectedItems.value = [copiedBox]
-          selectedItem.value = copiedBox
-          placed = true
-        }
-      }
+    alert('Нет свободного места для копирования!')
+  }
+}
+
+const rotateItem = () => {
+  if (!selectedItem.value) return
+  const item = selectedItem.value
+  if (item.type !== 'device' && item.type !== 'din-rail') return
+
+  item.rotated = !item.rotated
+
+  if (isOutOfBounds(item)) {
+    let adjustedX = item.x
+    let adjustedY = item.y
+    const margin = panelMarginMm.value
+
+    const { w: newW, h: newH } = getDisplaySize(item)
+
+    if (adjustedX + newW > panelWidthMm.value - margin) {
+      adjustedX = panelWidthMm.value - margin - newW
+    }
+    if (adjustedY + newH > panelHeightMm.value - margin) {
+      adjustedY = panelHeightMm.value - margin - newH
     }
 
-    if (!placed) {
-      alert('Нет свободного места для копирования короба!')
+    if (adjustedX < margin || adjustedY < margin) {
+      item.rotated = !item.rotated
+      return
     }
+
+    item.x = adjustedX
+    item.y = adjustedY
   }
 }
 
@@ -1020,6 +1276,8 @@ const startResize = (e, item, direction) => {
   e.preventDefault()
   selectedItem.value = item
 
+  const { w, h } = getDisplaySize(item)
+
   resizeState = {
     type: 'resize',
     item,
@@ -1028,8 +1286,8 @@ const startResize = (e, item, direction) => {
     startMouseY: e.clientY,
     startItemX: item.x,
     startItemY: item.y,
-    startItemW: item.w,
-    startItemH: item.h,
+    startItemW: w,
+    startItemH: h,
   }
   window.addEventListener('pointermove', onPointerMove)
   window.addEventListener('pointerup', onPointerUp)
@@ -1037,29 +1295,33 @@ const startResize = (e, item, direction) => {
 
 const onPointerMove = (e) => {
   const scale = currentScale.value
-  const rawDx =
-    (e.clientX - (dragState?.startMouseX || resizeState?.startMouseX)) /
-    scale /
-    PIXELS_PER_GRID_UNIT
-  const rawDy =
-    (e.clientY - (dragState?.startMouseY || resizeState?.startMouseY)) /
-    scale /
-    PIXELS_PER_GRID_UNIT
+  const scaledPixelPerMm = PIXELS_PER_MM * scale
+  const margin = panelMarginMm.value
+
+  const rawDxMm =
+    (e.clientX - (dragState?.startMouseX || resizeState?.startMouseX)) / scaledPixelPerMm
+  const rawDyMm =
+    (e.clientY - (dragState?.startMouseY || resizeState?.startMouseY)) / scaledPixelPerMm
 
   if (dragState) {
-    // Каждый элемент перемещается независимо с ограничением по границам
     dragState.startPositions.forEach((pos, idx) => {
       const item = dragState.items[idx]
-      let newX = snapToGrid(pos.x + rawDx)
-      let newY = snapToGrid(pos.y + rawDy)
+      let newX = snapToGrid(pos.x + rawDxMm)
+      let newY = snapToGrid(pos.y + rawDyMm)
 
-      // Ограничиваем по X
-      if (newX < 0) newX = 0
-      if (newX + item.w > panelGridW.value) newX = panelGridW.value - item.w
+      if (item.type === 'device') {
+        const snapped = findSnapPosition(item, newX, newY)
+        newX = snapped.x
+        newY = snapped.y
+      }
 
-      // Ограничиваем по Y
-      if (newY < 0) newY = 0
-      if (newY + item.h > panelGridH.value) newY = panelGridH.value - item.h
+      const { w, h } = getDisplaySize(item)
+
+      if (newX < margin) newX = margin
+      if (newX + w > panelWidthMm.value - margin) newX = panelWidthMm.value - margin - w
+
+      if (newY < margin) newY = margin
+      if (newY + h > panelHeightMm.value - margin) newY = panelHeightMm.value - margin - h
 
       item.x = newX
       item.y = newY
@@ -1068,42 +1330,117 @@ const onPointerMove = (e) => {
 
   if (resizeState) {
     const { direction, startItemX, startItemY, startItemW, startItemH } = resizeState
+    const item = resizeState.item
 
     let newX = startItemX
     let newY = startItemY
     let newW = startItemW
     let newH = startItemH
 
-    if (direction.includes('e')) {
-      newW = Math.max(1, snapToGrid(startItemW + rawDx))
-    } else if (direction.includes('w')) {
-      const snappedDx = snapToGrid(rawDx)
-      const maxLeftShift = startItemW - 1
-      const clampedDx = Math.max(-maxLeftShift, snappedDx)
-      newX = startItemX + clampedDx
-      newW = startItemW - clampedDx
+    if (item.type === 'din-rail') {
+      const isHorizontal = startItemW >= startItemH
+
+      if (isHorizontal) {
+        if (direction.includes('e')) {
+          newW = Math.max(DIN_RAIL_WIDTH_MM, snapToGrid(startItemW + rawDxMm))
+          newH = DIN_RAIL_WIDTH_MM
+        } else if (direction.includes('w')) {
+          const snappedDx = snapToGrid(rawDxMm)
+          const maxLeftShift = startItemW - DIN_RAIL_WIDTH_MM
+          const clampedDx = Math.max(-maxLeftShift, snappedDx)
+          newX = startItemX + clampedDx
+          newW = startItemW - clampedDx
+          newH = DIN_RAIL_WIDTH_MM
+        }
+
+        // Ограничение по рабочей зоне для горизонтальной рейки
+        if (newX < margin) {
+          const overflow = margin - newX
+          newX = margin
+          newW = newW - overflow
+        }
+        if (newX + newW > panelWidthMm.value - margin) {
+          newW = panelWidthMm.value - margin - newX
+        }
+        // Минимальная длина после ограничения
+        if (newW < DIN_RAIL_WIDTH_MM) {
+          newW = DIN_RAIL_WIDTH_MM
+        }
+      } else {
+        if (direction.includes('s')) {
+          newH = Math.max(DIN_RAIL_WIDTH_MM, snapToGrid(startItemH + rawDyMm))
+          newW = DIN_RAIL_WIDTH_MM
+        } else if (direction.includes('n')) {
+          const snappedDy = snapToGrid(rawDyMm)
+          const maxTopShift = startItemH - DIN_RAIL_WIDTH_MM
+          const clampedDy = Math.max(-maxTopShift, snappedDy)
+          newY = startItemY + clampedDy
+          newH = startItemH - clampedDy
+          newW = DIN_RAIL_WIDTH_MM
+        }
+
+        // Ограничение по рабочей зоне для вертикальной рейки
+        if (newY < margin) {
+          const overflow = margin - newY
+          newY = margin
+          newH = newH - overflow
+        }
+        if (newY + newH > panelHeightMm.value - margin) {
+          newH = panelHeightMm.value - margin - newY
+        }
+        // Минимальная длина после ограничения
+        if (newH < DIN_RAIL_WIDTH_MM) {
+          newH = DIN_RAIL_WIDTH_MM
+        }
+      }
+    } else {
+      if (direction.includes('e')) {
+        newW = Math.max(1, snapToGrid(startItemW + rawDxMm))
+      } else if (direction.includes('w')) {
+        const snappedDx = snapToGrid(rawDxMm)
+        const maxLeftShift = startItemW - 1
+        const clampedDx = Math.max(-maxLeftShift, snappedDx)
+        newX = startItemX + clampedDx
+        newW = startItemW - clampedDx
+      }
+
+      if (direction.includes('s')) {
+        newH = Math.max(1, snapToGrid(startItemH + rawDyMm))
+      } else if (direction.includes('n')) {
+        const snappedDy = snapToGrid(rawDyMm)
+        const maxTopShift = startItemH - 1
+        const clampedDy = Math.max(-maxTopShift, snappedDy)
+        newY = startItemY + clampedDy
+        newH = startItemH - clampedDy
+      }
+
+      if (newX < margin) {
+        newW = newW - (margin - newX)
+        newX = margin
+      }
+      if (newX + newW > panelWidthMm.value - margin) {
+        newW = panelWidthMm.value - margin - newX
+      }
+      if (newY < margin) {
+        newH = newH - (margin - newY)
+        newY = margin
+      }
+      if (newY + newH > panelHeightMm.value - margin) {
+        newH = panelHeightMm.value - margin - newY
+      }
     }
 
-    if (direction.includes('s')) {
-      newH = Math.max(1, snapToGrid(startItemH + rawDy))
-    } else if (direction.includes('n')) {
-      const snappedDy = snapToGrid(rawDy)
-      const maxTopShift = startItemH - 1
-      const clampedDy = Math.max(-maxTopShift, snappedDy)
-      newY = startItemY + clampedDy
-      newH = startItemH - clampedDy
+    if (item.rotated) {
+      item.w = newH
+      item.h = newW
+    } else {
+      item.w = newW
+      item.h = newH
     }
 
-    // Ограничиваем размер по границам панели
-    if (newX + newW > panelGridW.value) newW = panelGridW.value - newX
-    if (newY + newH > panelGridH.value) newH = panelGridH.value - newY
+    item.x = newX
+    item.y = newY
 
-    resizeState.item.x = newX
-    resizeState.item.y = newY
-    resizeState.item.w = newW
-    resizeState.item.h = newH
-
-    // Обновляем позицию мыши для tooltip
     const canvas = document.querySelector('.canvas')
     if (canvas) {
       mousePosition.value = getPxFromEvent(e, canvas)
@@ -1206,7 +1543,8 @@ onUnmounted(() => {
   color: #4a5568;
 }
 
-.form-select {
+.form-select,
+.form-input {
   width: 100%;
   padding: 8px 10px;
   border: 1px solid rgb(230, 230, 230);
@@ -1218,11 +1556,17 @@ onUnmounted(() => {
   transition: all 0.3s;
 }
 
-.form-select:hover {
+.form-input {
+  cursor: text;
+}
+
+.form-select:hover,
+.form-input:hover {
   box-shadow: 4px 4px 20px -10px rgba(34, 60, 80, 0.3);
 }
 
-.form-select:focus {
+.form-select:focus,
+.form-input:focus {
   outline: none;
   border-color: #6366f1;
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
@@ -1316,6 +1660,52 @@ onUnmounted(() => {
   background-color: #d97706;
   border-color: #d97706;
   box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+}
+
+.icon-button--rail {
+  background-color: #64748b;
+  color: white;
+  border-color: #64748b;
+}
+
+.icon-button--rail:hover {
+  background-color: #475569;
+  border-color: #475569;
+  box-shadow: 0 4px 12px rgba(100, 116, 139, 0.3);
+}
+
+/* Сетка */
+.grid-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.grid-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.grid-checkbox {
+  width: 18px;
+  height: 18px;
+  accent-color: #6366f1;
+  cursor: pointer;
+}
+
+.grid-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #2d3748;
+}
+
+.grid-size-select {
+  width: 100px;
+  padding: 6px 8px;
+  font-size: 12px;
 }
 
 /* Результат измерения */
@@ -1624,6 +2014,17 @@ onUnmounted(() => {
   font-weight: 600;
 }
 
+.rotation-badge {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 1px 6px;
+  background-color: #e0e7ff;
+  color: #4338ca;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 500;
+}
+
 /* Холст */
 .editor-canvas-wrapper {
   background-color: rgb(255, 255, 255);
@@ -1631,21 +2032,11 @@ onUnmounted(() => {
   border: 1px solid rgb(230, 230, 230);
   box-shadow: 4px 4px 30px -10px rgba(34, 60, 80, 0.2);
   padding: 24px;
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
   overflow: auto;
 }
 
-.canvas-scaler {
-  position: relative;
-  flex-shrink: 0;
-}
-
 .canvas-container {
-  position: absolute;
-  top: 0;
-  left: 0;
+  position: relative;
 }
 
 /* Линейки */
@@ -1657,16 +2048,10 @@ onUnmounted(() => {
 }
 
 .ruler-x {
-  left: 30px;
-  top: 0;
-  height: 30px;
   border-bottom: 2px solid #cbd5e0;
 }
 
 .ruler-y {
-  left: 0;
-  top: 30px;
-  width: 30px;
   border-right: 2px solid #cbd5e0;
 }
 
@@ -1714,9 +2099,16 @@ onUnmounted(() => {
   background-color: #f7fafc;
   border: 2px solid #cbd5e0;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.canvas.grid-enabled {
   background-image:
     linear-gradient(to right, #e2e8f0 1px, transparent 1px),
     linear-gradient(to bottom, #e2e8f0 1px, transparent 1px);
+}
+
+.canvas:not(.grid-enabled) {
+  background-image: none;
 }
 
 .canvas.measure-mode {
@@ -1787,6 +2179,15 @@ onUnmounted(() => {
   transform: scale(1.05);
 }
 
+.floating-btn--rotate {
+  background-color: #8b5cf6;
+}
+
+.floating-btn--rotate:hover {
+  background-color: #7c3aed;
+  transform: scale(1.05);
+}
+
 /* Элементы на панели */
 .panel-item {
   position: absolute;
@@ -1813,6 +2214,27 @@ onUnmounted(() => {
   background-color: rgba(251, 191, 36, 0.3);
   border: 2px dashed #f59e0b;
   border-radius: 2px;
+}
+
+/* DIN-рейка */
+.panel-item.din-rail {
+  background: linear-gradient(180deg, #d4d4d8 0%, #a1a1aa 50%, #d4d4d8 100%);
+  border: 1px solid #71717a;
+  border-radius: 1px;
+  box-shadow:
+    inset 0 1px 2px rgba(255, 255, 255, 0.5),
+    0 1px 2px rgba(0, 0, 0, 0.1);
+  mix-blend-mode: normal;
+}
+
+.panel-item.din-rail.din-rail-vertical {
+  background: linear-gradient(90deg, #d4d4d8 0%, #a1a1aa 50%, #d4d4d8 100%);
+}
+
+.panel-item.din-rail .item-label {
+  color: #3f3f46;
+  font-size: 10px;
+  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.5);
 }
 
 .panel-item.selected {
@@ -1853,16 +2275,21 @@ onUnmounted(() => {
   border: 2px solid white;
   z-index: 20;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-radius: 2px;
   mix-blend-mode: normal;
   transition: all 0.2s;
 }
 
 .resize-handle:hover {
-  transform: scale(1.2);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.din-rail-handle {
+  background: #64748b;
+  width: 10px;
+  height: 10px;
 }
 
 .resize-nw {
