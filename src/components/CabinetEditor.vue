@@ -201,7 +201,7 @@
             <div class="property-item">
               <span class="property-label">Размер:</span>
               <span class="property-value">
-                {{ selectedItem.w }}×{{ selectedItem.h }} мм
+                Ш{{ selectedItem.w }}×В{{ selectedItem.h }} мм
                 <span v-if="selectedItem.rotated" class="rotation-badge">(повёрнуто)</span>
               </span>
             </div>
@@ -405,7 +405,13 @@
               :style="getItemStyle(item)"
               @pointerdown="startDrag($event, item)"
             >
-              <div class="item-label">{{ item.name }}</div>
+              <div class="item-label">
+                {{
+                  item.type === 'din-rail' || item.type === 'box'
+                    ? showTrueSize(item.w, item.h)
+                    : item.name
+                }}
+              </div>
 
               <!-- Ручки изменения размера для коробов -->
               <template
@@ -1048,10 +1054,6 @@ const isOutOfBounds = (item) => {
   )
 }
 
-const isValidPosition = (item) => {
-  return !isOutOfBounds(item)
-}
-
 const isFullyInsideSelection = (item, start, current) => {
   const scale = currentScale.value
   const { w, h } = getDisplaySize(item)
@@ -1610,6 +1612,12 @@ const onPointerUp = () => {
   mousePosition.value = null
   window.removeEventListener('pointermove', onPointerMove)
   window.removeEventListener('pointerup', onPointerUp)
+}
+
+//
+const showTrueSize = (width, height) => {
+  if (width >= height) return `${height} x ${width}`
+  return `${width} x ${height}`
 }
 
 // --- СОХРАНЕНИЕ И ЗАГРУЗКА ПРОЕКТА ---
