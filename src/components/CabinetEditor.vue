@@ -9,16 +9,14 @@
 
         <div class="sidebar-section">
           <div class="form-group">
-            <h3 class="section-title">Монтажная панель</h3>
+            <label for="panel-select">Размер шкафа управления (В х Ш)</label>
             <select
               id="panel-select"
               v-model="selectedPanelId"
               @change="onPanelChange"
               class="form-select"
             >
-              <option v-for="p in panels" :key="p.id" :value="p.id">
-                {{ p.name }} ({{ p.h }}x{{ p.w }})
-              </option>
+              <option v-for="p in panels" :key="p.id" :value="p.id">{{ p.h }}x{{ p.w }}</option>
             </select>
           </div>
         </div>
@@ -28,9 +26,9 @@
             <input
               id="panel-margin"
               type="number"
-              min="0"
-              max="100"
-              step="5"
+              min="10"
+              max="50"
+              step="10"
               v-model.number="panelMarginMm"
               class="form-input"
             />
@@ -582,9 +580,9 @@ const DIN_RAIL_LENGTH_MM = 100
 const SNAP_THRESHOLD_MM = 10
 
 // Зона пустоты - настраиваемый отступ от краёв панели (по умолчанию 25мм)
-const panelMarginMm = ref(25)
+const panelMarginMm = ref(20)
 
-const zoomPercent = ref(40)
+const zoomPercent = ref(44)
 
 // --- СОСТОЯНИЕ СЕТКИ ---
 const isGridEnabled = ref(true)
@@ -1820,7 +1818,6 @@ onUnmounted(() => {
 .section-title {
   font-size: 12px;
   font-weight: 600;
-  text-transform: uppercase;
   color: #718096;
   margin: 0 0 8px 0;
   letter-spacing: 0.5px;
