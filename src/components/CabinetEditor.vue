@@ -9,7 +9,7 @@
 
         <div class="sidebar-section">
           <div class="form-group">
-            <label for="panel-select">Панель</label>
+            <h3 class="section-title">Монтажная панель</h3>
             <select
               id="panel-select"
               v-model="selectedPanelId"
@@ -22,91 +22,7 @@
             </select>
           </div>
         </div>
-
         <div class="sidebar-section">
-          <div class="form-group">
-            <label>Масштаб: {{ zoomPercent * 2 }}%</label>
-            <input
-              type="range"
-              min="10"
-              max="50"
-              step="5"
-              v-model.number="zoomPercent"
-              class="zoom-slider"
-            />
-          </div>
-        </div>
-
-        <div class="sidebar-section">
-          <h3 class="section-title">Инструменты</h3>
-          <div class="tools-grid">
-            <button
-              @click="toggleMeasureMode"
-              :class="['icon-button', { active: isMeasuring }]"
-              title="Измерить расстояние"
-            >
-              📏
-            </button>
-            <button
-              v-if="isMeasuring"
-              @click="toggleOrthogonal"
-              :class="['icon-button', 'icon-button--ortho', { active: isOrthogonal }]"
-              title="Ортогональный режим"
-            >
-              ⊞
-            </button>
-            <button @click="addBox" class="icon-button icon-button--add" title="Добавить короб">
-              ▢
-            </button>
-            <button
-              @click="addDinRail"
-              class="icon-button icon-button--rail"
-              title="Добавить DIN-рейку"
-            >
-              ═
-            </button>
-            <button
-              @click="openDeviceModal"
-              class="icon-button icon-button--device"
-              title="Добавить устройство"
-            >
-              ⚡
-            </button>
-            <button
-              @click="exportProject"
-              class="icon-button icon-button--save"
-              title="Сохранить проект"
-            >
-              💾
-            </button>
-            <button
-              @click="triggerImport"
-              class="icon-button icon-button--load"
-              title="Загрузить проект"
-            >
-              📂
-            </button>
-            <button
-              @click="clearProject"
-              class="icon-button icon-button--clear"
-              title="Очистить проект"
-            >
-              🧹
-            </button>
-            <!-- Скрытый input для выбора файла -->
-            <input
-              ref="fileInput"
-              type="file"
-              accept=".json"
-              style="display: none"
-              @change="importProject"
-            />
-          </div>
-        </div>
-
-        <!-- Настройки панели -->
-        <div class="sidebar-section">
-          <h3 class="section-title">Настройки панели</h3>
           <div class="form-group">
             <label for="panel-margin">Зона пустоты (мм)</label>
             <input
@@ -119,10 +35,6 @@
               class="form-input"
             />
           </div>
-        </div>
-
-        <!-- Сетка -->
-        <div class="sidebar-section">
           <div class="grid-controls">
             <label class="grid-toggle">
               <input type="checkbox" v-model="isGridEnabled" class="grid-checkbox" />
@@ -133,19 +45,96 @@
               v-model.number="gridSizeMm"
               class="form-select grid-size-select"
             >
-              <option :value="5">5 мм</option>
+              <option :value="2">2 мм</option>
+              <option :value="4">4 мм</option>
               <option :value="10">10 мм</option>
               <option :value="20">20 мм</option>
-              <option :value="50">50 мм</option>
             </select>
           </div>
         </div>
-        <!-- Статус: все устройства добавлены -->
-        <div v-if="allDevicesAdded" class="modal-status modal-status--success">
-          <span>Все устройства добавлены на монтажную панель</span>
+
+        <div class="sidebar-section">
+          <div class="form-group">
+            <label>Масштаб: {{ zoomPercent * 2 }}%</label>
+            <input
+              type="range"
+              min="10"
+              max="50"
+              step="1"
+              v-model.number="zoomPercent"
+              class="zoom-slider"
+            />
+          </div>
         </div>
-        <div v-else class="modal-status modal-status--not-success">
-          <span>Не все устройства добавлены на монтажную панель!</span>
+
+        <div class="sidebar-section">
+          <h3 class="section-title">Инструменты</h3>
+          <div class="tools-grid">
+            <div class="tools-group">
+              <button
+                @click="exportProject"
+                class="icon-button icon-button--save"
+                title="Сохранить"
+              >
+                💾
+              </button>
+              <button
+                @click="triggerImport"
+                class="icon-button icon-button--load"
+                title="Загрузить"
+              >
+                📂
+              </button>
+              <button @click="clearProject" class="icon-button icon-button--clear" title="Очистить">
+                🧹
+              </button>
+            </div>
+            <div class="tools-group">
+              <button @click="addBox" class="icon-button icon-button--add" title="Добавить короб">
+                ▢
+              </button>
+              <button
+                @click="addDinRail"
+                class="icon-button icon-button--rail"
+                title="Добавить DIN-рейку"
+              >
+                ═
+              </button>
+              <button
+                @click="openDeviceModal"
+                class="icon-button icon-button--device"
+                title="Добавить устройство"
+              >
+                ⚡
+              </button>
+            </div>
+
+            <!-- Скрытый input для выбора файла -->
+            <input
+              ref="fileInput"
+              type="file"
+              accept=".json"
+              style="display: none"
+              @change="importProject"
+            />
+            <div class="tools-group">
+              <button
+                @click="toggleMeasureMode"
+                :class="['icon-button', { active: isMeasuring }]"
+                title="Измерить расстояние"
+              >
+                📏
+              </button>
+              <button
+                v-if="isMeasuring"
+                @click="toggleOrthogonal"
+                :class="['icon-button', 'icon-button--ortho', { active: isOrthogonal }]"
+                title="Ортогональный режим"
+              >
+                ⊞
+              </button>
+            </div>
+          </div>
         </div>
 
         <div class="sidebar-section" v-if="pointA && pointB">
@@ -212,6 +201,13 @@
               >
             </div>
           </div>
+        </div>
+        <!-- Статус: все устройства добавлены -->
+        <div v-if="allDevicesAdded" class="modal-status modal-status--success">
+          <span>Все устройства добавлены на монтажную панель</span>
+        </div>
+        <div v-else class="modal-status modal-status--not-success">
+          <span>Не все устройства добавлены на монтажную панель!</span>
         </div>
       </aside>
 
@@ -1923,10 +1919,13 @@ onUnmounted(() => {
 
 /* Инструменты */
 .tools-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.tools-group {
   display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  justify-content: center;
+  gap: 4px;
 }
 
 .icon-button {
