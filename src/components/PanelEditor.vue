@@ -582,7 +582,7 @@ const SNAP_THRESHOLD_MM = 10
 // Зона пустоты - настраиваемый отступ от краёв панели (по умолчанию 25мм)
 const panelMarginMm = ref(20)
 
-const zoomPercent = ref(44)
+const zoomPercent = ref(40)
 
 // --- СОСТОЯНИЕ СЕТКИ ---
 const isGridEnabled = ref(true)

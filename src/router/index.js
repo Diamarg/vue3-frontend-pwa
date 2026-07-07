@@ -6,6 +6,7 @@ import ProjectsPage from '@/pages/ProjectsPage.vue'
 import GalleryPage from '@/pages/GalleryPage.vue'
 import AssembliesPage from '@/pages/AssembliesPage.vue'
 import FilesPage from '@/pages/FilesPage.vue'
+import DevicesPage from '@/pages/DevicesPage.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -23,6 +24,12 @@ const router = createRouter({
     {
       path: '/:projectId/assemblies',
       component: AssembliesPage,
+      props: true,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/:projectId/assemblies/:assemblyId/devices',
+      component: DevicesPage,
       props: true,
       meta: { requiresAuth: true },
     },

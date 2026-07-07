@@ -7,7 +7,9 @@
       <!-- <a>Устройства</a> -->
     </div>
     <div v-if="authStore.user" class="navbar-logout">
-      <div class="navbar-user" :class="{ admin: isAdmin }">{{ authStore.user.fullName }}</div>
+      <div class="navbar-user" :class="{ admin: authStore.isAdmin }">
+        {{ authStore.user.fullName }}
+      </div>
       <a @click="handleLogout">Выйти</a>
     </div>
   </div>
