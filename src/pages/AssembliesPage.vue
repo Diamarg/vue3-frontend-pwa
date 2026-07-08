@@ -4,6 +4,7 @@ import { useAuthStore } from '@/stores/auth'
 import { onMounted, ref } from 'vue'
 import { usePageStore } from '@/stores/pages'
 import { projectsApi } from '@/api/projects'
+import AssemblyCard from '@/components/AssemblyCard.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -31,11 +32,14 @@ const loadAssemblies = async () => {
     console.error('Ошибка загрузки сборок:', error)
   }
 }
-
 const toDevices = (assemblyId) => {
   console.log(assemblyId)
   console.log(project.value.id)
   router.push(`/${project.value.id}/assemblies/${assemblyId}/devices`)
+}
+
+const deleteAssembly = (assembly) => {
+  console.log(`Удалить сборку ${assembly.codeName}`)
 }
 
 onMounted(async () => {
@@ -47,20 +51,33 @@ onMounted(async () => {
 
 <template>
   <div class="global-container">
-    <div class="placeholder">Сборки</div>
-    <div v-if="assemblies" v-for="assembly in assemblies" class="assembly-card">
-      {{ assembly.id }}: {{ assembly.codeName }}
-      <a @click="toDevices(assembly.id)">клик</a>
+    <div v-if="assemblies" class="assembly-cards">
+      <AssemblyCard
+        v-for="assembly in assemblies"
+        :project-name="project.codeName"
+        :assembly-name="assembly.codeName"
+        :description="assembly.description"
+        :is-admin="authStore.isAdmin"
+        @onDelete="deleteAssembly(assembly)"
+      />
     </div>
+    <div v-else><h1>!!!!!!!!!!!!!!</h1></div>
   </div>
 </template>
 
 <style scoped>
-.placeholder {
-  font-size: 24px;
-  font-weight: 200;
-  color: rgb(66, 66, 66);
-  text-align: center;
-  margin-top: 24px;
+.assembly-cards {
+  display: grid;
+  gap: 24px;
+  box-shadow: 4px 4px 30px -10px rgba(34, 60, 80, 0.2);
+
+  grid-template-columns: repeat(auto-fit, minmax(400px, auto));
+  border-radius: 8px;
+  border-color: rgb(230, 230, 230);
+  border-style: solid;
+  border-width: 1px;
+  background-color: rgb(255, 255, 255);
+  padding: 24px;
+  margin-block: 24px;
 }
 </style>

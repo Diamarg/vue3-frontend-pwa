@@ -182,7 +182,7 @@ onMounted(async () => {
             placeholder="Найти по имени проекта или заказчику..."
           ></ainput>
         </div>
-        <Abutton class="sticky-button" @click="showModal = true"
+        <Abutton v-if="authStore.isAdmin" class="sticky-button" @click="showModal = true"
           ><template #icon><add-icon color="white" /></template>Новый проект
         </Abutton>
       </div>
@@ -197,6 +197,7 @@ onMounted(async () => {
           :is-admin="authStore.isAdmin"
           :photos-count="project.photosCount"
           :files-count="project.filesCount"
+          :assemblies-count="project.assembliesCount"
           @on-delete="deleteProject(project)"
           @to-gallery="goToGallery(project)"
           @to-assemblies="goToAssemblies(project)"
@@ -269,10 +270,10 @@ onMounted(async () => {
 }
 
 .projects-headbar {
-  display: grid;
-  gap: 24px;
+  display: flex;
+  gap: 24px; /* Раскомментируйте и добавьте это: создаст красивый отступ между поиском и кнопкой */
+  align-items: center; /* Выровняет элементы по вертикали */
   box-shadow: 4px 4px 30px -10px rgba(34, 60, 80, 0.2);
-  grid-template-columns: 7fr minmax(150px, 1fr);
   border-radius: 8px;
   border-color: rgb(230, 230, 230);
   border-style: solid;
@@ -280,13 +281,12 @@ onMounted(async () => {
   background-color: rgb(255, 255, 255);
   padding: 24px;
   margin-top: 24px;
-  align-items: center;
+  justify-content: space-between;
 }
 
 @media (max-width: 600px) {
   .projects-headbar {
     grid-template-rows: 1fr 1fr;
-    grid-template-columns: auto;
   }
 }
 
@@ -294,6 +294,7 @@ onMounted(async () => {
   display: grid;
   grid-template-columns: 80px 1fr;
   text-align: center;
+  flex-grow: 1; /* ГЛАВНОЕ ИЗМЕНЕНИЕ: Растягиваем блок поиска на всё свободное место */
 }
 
 .project-headbar__searchbar-label {
@@ -301,6 +302,7 @@ onMounted(async () => {
 }
 
 .projects-headbar__searchinput {
+  width: 100%; /* Инпут займет всю ширину своей grid-ячейки */
   box-shadow: 4px 4px 20px -10px rgba(34, 60, 80, 0.1);
   transition: all 0.3s;
 }
@@ -310,7 +312,7 @@ onMounted(async () => {
 }
 
 .sticky-button {
-  position: sticky;
+  max-width: 150px;
 }
 
 .projects-cards {

@@ -1,67 +1,42 @@
 <script setup>
-import { formatShortDate, parseLocalDate } from '@/utils/dateFormatter'
-
 const props = defineProps({
-  codename: { type: String, default: 'АС__' },
-  customer: { type: String, default: 'заказчик' },
-  description: { type: String, default: 'описание' },
+  projectName: { type: String, default: 'АС__' },
+  assemblyName: { type: String, default: 'заказчик' },
   creationDate: { type: String, default: '09.06.89' },
-  isAdmin: { type: Boolean, default: false },
-  photosCount: { type: Number, default: 0 },
-  filesCount: { type: Number, default: 0 },
-  assembliesCount: { type: Number, default: 0 },
+  description: { type: String, default: '...Описание...' },
+  isAdmin: { type: Boolean, default: true },
 })
 </script>
 
 <template>
   <div class="project-card">
     <div class="project-card__header">
-      <div class="project-card__codename" :title="'Описание проекта: ' + props.description">
-        {{ props.codename }}
+      <div class="project-card__assemblyname">
+        {{ props.assemblyName }}
       </div>
       <div v-if="isAdmin" class="project-card__actions">
-        <a class="project-card__link project-card__link--edit">Изменить</a
-        ><a class="project-card__link project-card__link--delete" @click="$emit('onDelete')"
+        <!-- <a class="project-card__link project-card__link--edit">Изменить</a> -->
+        <a class="project-card__link project-card__link--delete" @click="$emit('onDelete')"
           >Удалить</a
         >
       </div>
     </div>
     <hr />
     <div class="project-card__line">
-      <span class="project-card__line-label">Заказчик:</span
-      ><span class="project-card__line-text">{{ props.customer }}</span>
-    </div>
-    <div class="project-card__line">
-      <span class="project-card__line-label">Создано:</span
-      ><span class="project-card__line-text">{{ formatShortDate(props.creationDate) }}</span>
-    </div>
-    <hr />
-    <div class="project-card__line">
-      <span class="project-card__line-label">Фотографий:</span
-      ><span class="project-card__line-text">{{ photosCount ? photosCount : 'нет' }}</span>
-    </div>
-    <div class="project-card__line">
-      <span class="project-card__line-label">Файлов:</span
-      ><span class="project-card__line-text">{{ filesCount ? filesCount : 'нет' }}</span>
-    </div>
-    <div class="project-card__line">
-      <span class="project-card__line-label">Сборок:</span
-      ><span class="project-card__line-text">{{ assembliesCount ? assembliesCount : 'нет' }}</span>
+      <span class="project-card__line-text">{{ props.description }}</span>
     </div>
     <hr />
     <div class="project-card__links">
-      <a class="project-card__link project-card__link--outline" @click="$emit('toGallery')"
-        >Галерея</a
+      <a class="project-card__link project-card__link--outline" @click="$emit('toDevices')"
+        >Устройства</a
       >
       <!-- <a class="project-card__link project-card__link--outline" @click="$emit('toFiles')">Файлы</a> -->
-      <a class="project-card__link project-card__link--outline" @click="$emit('toAssemblies')"
-        >Сборки</a
+      <a class="project-card__link project-card__link--outline" @click="$emit('toPanelEditor')"
+        >Шкаф управления</a
       >
     </div>
   </div>
 </template>
-
-<script setup></script>
 
 <style scoped>
 .project-card {
@@ -88,7 +63,7 @@ const props = defineProps({
   margin-bottom: 24px;
 }
 
-.project-card__codename {
+.project-card__assemblyname {
   color: rgb(82, 82, 82);
   cursor: help;
   font-size: 20px;
