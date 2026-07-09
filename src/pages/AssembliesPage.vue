@@ -5,12 +5,15 @@ import { onMounted, ref } from 'vue'
 import { usePageStore } from '@/stores/pages'
 import { projectsApi } from '@/api/projects'
 import AssemblyCard from '@/components/AssemblyCard.vue'
+import { useToast } from '@/composables/useToast'
 
 const route = useRoute()
 const router = useRouter()
+const toast = useToast()
 
 const project = ref(null)
 const assemblies = ref(null)
+const assemblyDevices = ref(null)
 
 const authStore = useAuthStore()
 const pageStore = usePageStore()
@@ -19,6 +22,7 @@ const loadProject = async () => {
   try {
     project.value = await projectsApi.getProjectById(route.params.projectId)
   } catch (error) {
+    toast.error('Ошибка загрузки проекта')
     console.error('Ошибка загрузки проекта:', error)
     project.value = { codeName: 'Неизвестный проект', customer: 'Заказчик' }
   }
@@ -29,17 +33,30 @@ const loadAssemblies = async () => {
   try {
     assemblies.value = await projectsApi.getAssembliesByProjectId(route.params.projectId)
   } catch (error) {
+    toast.error('Ошибка загрузки сборок')
     console.error('Ошибка загрузки сборок:', error)
   }
 }
 const toDevices = (assemblyId) => {
-  console.log(assemblyId)
-  console.log(project.value.id)
   router.push(`/${project.value.id}/assemblies/${assemblyId}/devices`)
 }
 
-const deleteAssembly = (assembly) => {
-  console.log(`Удалить сборку ${assembly.codeName}`)
+const toPanelEditor = (assemblyId) => {
+  router.push(`/${project.value.id}/assemblies/${assemblyId}/panelEditor`)
+}
+
+const deleteAssembly = async (assembly) => {
+  console.log(`Удалить сборку ${assembly.codeName} id: ${assembly.id}`)
+  if (confirm('Действительно удалить сборку?')) {
+    try {
+      await projectsApi.deleteAssembly(assembly.id)
+    } catch (error) {
+      toast.error(`Ошибка удаления ${assembly.codeName}, возможно в сборке есть устройства`)
+      console.error(`Ошибка удаления сборки ${assembly.codeName}`, error)
+    }
+  }
+
+  await loadAssemblies()
 }
 
 onMounted(async () => {
@@ -59,6 +76,8 @@ onMounted(async () => {
         :description="assembly.description"
         :is-admin="authStore.isAdmin"
         @onDelete="deleteAssembly(assembly)"
+        @toDevices="toDevices(assembly.id)"
+        @toPanelEditor="toPanelEditor(assembly.id)"
       />
     </div>
     <div v-else><h1>!!!!!!!!!!!!!!</h1></div>
