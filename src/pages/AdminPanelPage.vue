@@ -1,15 +1,1422 @@
-<script setup></script>
+<!-- pages/AdminPanelPage.vue -->
+<script setup>
+import { ref, reactive, computed, onMounted, watch } from 'vue'
+import Abutton from '@/components/A-button.vue'
+import Ainput from '@/components/A-input.vue'
+import AModal from '@/components/A-modal.vue'
+import { useToast } from '@/composables/useToast'
+import { projectsApi } from '@/api/projects'
+import { devicesApi } from '@/api/devices'
+import { cableLinesApi } from '@/api/cableLines'
+import { referenceApi } from '@/api/reference'
+
+const toast = useToast()
+
+// ===================== СПРАВОЧНИКИ ДЛЯ СЕЛЕКТОВ =====================
+const projectsList = ref([])
+const loadedOptions = ref({})
+const selectedProjectId = ref(null)
+
+const mapOpts = (arr, labelKey = 'name') =>
+  (arr || []).map((x) => ({ value: x.id, label: x[labelKey] || x.codeName || `ID ${x.id}` }))
+
+const projectOpts = () =>
+  (projectsList.value || []).map((p) => ({ value: p.id, label: `${p.codeName} (ID ${p.id})` }))
+
+// ===================== КОНФИГУРАЦИЯ РАЗДЕЛОВ =====================
+const sections = {
+  projects: {
+    label: 'Проекты',
+    searchKeys: ['codeName', 'customer', 'description'],
+    columns: [
+      {
+        key: 'codeName',
+        label: 'Кодовое имя',
+        type: 'text',
+        required: true,
+        placeholder: 'АС-101',
+      },
+      {
+        key: 'customer',
+        label: 'Заказчик',
+        type: 'text',
+        required: true,
+        placeholder: 'Название объекта',
+      },
+      { key: 'description', label: 'Описание', type: 'text', placeholder: 'Описание проекта' },
+      { key: 'dateOfCreation', label: 'Дата создания', type: 'date', required: true },
+    ],
+    fetch: () => projectsApi.getProjects(),
+    create: (_ctx, data) => projectsApi.createProject(data),
+    update: (_ctx, id, data) => projectsApi.updateProject(id, data),
+    remove: (_ctx, id) => projectsApi.deleteProject(id),
+  },
+
+  assemblies: {
+    label: 'Сборки',
+    searchKeys: ['codeName', 'description'],
+    columns: [
+      { key: 'codeName', label: 'Кодовое имя', type: 'text', required: true },
+      { key: 'description', label: 'Описание', type: 'text' },
+      { key: 'projectId', label: 'Проект', type: 'select', required: true, optionsKey: 'projects' },
+    ],
+    loadOptions: async () => ({ projects: projectOpts() }),
+    fetch: () => projectsApi.getAssemblies(),
+    create: (_ctx, data) => projectsApi.createAssembly(data),
+    update: (_ctx, id, data) => projectsApi.updateAssembly(id, data),
+    remove: (_ctx, id) => projectsApi.deleteAssembly(id),
+  },
+
+  devices: {
+    label: 'Устройства',
+    showValues: true, // Включает кнопку 📋 "Значения свойств" в таблице
+    searchKeys: ['article', 'description'],
+    columns: [
+      { key: 'article', label: 'Артикул', type: 'text', required: true },
+      { key: 'description', label: 'Описание', type: 'text' },
+      { key: 'brandId', label: 'Бренд', type: 'select', required: true, optionsKey: 'brands' },
+      {
+        key: 'deviceTypeId',
+        label: 'Тип устройства',
+        type: 'select',
+        required: true,
+        optionsKey: 'deviceTypes',
+      },
+    ],
+    loadOptions: async () => {
+      const [brands, deviceTypes] = await Promise.all([
+        referenceApi.getBrands(),
+        referenceApi.getDeviceTypes(),
+      ])
+      return { brands: mapOpts(brands), deviceTypes: mapOpts(deviceTypes) }
+    },
+    fetch: () => devicesApi.getAll(),
+    create: (_ctx, data) => devicesApi.create(data),
+    update: (_ctx, id, data) => devicesApi.update(id, data),
+    remove: (_ctx, id) => devicesApi.delete(id),
+  },
+
+  cableLines: {
+    label: 'Кабельные линии',
+    needsProject: true,
+    searchKeys: ['linePurpose', 'startPoint', 'endPoint', 'notes'],
+    columns: [
+      { key: 'linePurpose', label: 'Назначение', type: 'text', required: true },
+      { key: 'startPoint', label: 'Откуда', type: 'text' },
+      { key: 'endPoint', label: 'Куда', type: 'text' },
+      { key: 'length', label: 'Длина (м)', type: 'number', required: true },
+      { key: 'coreCount', label: 'Кол-во жил', type: 'number' },
+      {
+        key: 'cableTypeId',
+        label: 'Тип кабеля',
+        type: 'select',
+        required: true,
+        optionsKey: 'cableTypes',
+      },
+      {
+        key: 'crossSectionId',
+        label: 'Сечение',
+        type: 'select',
+        required: true,
+        optionsKey: 'crossSections',
+      },
+      { key: 'notes', label: 'Примечание', type: 'text' },
+    ],
+    loadOptions: async () => {
+      const [cableTypes, crossSections] = await Promise.all([
+        referenceApi.getCableTypes(),
+        referenceApi.getCrossSections(),
+      ])
+      return { cableTypes: mapOpts(cableTypes), crossSections: mapOpts(crossSections, 'value') }
+    },
+    fetch: (ctx) => (ctx.projectId ? cableLinesApi.getLines(ctx.projectId) : Promise.resolve([])),
+    create: (ctx, data) => cableLinesApi.createLine(ctx.projectId, data),
+    update: (ctx, id, data) => cableLinesApi.updateLine(ctx.projectId, id, data),
+    remove: (ctx, id) => cableLinesApi.deleteLine(ctx.projectId, id),
+  },
+
+  units: {
+    label: 'Ед. измерения',
+    searchKeys: ['name', 'symbol'],
+    columns: [
+      {
+        key: 'name',
+        label: 'Название',
+        type: 'text',
+        required: true,
+        placeholder: 'Вольт, Ампер...',
+      },
+      { key: 'symbol', label: 'Обозначение', type: 'text', placeholder: 'В, А...' },
+    ],
+    fetch: () => referenceApi.getUnits(),
+    create: (_ctx, data) => referenceApi.createUnit(data),
+    update: (_ctx, id, data) => referenceApi.updateUnit(id, data),
+    remove: (_ctx, id) => referenceApi.deleteUnit(id),
+  },
+
+  brands: {
+    label: 'Бренды',
+    searchKeys: ['name'],
+    columns: [
+      {
+        key: 'name',
+        label: 'Название',
+        type: 'text',
+        required: true,
+        placeholder: 'ABB, Siemens...',
+      },
+    ],
+    fetch: () => referenceApi.getBrands(),
+    create: (_ctx, data) => referenceApi.createBrand(data),
+    update: (_ctx, id, data) => referenceApi.updateBrand(id, data),
+    remove: (_ctx, id) => referenceApi.deleteBrand(id),
+  },
+
+  deviceTypes: {
+    label: 'Типы устройств',
+    searchKeys: ['name'],
+    columns: [
+      {
+        key: 'name',
+        label: 'Название',
+        type: 'text',
+        required: true,
+        placeholder: 'Автомат, Контактор...',
+      },
+    ],
+    fetch: () => referenceApi.getDeviceTypes(),
+    create: (_ctx, data) => referenceApi.createDeviceType(data),
+    update: (_ctx, id, data) => referenceApi.updateDeviceType(id, data),
+    remove: (_ctx, id) => referenceApi.deleteDeviceType(id),
+  },
+
+  properties: {
+    label: 'Свойства',
+    searchKeys: ['name'],
+    columns: [
+      {
+        key: 'name',
+        label: 'Название',
+        type: 'text',
+        required: true,
+        placeholder: 'Напряжение, Ток...',
+      },
+      { key: 'unitId', label: 'Ед. измерения', type: 'select', optionsKey: 'units' },
+    ],
+    loadOptions: async () => ({ units: mapOpts(await referenceApi.getUnits()) }),
+    fetch: () => referenceApi.getProperties(),
+    create: (_ctx, data) => referenceApi.createProperty(data),
+    update: (_ctx, id, data) => referenceApi.updateProperty(id, data),
+    remove: (_ctx, id) => referenceApi.deleteProperty(id),
+  },
+
+  cableTypes: {
+    label: 'Типы кабелей',
+    searchKeys: ['name'],
+    columns: [
+      {
+        key: 'name',
+        label: 'Название',
+        type: 'text',
+        required: true,
+        placeholder: 'ВВГнг, ПВС...',
+      },
+    ],
+    fetch: () => referenceApi.getCableTypes(),
+    create: (_ctx, data) => referenceApi.createCableLine(data),
+    update: (_ctx, id, data) => referenceApi.updateCableLine(id, data),
+    remove: (_ctx, id) => referenceApi.deleteCableLine(id),
+  },
+
+  crossSections: {
+    label: 'Сечения',
+    searchKeys: ['value'],
+    columns: [
+      {
+        key: 'value',
+        label: 'Сечение',
+        type: 'text',
+        required: true,
+        placeholder: '1.5, 2.5, 4...',
+      },
+    ],
+    fetch: () => referenceApi.getCrossSections(),
+    create: (_ctx, data) => referenceApi.createCrossSection(data),
+    update: (_ctx, id, data) => referenceApi.updateCrossSection(id, data),
+    remove: (_ctx, id) => referenceApi.deleteCrossSection(id),
+  },
+}
+
+const navGroups = [
+  { title: 'Данные', keys: ['projects', 'assemblies', 'devices', 'cableLines'] },
+  {
+    title: 'Справочники',
+    keys: ['units', 'brands', 'deviceTypes', 'properties', 'cableTypes', 'crossSections'],
+  },
+]
+
+// ===================== СОСТОЯНИЕ =====================
+const currentSection = ref('projects')
+const cfg = computed(() => sections[currentSection.value])
+const ctx = computed(() => ({ projectId: selectedProjectId.value }))
+
+const items = ref([])
+const loading = ref(false)
+const loadError = ref(false)
+const searchBar = ref('')
+
+const showModal = ref(false)
+const editing = ref(null)
+const form = reactive({})
+const touched = reactive({})
+
+// ===================== ЗНАЧЕНИЯ СВОЙСТВ В ФОРМЕ УСТРОЙСТВА =====================
+const formProperties = ref([]) // [{ propertyId, name, unitSymbol, value }]
+const formPropsLoading = ref(false)
+const unitsCache = ref([])
+
+const loadPropertiesForForm = async (deviceTypeId, existingValues = null) => {
+  formProperties.value = []
+  if (!deviceTypeId) return
+
+  formPropsLoading.value = true
+  try {
+    if (unitsCache.value.length === 0) {
+      unitsCache.value = await referenceApi.getUnits()
+    }
+
+    const props = await referenceApi.getPropertiesByTypeId(deviceTypeId)
+    formProperties.value = (props || []).map((p) => {
+      const unit = unitsCache.value.find((u) => u.id === p.unitId)
+      const existing = existingValues?.find((v) => v.id === p.id)
+      return {
+        propertyId: p.id,
+        name: p.name,
+        unitSymbol: unit ? unit.symbol || unit.name : '',
+        value: existing ? (existing.value ?? '') : '',
+      }
+    })
+  } catch (e) {
+    console.error('Load properties for form error:', e)
+  } finally {
+    formPropsLoading.value = false
+  }
+}
+
+// Следим за изменением типа устройства в форме, чтобы подгрузить свойства
+watch(
+  () => form.deviceTypeId,
+  async (newTypeId) => {
+    if (!showModal.value || currentSection.value !== 'devices') return
+    // При редактировании значения уже загружены в openEdit, не перезагружаем
+    if (editing.value) return
+    await loadPropertiesForForm(newTypeId, null)
+  },
+)
+
+// ===================== МОДАЛКА ЗНАЧЕНИЙ СВОЙСТВ (отдельная, для просмотра) =====================
+const showValuesModal = ref(false)
+const valuesDevice = ref(null)
+const valuesLoading = ref(false)
+const propertyRows = ref([])
+
+const openValues = async (device) => {
+  valuesDevice.value = device
+  propertyRows.value = []
+  showValuesModal.value = true
+  valuesLoading.value = true
+  try {
+    if (unitsCache.value.length === 0) {
+      unitsCache.value = await referenceApi.getUnits()
+    }
+
+    const [props, values] = await Promise.all([
+      referenceApi.getPropertiesByTypeId(device.deviceTypeId),
+      devicesApi.getDeviceValues(device.id),
+    ])
+
+    propertyRows.value = (props || []).map((p) => {
+      const existing = (values || []).find((v) => v.id === p.id)
+      const unit = unitsCache.value.find((u) => u.id === p.unitId)
+      return {
+        propertyId: p.id,
+        name: p.name,
+        unitSymbol: unit ? unit.symbol || unit.name : '',
+        value: existing ? (existing.value ?? '') : '',
+      }
+    })
+  } catch (e) {
+    console.error('Load device values error:', e)
+    toast.error('Не удалось загрузить свойства устройства')
+  } finally {
+    valuesLoading.value = false
+  }
+}
+
+const saveValues = async () => {
+  try {
+    const payload = propertyRows.value.map((row) => ({
+      id: row.propertyId,
+      value: row.value === '' ? null : String(row.value),
+    }))
+    await devicesApi.updateDeviceValues(valuesDevice.value.id, payload)
+    toast.success('Значения свойств сохранены')
+    showValuesModal.value = false
+  } catch (e) {
+    console.error('Save device values error:', e)
+    toast.error('Ошибка при сохранении значений')
+  }
+}
+
+// ===================== СОРТИРОВКА ПО СТОЛБЦАМ =====================
+const sortKey = ref('id')
+const sortDir = ref('asc')
+
+const colMap = computed(() => {
+  const m = {}
+  cfg.value.columns.forEach((c) => (m[c.key] = c))
+  return m
+})
+
+const getSortValue = (item, key) => {
+  if (key === 'id') return item.id
+  const col = colMap.value[key]
+  if (!col) return ''
+  if (col.type === 'select') {
+    const list = loadedOptions.value[col.optionsKey] || []
+    const opt = list.find((o) => o.value === item[col.key])
+    return opt ? opt.label : ''
+  }
+  return item[col.key] ?? ''
+}
+
+const isNumericSort = (key) => {
+  if (key === 'id') return true
+  const col = colMap.value[key]
+  return !!(col && col.type === 'number')
+}
+
+const toggleSort = (key) => {
+  if (sortKey.value === key) {
+    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    sortKey.value = key
+    sortDir.value = 'asc'
+  }
+}
+
+const sortArrow = (key) => {
+  if (sortKey.value !== key) return '⇅'
+  return sortDir.value === 'asc' ? '↑' : '↓'
+}
+
+// ===================== ПАГИНАЦИЯ =====================
+const pageSize = ref(10)
+const currentPage = ref(1)
+
+// ===================== ЗАГРУЗКА =====================
+const fetchItems = async () => {
+  if (cfg.value.needsProject && !selectedProjectId.value) {
+    items.value = []
+    return
+  }
+  loading.value = true
+  loadError.value = false
+  try {
+    items.value = (await cfg.value.fetch(ctx.value)) || []
+  } catch (e) {
+    loadError.value = true
+    console.error('Load error:', e)
+    toast.error('Ошибка загрузки данных')
+  } finally {
+    loading.value = false
+  }
+}
+
+const initSection = async () => {
+  searchBar.value = ''
+  currentPage.value = 1
+  sortKey.value = 'id'
+  sortDir.value = 'asc'
+  loadedOptions.value = cfg.value.loadOptions ? await cfg.value.loadOptions() : {}
+  await fetchItems()
+}
+
+watch(currentSection, initSection)
+
+// ===================== ФИЛЬТР =====================
+const filteredItems = computed(() => {
+  const q = searchBar.value.trim().toLowerCase()
+  if (!q) return items.value
+  return items.value.filter((it) =>
+    cfg.value.searchKeys.some((k) =>
+      String(it[k] ?? '')
+        .toLowerCase()
+        .includes(q),
+    ),
+  )
+})
+
+// ===================== СОРТИРОВКА (вычисления) =====================
+const sortedItems = computed(() => {
+  const arr = [...filteredItems.value]
+  const key = sortKey.value
+  const dir = sortDir.value === 'asc' ? 1 : -1
+  const numeric = isNumericSort(key)
+
+  arr.sort((a, b) => {
+    const va = getSortValue(a, key)
+    const vb = getSortValue(b, key)
+    if (numeric) {
+      return ((Number(va) || 0) - (Number(vb) || 0)) * dir
+    }
+    return String(va).localeCompare(String(vb), 'ru', { numeric: true, sensitivity: 'base' }) * dir
+  })
+  return arr
+})
+
+// ===================== ПАГИНАЦИЯ (вычисления) =====================
+const totalPages = computed(() =>
+  Math.max(1, Math.ceil(filteredItems.value.length / pageSize.value)),
+)
+
+const paginatedItems = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value
+  return sortedItems.value.slice(start, start + pageSize.value)
+})
+
+const shownFrom = computed(() =>
+  filteredItems.value.length === 0 ? 0 : (currentPage.value - 1) * pageSize.value + 1,
+)
+const shownTo = computed(() =>
+  Math.min(currentPage.value * pageSize.value, filteredItems.value.length),
+)
+
+const pageRange = computed(() => {
+  const total = totalPages.value
+  const cur = currentPage.value
+  const delta = 1
+  const range = [1]
+  for (let i = cur - delta; i <= cur + delta; i++) {
+    if (i > 1 && i < total) range.push(i)
+  }
+  if (total > 1) range.push(total)
+
+  const result = []
+  let prev
+  for (const i of range) {
+    if (prev) {
+      if (i - prev === 2) result.push(prev + 1)
+      else if (i - prev > 2) result.push('...')
+    }
+    result.push(i)
+    prev = i
+  }
+  return result
+})
+
+const showTable = computed(
+  () =>
+    !loading.value &&
+    !loadError.value &&
+    filteredItems.value.length > 0 &&
+    !(cfg.value.needsProject && !selectedProjectId.value),
+)
+
+const goToPage = (p) => {
+  currentPage.value = Math.min(Math.max(1, p), totalPages.value)
+}
+const prevPage = () => goToPage(currentPage.value - 1)
+const nextPage = () => goToPage(currentPage.value + 1)
+
+watch([searchBar, pageSize, sortKey, sortDir], () => {
+  currentPage.value = 1
+})
+watch(totalPages, (tp) => {
+  if (currentPage.value > tp) currentPage.value = tp
+})
+
+// ===================== ФОРМА =====================
+const resetForm = (item = null) => {
+  editing.value = item
+  Object.keys(form).forEach((k) => delete form[k])
+  Object.keys(touched).forEach((k) => delete touched[k])
+  cfg.value.columns.forEach((col) => {
+    form[col.key] = item
+      ? (item[col.key] ?? (col.type === 'number' ? null : ''))
+      : col.type === 'number'
+        ? null
+        : ''
+  })
+  // Сбрасываем свойства формы
+  formProperties.value = []
+}
+
+const openCreate = () => {
+  if (cfg.value.needsProject && !selectedProjectId.value) return
+  resetForm(null)
+  showModal.value = true
+}
+
+const openEdit = async (item) => {
+  resetForm(item)
+  showModal.value = true
+
+  // Если это устройство — подгружаем свойства типа + текущие значения
+  if (currentSection.value === 'devices' && item.deviceTypeId) {
+    try {
+      const values = await devicesApi.getDeviceValues(item.id)
+      await loadPropertiesForForm(item.deviceTypeId, values)
+    } catch (e) {
+      console.error('Load edit properties error:', e)
+    }
+  }
+}
+
+const getError = (col) => {
+  if (!col.required || !touched[col.key]) return ''
+  const v = form[col.key]
+  return v === '' || v === null || v === undefined ? 'Заполните поле' : ''
+}
+
+const formReady = computed(() =>
+  cfg.value.columns
+    .filter((c) => c.required)
+    .every((c) => {
+      const v = form[c.key]
+      return v !== '' && v !== null && v !== undefined
+    }),
+)
+
+const buildData = () => {
+  const data = {}
+  cfg.value.columns.forEach((col) => {
+    let v = form[col.key]
+    if (col.type === 'number') v = v === '' || v === null || v === undefined ? null : Number(v)
+    data[col.key] = v
+  })
+
+  // Для устройств добавляем свойства в payload
+  if (currentSection.value === 'devices' && formProperties.value.length > 0) {
+    data.properties = formProperties.value
+      .filter((row) => row.value !== '' && row.value !== null && row.value !== undefined)
+      .map((row) => ({
+        id: row.propertyId,
+        value: String(row.value),
+      }))
+  }
+
+  return data
+}
+
+const save = async () => {
+  cfg.value.columns.forEach((c) => (touched[c.key] = true))
+  if (!formReady.value) return
+  try {
+    const data = buildData()
+    if (editing.value) {
+      await cfg.value.update(ctx.value, editing.value.id, data)
+      toast.success('Запись обновлена')
+    } else {
+      await cfg.value.create(ctx.value, data)
+      toast.success('Запись создана')
+    }
+    showModal.value = false
+    await fetchItems()
+  } catch (e) {
+    console.error('Save error:', e)
+    toast.error('Ошибка сохранения')
+  }
+}
+
+const remove = async (item) => {
+  const name =
+    item.name || item.codeName || item.value || item.article || item.linePurpose || item.id
+  if (!confirm(`Удалить "${name}" (ID: ${item.id})?`)) return
+  try {
+    await cfg.value.remove(ctx.value, item.id)
+    toast.success('Запись удалена')
+    await fetchItems()
+  } catch (e) {
+    console.error('Delete error:', e)
+    toast.error('Ошибка удаления')
+  }
+}
+
+// ===================== ОТОБРАЖЕНИЕ =====================
+const displayValue = (item, col) => {
+  if (col.type === 'select') {
+    const list = loadedOptions.value[col.optionsKey] || []
+    const opt = list.find((o) => o.value === item[col.key])
+    return opt ? opt.label : (item[col.key] ?? '—')
+  }
+  const v = item[col.key]
+  return v === null || v === undefined || v === '' ? '—' : v
+}
+
+// ===================== СТАРТ =====================
+onMounted(async () => {
+  try {
+    projectsList.value = await projectsApi.getProjects()
+    if (projectsList.value.length) selectedProjectId.value = projectsList.value[0].id
+  } catch (e) {
+    console.error('Projects load error:', e)
+  }
+  await initSection()
+})
+
+watch(selectedProjectId, () => {
+  if (cfg.value.needsProject) {
+    currentPage.value = 1
+    fetchItems()
+  }
+})
+</script>
 
 <template>
-  <div class="global-container"><div class="placeholder">Здесь будет админ-панель!</div></div>
+  <div class="global-container">
+    <div class="admin-layout">
+      <!-- ===================== SIDEBAR ===================== -->
+      <aside class="admin-sidebar">
+        <div class="admin-sidebar__header">
+          <h2 class="admin-sidebar__title">Админ-панель</h2>
+        </div>
+        <nav class="admin-nav">
+          <div v-for="group in navGroups" :key="group.title" class="admin-nav__group">
+            <h3 class="admin-nav__group-title">{{ group.title }}</h3>
+            <button
+              v-for="key in group.keys"
+              :key="key"
+              :class="['admin-nav__link', { 'admin-nav__link--active': currentSection === key }]"
+              @click="currentSection = key"
+            >
+              {{ sections[key].label }}
+            </button>
+          </div>
+        </nav>
+      </aside>
+
+      <!-- ===================== CONTENT ===================== -->
+      <main class="admin-content">
+        <div v-if="cfg.needsProject" class="admin-card admin-card--row">
+          <label class="admin-card__label">Проект:</label>
+          <select v-model="selectedProjectId" class="admin-select">
+            <option v-for="p in projectsList" :key="p.id" :value="p.id">
+              {{ p.codeName }} (ID {{ p.id }})
+            </option>
+          </select>
+        </div>
+
+        <div class="admin-card admin-headbar">
+          <div class="admin-headbar__search">
+            <span class="admin-headbar__search-label">Поиск:</span>
+            <Ainput
+              class="admin-headbar__search-input"
+              v-model="searchBar"
+              placeholder="Поиск..."
+            />
+          </div>
+          <Abutton @click="openCreate" :disabled="cfg.needsProject && !selectedProjectId">
+            + Добавить
+          </Abutton>
+        </div>
+
+        <div class="admin-card admin-table-wrap">
+          <div v-if="cfg.needsProject && !selectedProjectId" class="admin-empty">
+            Выберите проект
+          </div>
+          <div v-else-if="loading" class="admin-empty">Загрузка...</div>
+          <div v-else-if="loadError" class="admin-empty admin-empty--error">
+            Ошибка загрузки данных
+          </div>
+          <div v-else-if="filteredItems.length === 0" class="admin-empty">
+            {{ searchBar ? `По запросу «${searchBar}» ничего не найдено` : 'Нет записей' }}
+          </div>
+
+          <table v-else class="admin-table">
+            <thead>
+              <tr>
+                <th
+                  class="admin-table__th admin-table__th--id admin-table__th--sortable"
+                  :class="{ 'admin-table__th--sorted': sortKey === 'id' }"
+                  @click="toggleSort('id')"
+                  title="Сортировать по ID"
+                >
+                  <span class="admin-table__th-inner">
+                    <span class="admin-table__th-text">ID</span>
+                    <span
+                      class="admin-table__th-arrow"
+                      :class="{ 'admin-table__th-arrow--active': sortKey === 'id' }"
+                    >
+                      {{ sortArrow('id') }}
+                    </span>
+                  </span>
+                </th>
+                <th
+                  v-for="col in cfg.columns"
+                  :key="col.key"
+                  class="admin-table__th admin-table__th--sortable"
+                  :class="{ 'admin-table__th--sorted': sortKey === col.key }"
+                  @click="toggleSort(col.key)"
+                  :title="`Сортировать по: ${col.label}`"
+                >
+                  <span class="admin-table__th-inner">
+                    <span class="admin-table__th-text">{{ col.label }}</span>
+                    <span
+                      class="admin-table__th-arrow"
+                      :class="{ 'admin-table__th-arrow--active': sortKey === col.key }"
+                    >
+                      {{ sortArrow(col.key) }}
+                    </span>
+                  </span>
+                </th>
+                <th class="admin-table__th admin-table__th--actions">Действия</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="item in paginatedItems" :key="item.id" class="admin-table__row">
+                <td class="admin-table__td admin-table__td--id">{{ item.id }}</td>
+                <td v-for="col in cfg.columns" :key="col.key" class="admin-table__td">
+                  {{ displayValue(item, col) }}
+                </td>
+                <td class="admin-table__td admin-table__td--actions">
+                  <button
+                    v-if="cfg.showValues"
+                    class="admin-table__btn"
+                    @click="openValues(item)"
+                    title="Значения свойств"
+                  >
+                    📋
+                  </button>
+                  <button class="admin-table__btn" @click="openEdit(item)" title="Редактировать">
+                    ✏️
+                  </button>
+                  <button
+                    class="admin-table__btn admin-table__btn--del"
+                    @click="remove(item)"
+                    title="Удалить"
+                  >
+                    🗑️
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div v-if="showTable" class="admin-pagination">
+            <div class="admin-pagination__info">
+              Показано {{ shownFrom }}–{{ shownTo }} из {{ filteredItems.length }}
+            </div>
+            <div class="admin-pagination__controls">
+              <div class="admin-pagination__size">
+                <span>На странице:</span>
+                <select v-model.number="pageSize" class="admin-pagination__select">
+                  <option :value="10">10</option>
+                  <option :value="20">20</option>
+                  <option :value="50">50</option>
+                  <option :value="100">100</option>
+                </select>
+              </div>
+              <div class="admin-pagination__pages">
+                <button
+                  class="admin-pagination__btn"
+                  :disabled="currentPage === 1"
+                  @click="prevPage"
+                  title="Назад"
+                >
+                  ‹
+                </button>
+                <template v-for="(p, idx) in pageRange" :key="idx">
+                  <span v-if="p === '...'" class="admin-pagination__dots">…</span>
+                  <button
+                    v-else
+                    :class="[
+                      'admin-pagination__btn',
+                      { 'admin-pagination__btn--active': p === currentPage },
+                    ]"
+                    @click="goToPage(p)"
+                  >
+                    {{ p }}
+                  </button>
+                </template>
+                <button
+                  class="admin-pagination__btn"
+                  :disabled="currentPage === totalPages"
+                  @click="nextPage"
+                  title="Вперёд"
+                >
+                  ›
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <!-- ===================== МОДАЛКА: создание / редактирование записи ===================== -->
+      <AModal
+        @close-emit="showModal = false"
+        :title="editing ? 'Редактировать запись' : 'Новая запись'"
+        :opened="showModal"
+      >
+        <form class="admin-form" @submit.prevent="save">
+          <div v-for="col in cfg.columns" :key="col.key" class="admin-form__group">
+            <label :for="col.key">{{ col.label }}{{ col.required ? '*' : '' }}</label>
+
+            <select
+              v-if="col.type === 'select'"
+              :id="col.key"
+              v-model="form[col.key]"
+              class="admin-select"
+              @blur="touched[col.key] = true"
+            >
+              <option :value="null" disabled>Выберите...</option>
+              <option
+                v-for="opt in loadedOptions[col.optionsKey] || []"
+                :key="opt.value"
+                :value="opt.value"
+              >
+                {{ opt.label }}
+              </option>
+            </select>
+
+            <Ainput
+              v-else
+              :id="col.key"
+              :type="col.type === 'date' ? 'date' : col.type === 'number' ? 'number' : 'text'"
+              v-model="form[col.key]"
+              :placeholder="col.placeholder || ''"
+              @on-touch="touched[col.key] = true"
+            />
+
+            <p class="admin-form__error">{{ getError(col) }}</p>
+          </div>
+
+          <!-- Блок свойств устройства (только для раздела "Устройства") -->
+          <template v-if="currentSection === 'devices' && form.deviceTypeId">
+            <div class="form-divider"></div>
+            <h4 class="form-section-title">Значения свойств</h4>
+
+            <div v-if="formPropsLoading" class="admin-empty" style="padding: 16px">
+              Загрузка свойств...
+            </div>
+            <div v-else-if="formProperties.length === 0" class="admin-empty" style="padding: 16px">
+              Для выбранного типа устройства свойства не настроены
+            </div>
+            <div v-else class="values-form">
+              <div v-for="row in formProperties" :key="row.propertyId" class="values-row">
+                <label class="values-row__label" :for="`form-prop-${row.propertyId}`">
+                  {{ row.name }}
+                  <span v-if="row.unitSymbol" class="values-row__unit">, {{ row.unitSymbol }}</span>
+                </label>
+                <input
+                  :id="`form-prop-${row.propertyId}`"
+                  class="values-input"
+                  v-model="row.value"
+                  :placeholder="row.unitSymbol ? `Значение (${row.unitSymbol})` : 'Значение'"
+                />
+              </div>
+            </div>
+          </template>
+
+          <div class="admin-form__actions">
+            <Abutton type="submit" :disabled="!formReady">{{
+              editing ? 'Сохранить' : 'Создать'
+            }}</Abutton>
+            <a class="admin-form__cancel" @click="showModal = false">Отмена</a>
+          </div>
+        </form>
+      </AModal>
+
+      <!-- ===================== МОДАЛКА: просмотр значений свойств (отдельная) ===================== -->
+      <AModal
+        @close-emit="showValuesModal = false"
+        :title="
+          valuesDevice
+            ? `Свойства: ${valuesDevice.article || valuesDevice.description || valuesDevice.id}`
+            : 'Значения свойств'
+        "
+        :opened="showValuesModal"
+      >
+        <div v-if="valuesLoading" class="admin-empty">Загрузка...</div>
+        <div v-else-if="propertyRows.length === 0" class="admin-empty">
+          Для типа этого устройства не настроены свойства
+        </div>
+        <form v-else class="values-form" @submit.prevent="saveValues">
+          <div v-for="row in propertyRows" :key="row.propertyId" class="values-row">
+            <label class="values-row__label" :for="`prop-${row.propertyId}`">
+              {{ row.name }}
+              <span v-if="row.unitSymbol" class="values-row__unit">, {{ row.unitSymbol }}</span>
+            </label>
+            <input
+              :id="`prop-${row.propertyId}`"
+              class="values-input"
+              v-model="row.value"
+              :placeholder="row.unitSymbol ? `Значение (${row.unitSymbol})` : 'Значение'"
+            />
+          </div>
+
+          <div class="admin-form__actions">
+            <Abutton type="submit">Сохранить</Abutton>
+            <a class="admin-form__cancel" @click="showValuesModal = false">Отмена</a>
+          </div>
+        </form>
+      </AModal>
+    </div>
+  </div>
+  <
 </template>
 
 <style scoped>
-.placeholder {
-  font-size: 24px;
-  font-weight: 200;
-  color: rgb(66, 66, 66);
+.admin-layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  min-height: 100vh;
+  background-color: #f5f7fa;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  color: #2d3748;
+}
+
+@media (max-width: 768px) {
+  .admin-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- SIDEBAR ---------- */
+.admin-sidebar {
+  background-color: #fff;
+  border-right: 1px solid rgb(230, 230, 230);
+  box-shadow: 4px 0 30px -10px rgba(34, 60, 80, 0.1);
+  padding: 16px 0;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-sidebar__header {
+  padding: 0 16px 16px;
+  border-bottom: 1px solid rgb(230, 230, 230);
+  margin-bottom: 8px;
+}
+
+.admin-sidebar__title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.admin-nav {
+  display: grid;
+  gap: 16px;
+  padding: 8px 0;
+}
+
+.admin-nav__group {
+  display: grid;
+  gap: 2px;
+}
+
+.admin-nav__group-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #a0aec0;
+  letter-spacing: 0.5px;
+  padding: 0 16px;
+  margin: 0 0 4px;
+}
+
+.admin-nav__link {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 8px 16px;
+  font-size: 13px;
+  color: #4a5568;
+  background: none;
+  border: none;
+  border-left: 3px solid transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.admin-nav__link:hover {
+  background-color: #f7fafc;
+  color: #2d3748;
+}
+.admin-nav__link--active {
+  background-color: #eef2ff;
+  color: #4f46e5;
+  border-left-color: #6366f1;
+  font-weight: 500;
+}
+
+/* ---------- CONTENT ---------- */
+.admin-content {
+  padding: 24px;
+  display: grid;
+  gap: 24px;
+  align-content: start;
+  overflow-y: auto;
+}
+
+.admin-card {
+  box-shadow: 4px 4px 30px -10px rgba(34, 60, 80, 0.2);
+  border-radius: 8px;
+  border: 1px solid rgb(230, 230, 230);
+  background-color: #fff;
+  padding: 24px;
+}
+
+.admin-card--row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.admin-card__label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #4a5568;
+  white-space: nowrap;
+}
+
+.admin-select {
+  width: 100%;
+  max-width: 400px;
+  padding: 8px 10px;
+  border: 1px solid rgb(230, 230, 230);
+  border-radius: 6px;
+  background-color: #fff;
+  font-size: 13px;
+  color: #2d3748;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+.admin-select:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+/* ---------- HEADBAR ---------- */
+.admin-headbar {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+}
+@media (max-width: 600px) {
+  .admin-headbar {
+    grid-template-columns: 1fr;
+  }
+}
+.admin-headbar__search {
+  display: grid;
+  grid-template-columns: 70px 1fr;
+  align-items: center;
+  gap: 8px;
+}
+.admin-headbar__search-label {
+  font-size: 13px;
+  color: #4a5568;
+}
+.admin-headbar__search-input {
+  box-shadow: 4px 4px 20px -10px rgba(34, 60, 80, 0.1);
+  transition: all 0.3s;
+}
+.admin-headbar__search-input:hover {
+  box-shadow: 4px 4px 20px -10px rgba(34, 60, 80, 0.3);
+}
+
+/* ---------- TABLE ---------- */
+.admin-table-wrap {
+  padding: 0;
+  overflow: auto;
+}
+.admin-empty {
+  padding: 40px;
   text-align: center;
-  margin-top: 24px;
+  color: #718096;
+  font-weight: 300;
+}
+.admin-empty--error {
+  color: #e53e3e;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.admin-table__th {
+  text-align: left;
+  padding: 12px 16px;
+  font-weight: 600;
+  color: #4a5568;
+  background-color: #f7fafc;
+  border-bottom: 2px solid rgb(230, 230, 230);
+  white-space: nowrap;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.admin-table__th--id {
+  width: 80px;
+}
+.admin-table__th--actions {
+  width: 130px;
+  text-align: center;
+}
+
+.admin-table__th--sortable {
+  cursor: pointer;
+  user-select: none;
+  transition:
+    background-color 0.15s,
+    color 0.15s;
+}
+.admin-table__th--sortable:hover {
+  background-color: #eef2ff;
+  color: #4f46e5;
+}
+.admin-table__th--sorted {
+  color: #4f46e5;
+  background-color: #f5f7ff;
+}
+.admin-table__th-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.admin-table__th-arrow {
+  font-size: 11px;
+  line-height: 1;
+  color: #cbd5e0;
+  transition: color 0.15s;
+}
+.admin-table__th--sortable:hover .admin-table__th-arrow {
+  color: #a5b4fc;
+}
+.admin-table__th-arrow--active {
+  color: #6366f1;
+  font-size: 13px;
+}
+.admin-table__th--sorted .admin-table__th-arrow--active,
+.admin-table__th--sortable:hover .admin-table__th-arrow--active {
+  color: #4f46e5;
+}
+
+.admin-table__row {
+  transition: background-color 0.15s;
+}
+.admin-table__row:hover {
+  background-color: #f7fafc;
+}
+.admin-table__td {
+  padding: 10px 16px;
+  border-bottom: 1px solid rgb(240, 240, 240);
+  color: #2d3748;
+}
+.admin-table__td--id {
+  color: #a0aec0;
+  font-size: 12px;
+}
+.admin-table__td--actions {
+  text-align: center;
+  white-space: nowrap;
+}
+.admin-table__btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+.admin-table__btn:hover {
+  background-color: #edf2f7;
+}
+.admin-table__btn--del:hover {
+  background-color: #fed7d7;
+}
+
+/* ---------- ПАГИНАЦИЯ ---------- */
+.admin-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  border-top: 1px solid rgb(230, 230, 230);
+  background-color: #f7fafc;
+}
+.admin-pagination__info {
+  font-size: 12px;
+  color: #718096;
+}
+.admin-pagination__controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.admin-pagination__size {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #4a5568;
+}
+.admin-pagination__select {
+  padding: 4px 8px;
+  border: 1px solid rgb(230, 230, 230);
+  border-radius: 6px;
+  background-color: #fff;
+  font-size: 12px;
+  color: #2d3748;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.admin-pagination__select:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+.admin-pagination__pages {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.admin-pagination__btn {
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid rgb(230, 230, 230);
+  background-color: #fff;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #4a5568;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.admin-pagination__btn:hover:not(:disabled) {
+  background-color: #f7fafc;
+  border-color: #cbd5e0;
+}
+.admin-pagination__btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.admin-pagination__btn--active {
+  background-color: #6366f1;
+  border-color: #6366f1;
+  color: #fff;
+}
+.admin-pagination__btn--active:hover:not(:disabled) {
+  background-color: #4f46e5;
+  border-color: #4f46e5;
+}
+.admin-pagination__dots {
+  padding: 0 4px;
+  color: #a0aec0;
+  user-select: none;
+}
+
+/* ---------- ФОРМА (модалка записи) ---------- */
+.admin-form {
+  display: grid;
+  gap: 16px;
+}
+.admin-form__group {
+  display: grid;
+  gap: 4px;
+}
+.admin-form__group label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #4a5568;
+}
+.admin-form__error {
+  font-size: 12px;
+  color: #e53e3e;
+  margin: 0;
+  min-height: 16px;
+}
+.admin-form__actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 16px;
+  padding-top: 8px;
+}
+.admin-form__cancel {
+  font-size: 14px;
+  color: #718096;
+  cursor: pointer;
+  text-decoration: none;
+}
+.admin-form__cancel:hover {
+  color: #4a5568;
+}
+
+/* Разделитель и заголовок секции свойств в форме */
+.form-divider {
+  height: 1px;
+  background-color: rgb(230, 230, 230);
+  margin: 8px 0;
+}
+.form-section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #2d3748;
+  margin: 0 0 4px 0;
+}
+
+/* ---------- ФОРМА ЗНАЧЕНИЙ СВОЙСТВ ---------- */
+.values-form {
+  display: grid;
+  gap: 14px;
+}
+.values-row {
+  display: grid;
+  grid-template-columns: 1fr 220px;
+  gap: 12px;
+  align-items: center;
+}
+@media (max-width: 600px) {
+  .values-row {
+    grid-template-columns: 1fr;
+  }
+}
+.values-row__label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #4a5568;
+}
+.values-row__unit {
+  color: #a0aec0;
+  font-weight: 400;
+}
+.values-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid rgb(230, 230, 230);
+  border-radius: 6px;
+  background-color: #fff;
+  font-size: 13px;
+  color: #2d3748;
+  transition: all 0.3s;
+}
+.values-input:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 </style>

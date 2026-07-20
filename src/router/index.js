@@ -7,6 +7,7 @@ import GalleryPage from '@/pages/GalleryPage.vue'
 import AssembliesPage from '@/pages/AssembliesPage.vue'
 import FilesPage from '@/pages/FilesPage.vue'
 import DevicesPage from '@/pages/DevicesPage.vue'
+import PanelEditorPage from '@/pages/PanelEditorPage.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -24,6 +25,12 @@ const router = createRouter({
     {
       path: '/:projectId/assemblies',
       component: AssembliesPage,
+      props: true,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/:projectId/assemblies/:assemblyId/panelEditor',
+      component: PanelEditorPage,
       props: true,
       meta: { requiresAuth: true },
     },
