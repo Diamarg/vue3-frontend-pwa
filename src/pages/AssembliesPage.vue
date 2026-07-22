@@ -45,6 +45,10 @@ const toPanelEditor = (assemblyId) => {
   router.push(`/${project.value.id}/assemblies/${assemblyId}/panelEditor`)
 }
 
+const toCableJournal = (assemblyId) => {
+  router.push(`/${project.value.id}/assemblies/${assemblyId}/cableJournal`)
+}
+
 const deleteAssembly = async (assembly) => {
   console.log(`Удалить сборку ${assembly.codeName} id: ${assembly.id}`)
   if (confirm('Действительно удалить сборку?')) {
@@ -78,6 +82,7 @@ onMounted(async () => {
         @onDelete="deleteAssembly(assembly)"
         @toDevices="toDevices(assembly.id)"
         @toPanelEditor="toPanelEditor(assembly.id)"
+        @toCableJournal="toCableJournal(assembly.id)"
       />
     </div>
   </div>

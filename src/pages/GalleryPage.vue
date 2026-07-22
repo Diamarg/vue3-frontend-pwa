@@ -359,11 +359,13 @@ onBeforeUnmount(() => {
             <a-button v-if="hasDateFilterOn" @click="resetDateFilter">
               Сброс фильтра ({{ filteredPhotos.length }} фото)
             </a-button>
-            <span v-else>Всего: {{ filteredPhotos.length }} фото</span>
+            <span class="gallery__total-photos" v-else
+              >Всего: {{ filteredPhotos.length }} фото</span
+            >
           </div>
         </div>
 
-        <div>
+        <div class="gallery__upload-btn-wrapper">
           <a-button @click="showModal = true">Загрузить фото</a-button>
         </div>
       </div>
@@ -426,7 +428,7 @@ onBeforeUnmount(() => {
           <div class="file-delete" @click="deleteFileString(index)">&times;</div>
         </div>
       </div>
-      <a-button>Загрузить</a-button>
+      <a-button class="full-width-btn">Загрузить</a-button>
     </form>
   </a-modal>
 
@@ -454,12 +456,22 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+/* === БАЗОВЫЕ СТИЛИ (Mobile First) === */
+/* Здесь мы задаём адаптивное поведение для маленьких экранов, сохраняя ваш дизайн */
+
+.global-container {
+  padding: 16px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
 .top-btn {
   position: fixed;
   width: 48px;
   height: 48px;
-  bottom: 100px;
-  left: 100px;
+  bottom: 20px;
+  right: 20px; /* На мобильных удобнее справа, чтобы не перекрывать контент */
+  left: auto;
   border-radius: 50%;
   background: rgba(0, 0, 0, 0.6);
   cursor: pointer;
@@ -488,21 +500,53 @@ onBeforeUnmount(() => {
   border-radius: 8px;
   border: 1px solid rgb(230, 230, 230);
   background-color: rgb(255, 255, 255);
-  padding: 24px;
+  padding: 16px; /* Чуть меньше на мобильных для экономии места */
+}
+
+.gallery__header {
+  display: flex;
+  flex-direction: column; /* Вертикально на мобильных */
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.gallery__filter {
+  align-items: center;
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* 2 колонки на мобильных, чтобы влезало */
+  gap: 12px;
+  width: 100%;
+}
+
+.gallery__date-from,
+.gallery__date-to {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+/* Растягиваем кнопку загрузки на всю ширину на мобильных для удобства нажатия */
+.gallery__upload-btn-wrapper {
+  width: 100%;
+}
+.gallery__upload-btn-wrapper button {
+  width: 100%;
 }
 
 .gallery__cards {
   display: grid;
-  gap: 24px;
-  grid-template-columns: repeat(auto-fill, minmax(280px, auto));
-  margin-top: 24px;
-  align-items: start; /* Изменено с center для корректной работы grid */
+  grid-template-columns: repeat(2, 1fr); /* 2 колонки на мобильных */
+  gap: 12px;
+  margin-top: 16px;
+  align-items: start;
 }
 
 .gallery__null-photo {
-  margin-top: 24px;
+  margin-top: 16px;
   text-align: center;
-  font-size: 18px;
+  font-size: 16px;
+  padding: 32px 16px;
 }
 
 .gallery__card {
@@ -511,49 +555,26 @@ onBeforeUnmount(() => {
   position: relative;
 }
 
-.gallery__card:hover {
-  transform: scale(1.02);
-}
-
-.gallery__header {
-  display: flex;
-  margin-top: 24px;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 16px;
-}
-
-.gallery__filter {
-  display: grid;
-  grid-template-columns: max-content max-content max-content max-content;
-  align-items: center;
-  justify-items: center;
-  gap: 24px;
-}
-
-.gallery__date-from,
-.gallery__date-to {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+.gallery__card:active {
+  transform: scale(0.98); /* Тактильный отклик на тач-устройствах */
 }
 
 .gallery__image-preview,
 .gallery__image-placeholder {
   width: 100%;
-  height: 200px;
+  height: 150px; /* Чуть меньше высота для 2-х колонок на мобильном */
   object-fit: cover;
   border-radius: 4px;
   display: block;
-  background-color: #f5f5f5; /* Фон пока грузится */
+  background-color: #f5f5f5;
 }
 
 .gallery__image-footer {
   margin-top: 8px;
-  gap: 12px;
+  gap: 8px;
   display: flex;
   justify-content: space-between;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 400;
   align-items: center;
 }
@@ -561,8 +582,12 @@ onBeforeUnmount(() => {
 .gallery__image-delete {
   color: rgb(145, 26, 26);
   transition: all 0.2s;
-  padding: 4px 8px;
+  padding: 6px 10px;
   border-radius: 4px;
+  /* Увеличенная зона нажатия для пальца */
+  min-height: 36px;
+  display: flex;
+  align-items: center;
 }
 
 .gallery__image-delete:hover {
@@ -570,7 +595,6 @@ onBeforeUnmount(() => {
   background-color: rgba(219, 21, 21, 0.1);
 }
 
-/* Стили для модального окна просмотра */
 .modal-image-container {
   position: relative;
   min-height: 200px;
@@ -599,8 +623,8 @@ onBeforeUnmount(() => {
 }
 
 .image {
-  max-height: 75vh;
-  max-width: 90vw;
+  max-height: 70vh; /* Чуть меньше на мобильных, чтобы влезала дата */
+  max-width: 95vw;
   width: auto;
   height: auto;
   object-fit: contain;
@@ -608,20 +632,19 @@ onBeforeUnmount(() => {
 }
 
 .form-input {
-  margin-bottom: 24px;
+  margin-bottom: 16px;
   width: 100%;
 }
 
 .file-names {
-  margin-bottom: 25px;
-  max-height: 200px;
+  margin-bottom: 16px;
+  max-height: 150px;
   overflow-y: auto;
 }
 
 .file-string {
   display: flex;
-  gap: 24px;
-  text-align: center;
+  gap: 12px;
   justify-content: space-between;
   align-items: center;
   padding: 8px 0;
@@ -632,7 +655,7 @@ onBeforeUnmount(() => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 400px;
+  max-width: 75%; /* Адаптивная ширина, чтобы не вылезало за экран */
   font-size: 14px;
 }
 
@@ -640,9 +663,14 @@ onBeforeUnmount(() => {
   font-weight: 400;
   color: rgb(78, 78, 78);
   cursor: pointer;
-  font-size: 18px;
+  font-size: 24px;
   line-height: 1;
-  padding: 4px;
+  padding: 4px 8px;
+  min-width: 36px;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .file-delete:hover {
@@ -650,21 +678,132 @@ onBeforeUnmount(() => {
 }
 
 .image__date {
-  margin-top: 20px;
+  margin-top: 16px;
   text-align: center;
   font-weight: 400;
   color: #6d6d6d;
+  font-size: 14px;
 }
 
-/* Адаптивность для фильтров на мобильных */
-@media (max-width: 768px) {
-  .gallery__filter {
-    grid-template-columns: 1fr 1fr;
-    width: 100%;
+.full-width-btn {
+  width: 100%;
+}
+
+/* === ДЕСКТОПНЫЕ СТИЛИ (Возвращаем ваш оригинальный дизайн для экранов >= 768px) === */
+@media (min-width: 768px) {
+  .global-container {
+    padding: 24px;
+    max-width: 1200px;
+    margin: 0 auto;
   }
+
+  .top-btn {
+    left: 100px; /* Возвращаем оригинальное положение */
+    right: auto;
+    bottom: 100px;
+  }
+
+  .gallery__cards,
+  .gallery__header,
+  .gallery__null-photo {
+    padding: 24px; /* Оригинальные отступы */
+  }
+
   .gallery__header {
-    flex-direction: column;
-    align-items: stretch;
+    flex-direction: row; /* Горизонтально на десктопе */
+    justify-content: space-between;
+    margin-top: 24px;
+  }
+
+  .gallery__filter {
+    grid-template-columns: max-content max-content max-content max-content; /* Оригинальная сетка */
+    gap: 24px;
+    width: auto;
+  }
+
+  .gallery__date-from,
+  .gallery__date-to {
+    gap: 12px;
+    font-size: inherit;
+  }
+
+  .gallery__upload-btn-wrapper {
+    width: auto;
+  }
+  .gallery__upload-btn-wrapper button {
+    width: auto;
+  }
+
+  .gallery__cards {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); /* Оригинальная сетка */
+    gap: 24px;
+    margin-top: 24px;
+  }
+
+  .gallery__null-photo {
+    margin-top: 24px;
+    font-size: 18px;
+    padding: 24px;
+  }
+
+  .gallery__card:hover {
+    transform: scale(1.02); /* Оригинальный ховер только для мыши */
+  }
+  .gallery__card:active {
+    transform: none;
+  }
+
+  .gallery__image-preview,
+  .gallery__image-placeholder {
+    height: 200px; /* Оригинальная высота */
+  }
+
+  .gallery__image-footer {
+    font-size: 14px;
+    gap: 12px;
+  }
+
+  .gallery__image-delete {
+    padding: 4px 8px;
+    min-height: auto;
+  }
+
+  .image {
+    max-height: 75vh;
+    max-width: 90vw;
+  }
+
+  .form-input {
+    margin-bottom: 24px;
+  }
+
+  .file-names {
+    margin-bottom: 25px;
+    max-height: 200px;
+  }
+
+  .file-string {
+    gap: 24px;
+  }
+
+  .file-name {
+    max-width: 400px; /* Оригинальная ширина */
+  }
+
+  .file-delete {
+    font-size: 18px;
+    min-width: auto;
+    min-height: auto;
+    padding: 4px;
+  }
+
+  .image__date {
+    margin-top: 20px;
+    font-size: inherit;
+  }
+
+  .full-width-btn {
+    width: auto;
   }
 }
 </style>

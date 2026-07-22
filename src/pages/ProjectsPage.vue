@@ -131,19 +131,6 @@ const saveProject = async () => {
   }
 }
 
-const deleteProject = async (project) => {
-  if (confirm(`Вы действительно хотите удалить проект ${project.codeName} (ID - ${project.id})?`)) {
-    try {
-      await projectsApi.deleteProject(project.id)
-      toast.success(`Проект ${project.codeName} был удалён!`)
-    } catch (error) {
-      toast.error('Ошибка удаления! ' + error)
-    } finally {
-      fethProjects()
-    }
-  }
-}
-
 const goToAssemblies = (project) => {
   router.push(`${project.id}/assemblies`)
   pageStore.pageInfo.projectName = project.codeName
@@ -198,7 +185,6 @@ onMounted(async () => {
           :photos-count="project.photosCount"
           :files-count="project.filesCount"
           :assemblies-count="project.assembliesCount"
-          @on-delete="deleteProject(project)"
           @to-gallery="goToGallery(project)"
           @to-assemblies="goToAssemblies(project)"
           @to-files="goToFiles(project)"

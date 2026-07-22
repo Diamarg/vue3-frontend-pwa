@@ -30,6 +30,12 @@ const props = defineProps({
       <a class="project-card__link project-card__link--outline" @click="$emit('toDevices')"
         >Устройства</a
       >
+      <a class="project-card__link project-card__link--outline" @click="$emit('toPanelEditor')"
+        >Монтажная панель</a
+      >
+      <a class="project-card__link project-card__link--outline" @click="$emit('toCableJournal')"
+        >Кабельный журнал</a
+      >
     </div>
   </div>
 </template>

@@ -19,12 +19,6 @@ const props = defineProps({
       <div class="project-card__codename" :title="'Описание проекта: ' + props.description">
         {{ props.codename }}
       </div>
-      <div v-if="isAdmin" class="project-card__actions">
-        <a class="project-card__link project-card__link--edit">Изменить</a
-        ><a class="project-card__link project-card__link--delete" @click="$emit('onDelete')"
-          >Удалить</a
-        >
-      </div>
     </div>
     <hr />
     <div class="project-card__line">
@@ -53,6 +47,7 @@ const props = defineProps({
       <a class="project-card__link project-card__link--outline" @click="$emit('toGallery')"
         >Галерея</a
       >
+      <a class="project-card__link project-card__link--outline" @click="$emit('toFiles')">Файлы</a>
       <!-- <a class="project-card__link project-card__link--outline" @click="$emit('toFiles')">Файлы</a> -->
       <a class="project-card__link project-card__link--outline" @click="$emit('toAssemblies')"
         >Сборки</a

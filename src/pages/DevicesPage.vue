@@ -480,6 +480,7 @@ onMounted(async () => {
                 Свойства
               </button>
               <button
+                v-if="authStore.isAdmin"
                 class="admin-table__btn admin-table__btn--del"
                 @click="removeDevice(device.id, device.article)"
                 title="Удалить из сборки"
