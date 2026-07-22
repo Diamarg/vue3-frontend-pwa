@@ -30,10 +30,6 @@ const props = defineProps({
       <a class="project-card__link project-card__link--outline" @click="$emit('toDevices')"
         >Устройства</a
       >
-      <!-- <a class="project-card__link project-card__link--outline" @click="$emit('toFiles')">Файлы</a> -->
-      <a class="project-card__link project-card__link--outline" @click="$emit('toPanelEditor')"
-        >Шкаф управления</a
-      >
     </div>
   </div>
 </template>

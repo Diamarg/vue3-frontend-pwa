@@ -1,573 +1,10 @@
-<template>
-  <div class="global-container">
-    <div class="editor-layout">
-      <!-- Боковая панель управления -->
-      <aside class="editor-sidebar">
-        <div class="sidebar-section">
-          <h2 class="sidebar-title">Редактор панелей</h2>
-        </div>
-
-        <div class="sidebar-section">
-          <div class="form-group">
-            <label for="panel-select">Размер шкафа управления (В х Ш)</label>
-            <select
-              id="panel-select"
-              v-model="selectedPanelId"
-              @change="onPanelChange"
-              class="form-select"
-            >
-              <option v-for="p in panels" :key="p.id" :value="p.id">{{ p.h }}x{{ p.w }}</option>
-            </select>
-          </div>
-        </div>
-        <div class="sidebar-section">
-          <div class="form-group">
-            <label for="panel-margin">Зона пустоты (мм)</label>
-            <input
-              id="panel-margin"
-              type="number"
-              min="10"
-              max="50"
-              step="10"
-              v-model.number="panelMarginMm"
-              class="form-input"
-            />
-          </div>
-          <div class="grid-controls">
-            <label class="grid-toggle">
-              <input type="checkbox" v-model="isGridEnabled" class="grid-checkbox" />
-              <span class="grid-label">Сетка</span>
-            </label>
-            <select
-              v-if="isGridEnabled"
-              v-model.number="gridSizeMm"
-              class="form-select grid-size-select"
-            >
-              <option :value="2">2 мм</option>
-              <option :value="4">4 мм</option>
-              <option :value="10">10 мм</option>
-              <option :value="20">20 мм</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="sidebar-section">
-          <div class="form-group">
-            <label>Масштаб: {{ zoomPercent * 2 }}%</label>
-            <input
-              type="range"
-              min="10"
-              max="50"
-              step="1"
-              v-model.number="zoomPercent"
-              class="zoom-slider"
-            />
-          </div>
-        </div>
-
-        <div class="sidebar-section">
-          <h3 class="section-title">Инструменты</h3>
-          <div class="tools-grid">
-            <div class="tools-group">
-              <button
-                @click="exportProject"
-                class="icon-button icon-button--save"
-                title="Сохранить"
-              >
-                💾
-              </button>
-              <button
-                @click="triggerImport"
-                class="icon-button icon-button--load"
-                title="Загрузить"
-              >
-                📂
-              </button>
-              <button @click="clearProject" class="icon-button icon-button--clear" title="Очистить">
-                🧹
-              </button>
-            </div>
-            <div class="tools-group">
-              <button @click="addBox" class="icon-button icon-button--add" title="Добавить короб">
-                ▢
-              </button>
-              <button
-                @click="addDinRail"
-                class="icon-button icon-button--rail"
-                title="Добавить DIN-рейку"
-              >
-                ═
-              </button>
-              <button
-                @click="openDeviceModal"
-                class="icon-button icon-button--device"
-                title="Добавить устройство"
-              >
-                ⚡
-              </button>
-            </div>
-
-            <!-- Скрытый input для выбора файла -->
-            <input
-              ref="fileInput"
-              type="file"
-              accept=".json"
-              style="display: none"
-              @change="importProject"
-            />
-            <div class="tools-group">
-              <button
-                @click="toggleMeasureMode"
-                :class="['icon-button', { active: isMeasuring }]"
-                title="Измерить расстояние"
-              >
-                📏
-              </button>
-              <button
-                v-if="isMeasuring"
-                @click="toggleOrthogonal"
-                :class="['icon-button', 'icon-button--ortho', { active: isOrthogonal }]"
-                title="Ортогональный режим"
-              >
-                ⊞
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div class="sidebar-section" v-if="pointA && pointB">
-          <h3 class="section-title">Измерение</h3>
-          <div class="measure-result">
-            <p v-if="isOrthogonal" class="mode-hint"><span class="hint-icon">📐</span> Орто</p>
-            <div class="result-grid">
-              <div class="result-item">
-                <span class="result-label">L:</span>
-                <span class="result-value">{{ measureResult.distance }} мм</span>
-              </div>
-              <div class="result-item">
-                <span class="result-label">ΔX:</span>
-                <span class="result-value">{{ measureResult.dx }} мм</span>
-              </div>
-              <div class="result-item">
-                <span class="result-label">ΔY:</span>
-                <span class="result-value">{{ measureResult.dy }} мм</span>
-              </div>
-            </div>
-            <div class="coords-grid">
-              <div class="coord-item">
-                <span class="coord-label">A:</span>
-                <span class="coord-value">({{ pointA.x }}, {{ pointA.y }})</span>
-              </div>
-              <div class="coord-item">
-                <span class="coord-label">B:</span>
-                <span class="coord-value">({{ pointB.x }}, {{ pointB.y }})</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="sidebar-section" v-if="selectedItems.length > 1">
-          <h3 class="section-title">Выбрано: {{ selectedItems.length }}</h3>
-          <button @click="deleteSelectedItems" class="action-button action-button--danger">
-            <span class="button-icon">🗑</span>
-            <span>Удалить выбранные</span>
-          </button>
-        </div>
-
-        <div class="sidebar-section" v-if="selectedItem && selectedItems.length === 1">
-          <h3 class="section-title">Свойства</h3>
-          <div class="properties-grid">
-            <div class="property-item">
-              <span class="property-label">ID:</span>
-              <span class="property-value">{{ selectedItem.id }}</span>
-            </div>
-            <div class="property-item">
-              <span class="property-label">Тип:</span>
-              <span class="property-value">{{ getItemTypeName(selectedItem.type) }}</span>
-            </div>
-            <div class="property-item">
-              <span class="property-label">Размер:</span>
-              <span class="property-value">
-                Ш{{ selectedItem.w }}×В{{ selectedItem.h }} мм
-                <span v-if="selectedItem.rotated" class="rotation-badge">(повёрнуто)</span>
-              </span>
-            </div>
-            <div class="property-item">
-              <span class="property-label">Позиция:</span>
-              <span class="property-value"
-                >X:{{ selectedItem.x }} мм, Y:{{ selectedItem.y }} мм</span
-              >
-            </div>
-          </div>
-        </div>
-        <!-- Статус: все устройства добавлены -->
-        <div v-if="allDevicesAdded" class="modal-status modal-status--success">
-          <span>Все устройства добавлены на монтажную панель</span>
-        </div>
-        <div v-else class="modal-status modal-status--not-success">
-          <span>Не все устройства добавлены на монтажную панель!</span>
-        </div>
-      </aside>
-
-      <!-- Основная область (Холст) -->
-      <main class="editor-canvas-wrapper" ref="canvasWrapper">
-        <div class="canvas-container" :style="containerStyle">
-          <!-- Разметка по оси Y (слева) -->
-          <div class="ruler ruler-y" :style="rulerYStyle">
-            <div
-              v-for="mark in yMarks"
-              :key="mark.id"
-              class="ruler-mark"
-              :style="getMarkStyle(mark.value, 'y')"
-            >
-              <span class="mark-label">{{ mark.value }}</span>
-            </div>
-          </div>
-
-          <!-- Разметка по оси X (сверху) -->
-          <div class="ruler ruler-x" :style="rulerXStyle">
-            <div
-              v-for="mark in xMarks"
-              :key="mark.id"
-              class="ruler-mark"
-              :style="getMarkStyle(mark.value, 'x')"
-            >
-              <span class="mark-label">{{ mark.value }}</span>
-            </div>
-          </div>
-
-          <!-- Холст с панелью -->
-          <div
-            class="canvas"
-            :class="{
-              'measure-mode': isMeasuring,
-              'select-mode': isSelecting,
-              'grid-enabled': isGridEnabled,
-            }"
-            :style="canvasStyle"
-            @click="onCanvasClick"
-            @mousemove="onCanvasMouseMove"
-            @mousedown="onCanvasMouseDown"
-          >
-            <!-- SVG для отрисовки линии измерения, рамки выделения и зоны пустоты -->
-            <svg class="measure-svg" :width="panelWidthPx" :height="panelHeightPx">
-              <!-- Зона пустоты (недоступная область) -->
-              <g v-if="panelMarginMm > 0" class="margin-zone">
-                <!-- Верхняя полоса -->
-                <rect
-                  x="0"
-                  y="0"
-                  :width="panelWidthPx"
-                  :height="panelMarginMm * PIXELS_PER_MM * currentScale"
-                  fill="rgba(239, 68, 68, 0.1)"
-                />
-                <!-- Нижняя полоса -->
-                <rect
-                  x="0"
-                  :y="(panelHeightMm - panelMarginMm) * PIXELS_PER_MM * currentScale"
-                  :width="panelWidthPx"
-                  :height="panelMarginMm * PIXELS_PER_MM * currentScale"
-                  fill="rgba(239, 68, 68, 0.1)"
-                />
-                <!-- Левая полоса -->
-                <rect
-                  x="0"
-                  :y="panelMarginMm * PIXELS_PER_MM * currentScale"
-                  :width="panelMarginMm * PIXELS_PER_MM * currentScale"
-                  :height="(panelHeightMm - 2 * panelMarginMm) * PIXELS_PER_MM * currentScale"
-                  fill="rgba(239, 68, 68, 0.1)"
-                />
-                <!-- Правая полоса -->
-                <rect
-                  :x="(panelWidthMm - panelMarginMm) * PIXELS_PER_MM * currentScale"
-                  :y="panelMarginMm * PIXELS_PER_MM * currentScale"
-                  :width="panelMarginMm * PIXELS_PER_MM * currentScale"
-                  :height="(panelHeightMm - 2 * panelMarginMm) * PIXELS_PER_MM * currentScale"
-                  fill="rgba(239, 68, 68, 0.1)"
-                />
-                <!-- Внутренняя рамка рабочей зоны -->
-                <rect
-                  :x="panelMarginMm * PIXELS_PER_MM * currentScale"
-                  :y="panelMarginMm * PIXELS_PER_MM * currentScale"
-                  :width="(panelWidthMm - 2 * panelMarginMm) * PIXELS_PER_MM * currentScale"
-                  :height="(panelHeightMm - 2 * panelMarginMm) * PIXELS_PER_MM * currentScale"
-                  fill="none"
-                  stroke="rgba(239, 68, 68, 0.3)"
-                  stroke-width="1"
-                  stroke-dasharray="4 4"
-                />
-              </g>
-
-              <rect
-                v-if="isSelecting && selectionStart && selectionCurrent"
-                :x="Math.min(selectionStart.x, selectionCurrent.x)"
-                :y="Math.min(selectionStart.y, selectionCurrent.y)"
-                :width="Math.abs(selectionCurrent.x - selectionStart.x)"
-                :height="Math.abs(selectionCurrent.y - selectionStart.y)"
-                fill="rgba(59, 130, 246, 0.15)"
-                stroke="#3b82f6"
-                stroke-width="2"
-                stroke-dasharray="4 4"
-              />
-              <line
-                v-if="isMeasuring && pointA && previewPoint"
-                :x1="mmToPx(pointA.x)"
-                :y1="mmToPx(pointA.y)"
-                :x2="mmToPx(previewPoint.x)"
-                :y2="mmToPx(previewPoint.y)"
-                stroke="#6366f1"
-                stroke-width="1.5"
-                stroke-dasharray="4 4"
-                opacity="0.7"
-              />
-              <line
-                v-if="pointA && pointB"
-                :x1="mmToPx(pointA.x)"
-                :y1="mmToPx(pointA.y)"
-                :x2="mmToPx(pointB.x)"
-                :y2="mmToPx(pointB.y)"
-                stroke="#6366f1"
-                stroke-width="2"
-                stroke-dasharray="6 3"
-              />
-              <circle
-                v-if="pointA"
-                :cx="mmToPx(pointA.x)"
-                :cy="mmToPx(pointA.y)"
-                r="5"
-                fill="#6366f1"
-                stroke="white"
-                stroke-width="2"
-              />
-              <circle
-                v-if="pointB"
-                :cx="mmToPx(pointB.x)"
-                :cy="mmToPx(pointB.y)"
-                r="5"
-                fill="#6366f1"
-                stroke="white"
-                stroke-width="2"
-              />
-            </svg>
-
-            <!-- Плавающие кнопки действий для выделенного элемента -->
-            <div
-              v-if="selectedItems.length === 1 && selectedItem"
-              class="floating-actions"
-              :style="floatingActionsStyle"
-            >
-              <button
-                v-if="selectedItem?.type === 'device' || selectedItem?.type === 'din-rail'"
-                @pointerdown.stop="rotateItem"
-                class="floating-btn floating-btn--rotate"
-                title="Повернуть на 90°"
-              >
-                ↻
-              </button>
-              <button
-                v-if="selectedItem?.type === 'box' || selectedItem?.type === 'din-rail'"
-                @pointerdown.stop="copyItem"
-                class="floating-btn floating-btn--copy"
-                title="Копировать"
-              >
-                📋
-              </button>
-              <button
-                @pointerdown.stop="deleteSelectedItems"
-                class="floating-btn floating-btn--delete"
-                title="Удалить"
-              >
-                🗑
-              </button>
-            </div>
-
-            <!-- Tooltip с размерами рядом с курсором -->
-            <div v-if="resizeState && mousePosition" class="size-tooltip" :style="tooltipStyle">
-              {{ resizeState.item.w }} × {{ resizeState.item.h }} мм
-            </div>
-
-            <!-- Элементы на панели -->
-            <div
-              v-for="item in items"
-              :key="item.id"
-              :class="[
-                'panel-item',
-                item.type,
-                { selected: selectedItems.includes(item) },
-                { 'din-rail-vertical': item.type === 'din-rail' && isRotated(item) },
-              ]"
-              :style="getItemStyle(item)"
-              @pointerdown="startDrag($event, item)"
-            >
-              <div class="item-label">
-                {{
-                  item.type === 'din-rail' || item.type === 'box'
-                    ? showTrueSize(item.w, item.h)
-                    : item.name
-                }}
-              </div>
-
-              <!-- Ручки изменения размера для коробов -->
-              <template
-                v-if="
-                  item.type === 'box' && selectedItems.length === 1 && selectedItems[0] === item
-                "
-              >
-                <div
-                  class="resize-handle resize-nw"
-                  @pointerdown.stop="startResize($event, item, 'nw')"
-                ></div>
-                <div
-                  class="resize-handle resize-n"
-                  @pointerdown.stop="startResize($event, item, 'n')"
-                ></div>
-                <div
-                  class="resize-handle resize-ne"
-                  @pointerdown.stop="startResize($event, item, 'ne')"
-                ></div>
-                <div
-                  class="resize-handle resize-e"
-                  @pointerdown.stop="startResize($event, item, 'e')"
-                ></div>
-                <div
-                  class="resize-handle resize-se"
-                  @pointerdown.stop="startResize($event, item, 'se')"
-                ></div>
-                <div
-                  class="resize-handle resize-s"
-                  @pointerdown.stop="startResize($event, item, 's')"
-                ></div>
-                <div
-                  class="resize-handle resize-sw"
-                  @pointerdown.stop="startResize($event, item, 'sw')"
-                ></div>
-                <div
-                  class="resize-handle resize-w"
-                  @pointerdown.stop="startResize($event, item, 'w')"
-                ></div>
-              </template>
-
-              <!-- Ручки изменения размера для DIN-рейки (только длина) -->
-              <template
-                v-if="
-                  item.type === 'din-rail' &&
-                  selectedItems.length === 1 &&
-                  selectedItems[0] === item
-                "
-              >
-                <template v-if="!isRotated(item)">
-                  <div
-                    class="resize-handle resize-w din-rail-handle"
-                    @pointerdown.stop="startResize($event, item, 'w')"
-                  ></div>
-                  <div
-                    class="resize-handle resize-e din-rail-handle"
-                    @pointerdown.stop="startResize($event, item, 'e')"
-                  ></div>
-                </template>
-                <template v-else>
-                  <div
-                    class="resize-handle resize-n din-rail-handle"
-                    @pointerdown.stop="startResize($event, item, 'n')"
-                  ></div>
-                  <div
-                    class="resize-handle resize-s din-rail-handle"
-                    @pointerdown.stop="startResize($event, item, 's')"
-                  ></div>
-                </template>
-              </template>
-            </div>
-          </div>
-        </div>
-      </main>
-    </div>
-
-    <!-- Модальное окно добавления устройств -->
-    <Teleport to="body">
-      <div v-if="showDeviceModal" class="modal-overlay" @click.self="closeDeviceModal">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h3 class="modal-title">Добавить устройства</h3>
-            <button @click="closeDeviceModal" class="modal-close" title="Закрыть">✕</button>
-          </div>
-
-          <div class="modal-body">
-            <!-- Список устройств -->
-            <div class="device-selection-list">
-              <div
-                v-for="dev in devicePalette"
-                :key="dev.id"
-                :class="[
-                  'device-selection-item',
-                  { 'device-selection-item--complete': isDeviceFullyUsed(dev.id) },
-                ]"
-              >
-                <div class="device-selection-info">
-                  <input
-                    type="checkbox"
-                    :id="`modal-dev-check-${dev.id}`"
-                    v-model="selectedDevices[dev.id]"
-                    :disabled="isDeviceFullyUsed(dev.id)"
-                    class="device-checkbox"
-                  />
-                  <label :for="`modal-dev-check-${dev.id}`" class="device-selection-name">
-                    {{ dev.name }}
-                  </label>
-                  <span class="device-selection-size">{{ dev.w }}×{{ dev.h }}</span>
-                </div>
-                <div class="device-selection-controls" v-if="!isDeviceFullyUsed(dev.id)">
-                  <span class="device-selection-available">
-                    На панели: {{ getDeviceUsedCount(dev.id) }}/{{ dev.quantity }}
-                  </span>
-                  <div class="quantity-control">
-                    <button
-                      @click="decrementQuantity(dev.id)"
-                      class="qty-btn"
-                      :disabled="!selectedDevices[dev.id]"
-                    >
-                      −
-                    </button>
-                    <input
-                      type="number"
-                      v-model.number="deviceQuantities[dev.id]"
-                      class="qty-input"
-                      :min="1"
-                      :max="getAvailableQuantity(dev.id)"
-                      :disabled="!selectedDevices[dev.id]"
-                    />
-                    <button
-                      @click="incrementQuantity(dev.id)"
-                      class="qty-btn"
-                      :disabled="!selectedDevices[dev.id]"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-                <span v-else class="fully-used-label">✓ Все добавлены</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="modal-footer">
-            <button
-              @click="addSelectedDevicesAndClose"
-              class="modal-btn modal-btn--primary"
-              :disabled="!canAddDevices"
-            >
-              <span class="button-icon">⚡</span>
-              <span>Добавить выбранные</span>
-            </button>
-            <button @click="closeDeviceModal" class="modal-btn modal-btn--secondary">Отмена</button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
-  </div>
-</template>
-
 <script setup>
+import router from '@/router'
 import { ref, computed, reactive, onUnmounted, watch } from 'vue'
+import { routeLocationKey } from 'vue-router'
+import { useRoute } from 'vue-router'
+
+const route = useRoute()
 
 // --- КОНСТАНТЫ И НАСТРОЙКИ ---
 const PIXELS_PER_MM = 2
@@ -1768,6 +1205,576 @@ onUnmounted(() => {
   window.removeEventListener('mouseup', onWindowMouseUp)
 })
 </script>
+
+<template>
+  <div class="global-container">
+    <div class="editor-layout">
+      <!-- Боковая панель управления -->
+      <aside class="editor-sidebar">
+        <div class="sidebar-section">
+          <h2 class="sidebar-title">
+            Редактор панелей {{ route.params.projectId }} - {{ route.params.assemblyId }}
+          </h2>
+        </div>
+
+        <div class="sidebar-section">
+          <div class="form-group">
+            <label for="panel-select">Размер шкафа управления (В х Ш)</label>
+            <select
+              id="panel-select"
+              v-model="selectedPanelId"
+              @change="onPanelChange"
+              class="form-select"
+            >
+              <option v-for="p in panels" :key="p.id" :value="p.id">{{ p.h }}x{{ p.w }}</option>
+            </select>
+          </div>
+        </div>
+        <div class="sidebar-section">
+          <div class="form-group">
+            <label for="panel-margin">Зона пустоты (мм)</label>
+            <input
+              id="panel-margin"
+              type="number"
+              min="10"
+              max="50"
+              step="10"
+              v-model.number="panelMarginMm"
+              class="form-input"
+            />
+          </div>
+          <div class="grid-controls">
+            <label class="grid-toggle">
+              <input type="checkbox" v-model="isGridEnabled" class="grid-checkbox" />
+              <span class="grid-label">Сетка</span>
+            </label>
+            <select
+              v-if="isGridEnabled"
+              v-model.number="gridSizeMm"
+              class="form-select grid-size-select"
+            >
+              <option :value="2">2 мм</option>
+              <option :value="4">4 мм</option>
+              <option :value="10">10 мм</option>
+              <option :value="20">20 мм</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="sidebar-section">
+          <div class="form-group">
+            <label>Масштаб: {{ zoomPercent * 2 }}%</label>
+            <input
+              type="range"
+              min="10"
+              max="50"
+              step="1"
+              v-model.number="zoomPercent"
+              class="zoom-slider"
+            />
+          </div>
+        </div>
+
+        <div class="sidebar-section">
+          <h3 class="section-title">Инструменты</h3>
+          <div class="tools-grid">
+            <div class="tools-group">
+              <button
+                @click="exportProject"
+                class="icon-button icon-button--save"
+                title="Сохранить"
+              >
+                💾
+              </button>
+              <button
+                @click="triggerImport"
+                class="icon-button icon-button--load"
+                title="Загрузить"
+              >
+                📂
+              </button>
+              <button @click="clearProject" class="icon-button icon-button--clear" title="Очистить">
+                🧹
+              </button>
+            </div>
+            <div class="tools-group">
+              <button @click="addBox" class="icon-button icon-button--add" title="Добавить короб">
+                ▢
+              </button>
+              <button
+                @click="addDinRail"
+                class="icon-button icon-button--rail"
+                title="Добавить DIN-рейку"
+              >
+                ═
+              </button>
+              <button
+                @click="openDeviceModal"
+                class="icon-button icon-button--device"
+                title="Добавить устройство"
+              >
+                ⚡
+              </button>
+            </div>
+
+            <!-- Скрытый input для выбора файла -->
+            <input
+              ref="fileInput"
+              type="file"
+              accept=".json"
+              style="display: none"
+              @change="importProject"
+            />
+            <div class="tools-group">
+              <button
+                @click="toggleMeasureMode"
+                :class="['icon-button', { active: isMeasuring }]"
+                title="Измерить расстояние"
+              >
+                📏
+              </button>
+              <button
+                v-if="isMeasuring"
+                @click="toggleOrthogonal"
+                :class="['icon-button', 'icon-button--ortho', { active: isOrthogonal }]"
+                title="Ортогональный режим"
+              >
+                ⊞
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="sidebar-section" v-if="pointA && pointB">
+          <h3 class="section-title">Измерение</h3>
+          <div class="measure-result">
+            <p v-if="isOrthogonal" class="mode-hint"><span class="hint-icon">📐</span> Орто</p>
+            <div class="result-grid">
+              <div class="result-item">
+                <span class="result-label">L:</span>
+                <span class="result-value">{{ measureResult.distance }} мм</span>
+              </div>
+              <div class="result-item">
+                <span class="result-label">ΔX:</span>
+                <span class="result-value">{{ measureResult.dx }} мм</span>
+              </div>
+              <div class="result-item">
+                <span class="result-label">ΔY:</span>
+                <span class="result-value">{{ measureResult.dy }} мм</span>
+              </div>
+            </div>
+            <div class="coords-grid">
+              <div class="coord-item">
+                <span class="coord-label">A:</span>
+                <span class="coord-value">({{ pointA.x }}, {{ pointA.y }})</span>
+              </div>
+              <div class="coord-item">
+                <span class="coord-label">B:</span>
+                <span class="coord-value">({{ pointB.x }}, {{ pointB.y }})</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="sidebar-section" v-if="selectedItems.length > 1">
+          <h3 class="section-title">Выбрано: {{ selectedItems.length }}</h3>
+          <button @click="deleteSelectedItems" class="action-button action-button--danger">
+            <span class="button-icon">🗑</span>
+            <span>Удалить выбранные</span>
+          </button>
+        </div>
+
+        <div class="sidebar-section" v-if="selectedItem && selectedItems.length === 1">
+          <h3 class="section-title">Свойства</h3>
+          <div class="properties-grid">
+            <div class="property-item">
+              <span class="property-label">ID:</span>
+              <span class="property-value">{{ selectedItem.id }}</span>
+            </div>
+            <div class="property-item">
+              <span class="property-label">Тип:</span>
+              <span class="property-value">{{ getItemTypeName(selectedItem.type) }}</span>
+            </div>
+            <div class="property-item">
+              <span class="property-label">Размер:</span>
+              <span class="property-value">
+                Ш{{ selectedItem.w }}×В{{ selectedItem.h }} мм
+                <span v-if="selectedItem.rotated" class="rotation-badge">(повёрнуто)</span>
+              </span>
+            </div>
+            <div class="property-item">
+              <span class="property-label">Позиция:</span>
+              <span class="property-value"
+                >X:{{ selectedItem.x }} мм, Y:{{ selectedItem.y }} мм</span
+              >
+            </div>
+          </div>
+        </div>
+        <!-- Статус: все устройства добавлены -->
+        <div v-if="allDevicesAdded" class="modal-status modal-status--success">
+          <span>Все устройства добавлены на монтажную панель</span>
+        </div>
+        <div v-else class="modal-status modal-status--not-success">
+          <span>Не все устройства добавлены на монтажную панель!</span>
+        </div>
+      </aside>
+
+      <!-- Основная область (Холст) -->
+      <main class="editor-canvas-wrapper" ref="canvasWrapper">
+        <div class="canvas-container" :style="containerStyle">
+          <!-- Разметка по оси Y (слева) -->
+          <div class="ruler ruler-y" :style="rulerYStyle">
+            <div
+              v-for="mark in yMarks"
+              :key="mark.id"
+              class="ruler-mark"
+              :style="getMarkStyle(mark.value, 'y')"
+            >
+              <span class="mark-label">{{ mark.value }}</span>
+            </div>
+          </div>
+
+          <!-- Разметка по оси X (сверху) -->
+          <div class="ruler ruler-x" :style="rulerXStyle">
+            <div
+              v-for="mark in xMarks"
+              :key="mark.id"
+              class="ruler-mark"
+              :style="getMarkStyle(mark.value, 'x')"
+            >
+              <span class="mark-label">{{ mark.value }}</span>
+            </div>
+          </div>
+
+          <!-- Холст с панелью -->
+          <div
+            class="canvas"
+            :class="{
+              'measure-mode': isMeasuring,
+              'select-mode': isSelecting,
+              'grid-enabled': isGridEnabled,
+            }"
+            :style="canvasStyle"
+            @click="onCanvasClick"
+            @mousemove="onCanvasMouseMove"
+            @mousedown="onCanvasMouseDown"
+          >
+            <!-- SVG для отрисовки линии измерения, рамки выделения и зоны пустоты -->
+            <svg class="measure-svg" :width="panelWidthPx" :height="panelHeightPx">
+              <!-- Зона пустоты (недоступная область) -->
+              <g v-if="panelMarginMm > 0" class="margin-zone">
+                <!-- Верхняя полоса -->
+                <rect
+                  x="0"
+                  y="0"
+                  :width="panelWidthPx"
+                  :height="panelMarginMm * PIXELS_PER_MM * currentScale"
+                  fill="rgba(239, 68, 68, 0.1)"
+                />
+                <!-- Нижняя полоса -->
+                <rect
+                  x="0"
+                  :y="(panelHeightMm - panelMarginMm) * PIXELS_PER_MM * currentScale"
+                  :width="panelWidthPx"
+                  :height="panelMarginMm * PIXELS_PER_MM * currentScale"
+                  fill="rgba(239, 68, 68, 0.1)"
+                />
+                <!-- Левая полоса -->
+                <rect
+                  x="0"
+                  :y="panelMarginMm * PIXELS_PER_MM * currentScale"
+                  :width="panelMarginMm * PIXELS_PER_MM * currentScale"
+                  :height="(panelHeightMm - 2 * panelMarginMm) * PIXELS_PER_MM * currentScale"
+                  fill="rgba(239, 68, 68, 0.1)"
+                />
+                <!-- Правая полоса -->
+                <rect
+                  :x="(panelWidthMm - panelMarginMm) * PIXELS_PER_MM * currentScale"
+                  :y="panelMarginMm * PIXELS_PER_MM * currentScale"
+                  :width="panelMarginMm * PIXELS_PER_MM * currentScale"
+                  :height="(panelHeightMm - 2 * panelMarginMm) * PIXELS_PER_MM * currentScale"
+                  fill="rgba(239, 68, 68, 0.1)"
+                />
+                <!-- Внутренняя рамка рабочей зоны -->
+                <rect
+                  :x="panelMarginMm * PIXELS_PER_MM * currentScale"
+                  :y="panelMarginMm * PIXELS_PER_MM * currentScale"
+                  :width="(panelWidthMm - 2 * panelMarginMm) * PIXELS_PER_MM * currentScale"
+                  :height="(panelHeightMm - 2 * panelMarginMm) * PIXELS_PER_MM * currentScale"
+                  fill="none"
+                  stroke="rgba(239, 68, 68, 0.3)"
+                  stroke-width="1"
+                  stroke-dasharray="4 4"
+                />
+              </g>
+
+              <rect
+                v-if="isSelecting && selectionStart && selectionCurrent"
+                :x="Math.min(selectionStart.x, selectionCurrent.x)"
+                :y="Math.min(selectionStart.y, selectionCurrent.y)"
+                :width="Math.abs(selectionCurrent.x - selectionStart.x)"
+                :height="Math.abs(selectionCurrent.y - selectionStart.y)"
+                fill="rgba(59, 130, 246, 0.15)"
+                stroke="#3b82f6"
+                stroke-width="2"
+                stroke-dasharray="4 4"
+              />
+              <line
+                v-if="isMeasuring && pointA && previewPoint"
+                :x1="mmToPx(pointA.x)"
+                :y1="mmToPx(pointA.y)"
+                :x2="mmToPx(previewPoint.x)"
+                :y2="mmToPx(previewPoint.y)"
+                stroke="#6366f1"
+                stroke-width="1.5"
+                stroke-dasharray="4 4"
+                opacity="0.7"
+              />
+              <line
+                v-if="pointA && pointB"
+                :x1="mmToPx(pointA.x)"
+                :y1="mmToPx(pointA.y)"
+                :x2="mmToPx(pointB.x)"
+                :y2="mmToPx(pointB.y)"
+                stroke="#6366f1"
+                stroke-width="2"
+                stroke-dasharray="6 3"
+              />
+              <circle
+                v-if="pointA"
+                :cx="mmToPx(pointA.x)"
+                :cy="mmToPx(pointA.y)"
+                r="5"
+                fill="#6366f1"
+                stroke="white"
+                stroke-width="2"
+              />
+              <circle
+                v-if="pointB"
+                :cx="mmToPx(pointB.x)"
+                :cy="mmToPx(pointB.y)"
+                r="5"
+                fill="#6366f1"
+                stroke="white"
+                stroke-width="2"
+              />
+            </svg>
+
+            <!-- Плавающие кнопки действий для выделенного элемента -->
+            <div
+              v-if="selectedItems.length === 1 && selectedItem"
+              class="floating-actions"
+              :style="floatingActionsStyle"
+            >
+              <button
+                v-if="selectedItem?.type === 'device' || selectedItem?.type === 'din-rail'"
+                @pointerdown.stop="rotateItem"
+                class="floating-btn floating-btn--rotate"
+                title="Повернуть на 90°"
+              >
+                ↻
+              </button>
+              <button
+                v-if="selectedItem?.type === 'box' || selectedItem?.type === 'din-rail'"
+                @pointerdown.stop="copyItem"
+                class="floating-btn floating-btn--copy"
+                title="Копировать"
+              >
+                📋
+              </button>
+              <button
+                @pointerdown.stop="deleteSelectedItems"
+                class="floating-btn floating-btn--delete"
+                title="Удалить"
+              >
+                🗑
+              </button>
+            </div>
+
+            <!-- Tooltip с размерами рядом с курсором -->
+            <div v-if="resizeState && mousePosition" class="size-tooltip" :style="tooltipStyle">
+              {{ resizeState.item.w }} × {{ resizeState.item.h }} мм
+            </div>
+
+            <!-- Элементы на панели -->
+            <div
+              v-for="item in items"
+              :key="item.id"
+              :class="[
+                'panel-item',
+                item.type,
+                { selected: selectedItems.includes(item) },
+                { 'din-rail-vertical': item.type === 'din-rail' && isRotated(item) },
+              ]"
+              :style="getItemStyle(item)"
+              @pointerdown="startDrag($event, item)"
+            >
+              <div class="item-label">
+                {{
+                  item.type === 'din-rail' || item.type === 'box'
+                    ? showTrueSize(item.w, item.h)
+                    : item.name
+                }}
+              </div>
+
+              <!-- Ручки изменения размера для коробов -->
+              <template
+                v-if="
+                  item.type === 'box' && selectedItems.length === 1 && selectedItems[0] === item
+                "
+              >
+                <div
+                  class="resize-handle resize-nw"
+                  @pointerdown.stop="startResize($event, item, 'nw')"
+                ></div>
+                <div
+                  class="resize-handle resize-n"
+                  @pointerdown.stop="startResize($event, item, 'n')"
+                ></div>
+                <div
+                  class="resize-handle resize-ne"
+                  @pointerdown.stop="startResize($event, item, 'ne')"
+                ></div>
+                <div
+                  class="resize-handle resize-e"
+                  @pointerdown.stop="startResize($event, item, 'e')"
+                ></div>
+                <div
+                  class="resize-handle resize-se"
+                  @pointerdown.stop="startResize($event, item, 'se')"
+                ></div>
+                <div
+                  class="resize-handle resize-s"
+                  @pointerdown.stop="startResize($event, item, 's')"
+                ></div>
+                <div
+                  class="resize-handle resize-sw"
+                  @pointerdown.stop="startResize($event, item, 'sw')"
+                ></div>
+                <div
+                  class="resize-handle resize-w"
+                  @pointerdown.stop="startResize($event, item, 'w')"
+                ></div>
+              </template>
+
+              <!-- Ручки изменения размера для DIN-рейки (только длина) -->
+              <template
+                v-if="
+                  item.type === 'din-rail' &&
+                  selectedItems.length === 1 &&
+                  selectedItems[0] === item
+                "
+              >
+                <template v-if="!isRotated(item)">
+                  <div
+                    class="resize-handle resize-w din-rail-handle"
+                    @pointerdown.stop="startResize($event, item, 'w')"
+                  ></div>
+                  <div
+                    class="resize-handle resize-e din-rail-handle"
+                    @pointerdown.stop="startResize($event, item, 'e')"
+                  ></div>
+                </template>
+                <template v-else>
+                  <div
+                    class="resize-handle resize-n din-rail-handle"
+                    @pointerdown.stop="startResize($event, item, 'n')"
+                  ></div>
+                  <div
+                    class="resize-handle resize-s din-rail-handle"
+                    @pointerdown.stop="startResize($event, item, 's')"
+                  ></div>
+                </template>
+              </template>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- Модальное окно добавления устройств -->
+    <Teleport to="body">
+      <div v-if="showDeviceModal" class="modal-overlay" @click.self="closeDeviceModal">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3 class="modal-title">Добавить устройства</h3>
+            <button @click="closeDeviceModal" class="modal-close" title="Закрыть">✕</button>
+          </div>
+
+          <div class="modal-body">
+            <!-- Список устройств -->
+            <div class="device-selection-list">
+              <div
+                v-for="dev in devicePalette"
+                :key="dev.id"
+                :class="[
+                  'device-selection-item',
+                  { 'device-selection-item--complete': isDeviceFullyUsed(dev.id) },
+                ]"
+              >
+                <div class="device-selection-info">
+                  <input
+                    type="checkbox"
+                    :id="`modal-dev-check-${dev.id}`"
+                    v-model="selectedDevices[dev.id]"
+                    :disabled="isDeviceFullyUsed(dev.id)"
+                    class="device-checkbox"
+                  />
+                  <label :for="`modal-dev-check-${dev.id}`" class="device-selection-name">
+                    {{ dev.name }}
+                  </label>
+                  <span class="device-selection-size">{{ dev.w }}×{{ dev.h }}</span>
+                </div>
+                <div class="device-selection-controls" v-if="!isDeviceFullyUsed(dev.id)">
+                  <span class="device-selection-available">
+                    На панели: {{ getDeviceUsedCount(dev.id) }}/{{ dev.quantity }}
+                  </span>
+                  <div class="quantity-control">
+                    <button
+                      @click="decrementQuantity(dev.id)"
+                      class="qty-btn"
+                      :disabled="!selectedDevices[dev.id]"
+                    >
+                      −
+                    </button>
+                    <input
+                      type="number"
+                      v-model.number="deviceQuantities[dev.id]"
+                      class="qty-input"
+                      :min="1"
+                      :max="getAvailableQuantity(dev.id)"
+                      :disabled="!selectedDevices[dev.id]"
+                    />
+                    <button
+                      @click="incrementQuantity(dev.id)"
+                      class="qty-btn"
+                      :disabled="!selectedDevices[dev.id]"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+                <span v-else class="fully-used-label">✓ Все добавлены</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button
+              @click="addSelectedDevicesAndClose"
+              class="modal-btn modal-btn--primary"
+              :disabled="!canAddDevices"
+            >
+              <span class="button-icon">⚡</span>
+              <span>Добавить выбранные</span>
+            </button>
+            <button @click="closeDeviceModal" class="modal-btn modal-btn--secondary">Отмена</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+  </div>
+</template>
 
 <style scoped>
 /* Глобальный контейнер */
