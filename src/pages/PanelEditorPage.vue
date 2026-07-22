@@ -1211,6 +1211,7 @@ onUnmounted(() => {
     <div class="editor-layout">
       <!-- Боковая панель управления -->
       <aside class="editor-sidebar">
+        <a @click="router.back()">Назад</a>
         <div class="sidebar-section">
           <h2 class="sidebar-title">
             Редактор панелей {{ route.params.projectId }} - {{ route.params.assemblyId }}
@@ -1777,6 +1778,10 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+a {
+  justify-self: start;
+}
+
 /* Глобальный контейнер */
 .global-container {
   min-height: 100vh;

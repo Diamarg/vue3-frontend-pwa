@@ -367,13 +367,8 @@ onMounted(async () => {
 <template>
   <div class="global-container">
     <div class="admin-card admin-headbar">
-      <div class="admin-headbar__info">
-        <span class="admin-headbar__project">{{ project?.codeName || 'Проект' }}</span>
-        <span class="admin-headbar__separator">/</span>
-        <span class="admin-headbar__assembly">{{ assembly?.codeName || 'Сборка' }}</span>
-      </div>
-
       <div class="admin-headbar__actions">
+        <a @click="router.back()">Назад</a>
         <div class="admin-headbar__search">
           <span class="admin-headbar__search-label">Поиск:</span>
           <Ainput
@@ -382,10 +377,17 @@ onMounted(async () => {
             placeholder="По артикулу, описанию..."
           />
         </div>
-        <Abutton @click="showAddModal = true" class="add-device-btn">
-          + Добавить устройство
-        </Abutton>
-        <Abutton @click="toPanelEditor" class="add-device-btn"> Монтажная панель </Abutton>
+        <div class="admin-headbar__button-group">
+          <Abutton @click="showAddModal = true" class="add-device-btn">
+            + Добавить устройство
+          </Abutton>
+          <Abutton @click="toPanelEditor" class="add-device-btn"> Монтажная панель </Abutton>
+        </div>
+      </div>
+      <div class="admin-headbar__info">
+        <span class="admin-headbar__project">{{ project?.codeName || 'Проект' }}</span>
+        <span class="admin-headbar__separator">/</span>
+        <span class="admin-headbar__assembly">{{ assembly?.codeName || 'Сборка' }}</span>
       </div>
     </div>
 
@@ -677,6 +679,7 @@ onMounted(async () => {
 .admin-headbar__actions {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 16px;
 }
 @media (max-width: 600px) {
@@ -696,6 +699,12 @@ onMounted(async () => {
   font-size: 13px;
   color: #4a5568;
 }
+
+.admin-headbar__button-group {
+  display: flex;
+  gap: 16px;
+}
+
 .admin-headbar__search-input {
   box-shadow: 4px 4px 20px -10px rgba(34, 60, 80, 0.1);
   transition: all 0.3s;

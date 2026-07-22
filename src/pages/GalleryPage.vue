@@ -10,27 +10,31 @@ import { galleryApi } from '@/api/gallery'
 import { projectsApi } from '@/api/projects'
 import { formatShortDate, parseLocalDate, convertDateFormat } from '@/utils/dateFormatter'
 import { useToast } from '@/composables/useToast'
+import imageCompression from 'browser-image-compression'
 
 const props = defineProps({
-  projectId: '',
+  projectId: { type: [String, Number], default: '' },
 })
 
 const toast = useToast()
-
 const route = useRoute()
 const authStore = useAuthStore()
 const pageStore = usePageStore()
 
+// --- Состояние UI ---
 const scrollY = ref(0)
 const showModal = ref(false)
 const showPhotoModal = ref(false)
+const isLoadingPhotos = ref(false)
+const isModalImageLoading = ref(false)
+const hasReversedPhotos = ref(false)
+
+// --- Данные ---
 const photos = ref([])
+const project = ref({})
 const startDate = ref(null)
 const endDate = ref(null)
-const project = ref({})
-const imgUrls = ref({})
-const isLoadingPhotos = ref(false)
-const hasReversedPhotos = ref(false)
+const imgUrls = ref({}) // Хранилище Blob URL для превью
 
 const openedImage = ref({
   url: '',
@@ -41,161 +45,114 @@ const uploadForm = ref({
   files: [],
 })
 
+// --- Оптимизация: Отслеживание ленивой загрузки ---
+const loadingImageIds = new Set()
+const observers = new Map()
+
 /**
- * Загружает элементы с ограничением количества параллельных запросов.
- * @param {Array} items - массив элементов для обработки
- * @param {number} limit - максимальное количество одновременных запросов
- * @param {Function} fn - асинхронная функция обработки каждого элемента
- * @returns {Promise<Array>} - массив результатов выполнения (fulfilled/rejected)
+ * Настраивает IntersectionObserver для ленивой загрузки конкретного фото.
+ * Запрос к API делается только когда элемент появляется near viewport.
  */
-const loadWithConcurrency = async (items, limit, fn) => {
-  const results = []
-  const executing = new Set()
-
-  for (const item of items) {
-    const p = Promise.resolve().then(() => fn(item))
-    results.push(p)
-    executing.add(p)
-
-    // Удаляем завершённый промис из набора активных
-    p.then(() => executing.delete(p))
-
-    // Если достигли лимита — ждём завершения любого промиса перед стартом следующего
-    if (executing.size >= limit) {
-      await Promise.race(executing)
+const setupLazyLoad = (el, photo) => {
+  // Если элемент удалён из DOM, очищаем observer
+  if (!el) {
+    const obs = observers.get(photo.id)
+    if (obs) {
+      obs.disconnect()
+      observers.delete(photo.id)
     }
+    return
   }
 
-  return Promise.allSettled(results)
+  // Если уже загружено или сейчас загружается, ничего не делаем
+  if (imgUrls.value[photo.id] || loadingImageIds.has(photo.id)) return
+
+  const observer = new IntersectionObserver(
+    async (entries) => {
+      if (entries[0].isIntersecting) {
+        loadingImageIds.add(photo.id)
+        try {
+          const blob = await galleryApi.getPhotoFile(photo.projectId, photo.id)
+          imgUrls.value[photo.id] = URL.createObjectURL(blob)
+        } catch (error) {
+          console.error('Ошибка загрузки превью:', error)
+        } finally {
+          loadingImageIds.delete(photo.id)
+          observer.disconnect()
+          observers.delete(photo.id)
+        }
+      }
+    },
+    { rootMargin: '300px' },
+  ) // Начинаем грузить за 300px до появления на экране
+
+  observers.set(photo.id, observer)
+  observer.observe(el)
 }
 
-/**
- * Следит за изменением даты начала фильтра.
- * Автоматически заполняет дату окончания текущей датой, если она пустая,
- * и корректирует её, если она меньше даты начала.
- */
-watch(startDate, (newStartDate) => {
-  if (!newStartDate) return
-
-  if (!endDate.value) {
-    const nowTimestamp = new Date().getTime()
-    const shortDate = formatShortDate(nowTimestamp)
-    endDate.value = convertDateFormat(shortDate)
-  }
-
-  if (startDate.value > endDate.value) {
-    endDate.value = startDate.value
-  }
-})
-
-/**
- * Следит за изменением даты окончания фильтра.
- * Автоматически заполняет дату начала минимальной датой, если она пустая,
- * и корректирует её, если она больше даты окончания.
- */
-watch(endDate, (newEndDate) => {
-  if (!newEndDate) return
-
-  if (!startDate.value) {
-    startDate.value = '2001-01-01'
-  }
-
-  if (endDate.value < startDate.value) {
-    startDate.value = endDate.value
-    console.log('endDate: ', endDate.value)
-  }
-})
-
-/** Вычисляет, активен ли фильтр по датам (обе даты заданы) */
-const hasDateFilterOn = computed(() => {
-  if (startDate.value && endDate.value) return true
-})
-
-/** Сбрасывает фильтр по датам, очищая обе даты */
-const resetDateFilter = () => {
-  startDate.value = null
-  endDate.value = null
-}
-
-/** Вычисляет, есть ли хотя бы одна фотография в галерее */
-const hasPhotos = computed(() => photos.value.length > 0)
-
-/**
- * Вычисляет отфильтрованный список фотографий по диапазону дат.
- * Если фильтр не задан — возвращает все фотографии.
- */
-/**
- * Вычисляет отфильтрованный список фотографий по диапазону дат.
- * Если фильтр не задан — возвращает все фотографии.
- * Учитывает флаг сортировки (hasReversedPhotos).
- */
+// --- Вычисляемые свойства (Computed) ---
+// ВАЖНО: filteredPhotos объявлен до любых watch или computed, которые от него зависят
 const filteredPhotos = computed(() => {
   let result = photos.value
 
-  // Применяем фильтр по датам, если он задан
   if (startDate.value && endDate.value) {
     const MS_PER_DAY = 24 * 60 * 60 * 1000
     const start = parseLocalDate(startDate.value).getTime()
     const end = parseLocalDate(endDate.value).getTime() + MS_PER_DAY
-
     result = photos.value.filter((photo) => photo.uploadedAt >= start && photo.uploadedAt < end)
   }
 
-  // Применяем реверс, если включён
   if (hasReversedPhotos.value) {
-    result = result.toReversed()
+    result = [...result].reverse() // Совместимая альтернатива toReversed()
   }
 
   return result
 })
 
-const reversePhotos = () => {
-  hasReversedPhotos.value = !hasReversedPhotos.value
-  console.log(hasReversedPhotos.value)
-  console.log(filteredPhotos.value)
-}
-
-/** Вычисляет, нужно ли показывать кнопку "наверх" (при скролле более 100px) */
+const hasDateFilterOn = computed(() => !!(startDate.value && endDate.value))
+const hasPhotos = computed(() => photos.value.length > 0)
 const showTopBtn = computed(() => scrollY.value > 100)
 
-/** Обновляет значение скролла при прокрутке страницы */
+// --- Watchers ---
+watch(startDate, (newStartDate) => {
+  if (!newStartDate) return
+  if (!endDate.value) {
+    const nowTimestamp = new Date().getTime()
+    endDate.value = convertDateFormat(formatShortDate(nowTimestamp))
+  }
+  if (startDate.value > endDate.value) {
+    endDate.value = startDate.value
+  }
+})
+
+watch(endDate, (newEndDate) => {
+  if (!newEndDate) return
+  if (!startDate.value) {
+    startDate.value = '2001-01-01'
+  }
+  if (endDate.value < startDate.value) {
+    startDate.value = endDate.value
+  }
+})
+
+// --- Методы ---
+const resetDateFilter = () => {
+  startDate.value = null
+  endDate.value = null
+}
+
+const reversePhotos = () => {
+  hasReversedPhotos.value = !hasReversedPhotos.value
+}
+
 const onScroll = () => {
   scrollY.value = window.scrollY
 }
 
-/** Плавно прокручивает страницу к началу */
 const scrollToTop = () => {
   window.scrollTo({ top: 0, left: 0, behavior: 'smooth' })
 }
 
-/**
- * Отправляет форму загрузки фотографий на сервер.
- * Создаёт FormData, загружает файлы, закрывает модалку и обновляет список фото.
- */
-const submitUpload = async () => {
-  if (!uploadForm.value.files.length) {
-    console.log('Нет файлов для загрузки')
-    return
-  }
-
-  const formData = new FormData()
-  for (const file of uploadForm.value.files) {
-    formData.append('files', file)
-  }
-
-  try {
-    await galleryApi.uploadPhoto(project.value.id, formData)
-    uploadForm.value.files = []
-    showModal.value = false
-    toast.success('Фотографии успешно загружены')
-    resetDateFilter()
-    await loadPhotos()
-  } catch (error) {
-    toast.error('Ошибка загрузки:', error)
-  }
-}
-
-/** Загружает данные текущего проекта по ID из route.params и обновляет заголовок страницы */
 const loadProject = async () => {
   try {
     project.value = await projectsApi.getProjectById(route.params.projectId)
@@ -207,14 +164,12 @@ const loadProject = async () => {
 }
 
 /**
- * Загружает список фотографий проекта и их содержимое (blob).
- * Освобождает старые blob URL, создаёт новые для каждого фото.
- * Использует ограничение параллелизма (4 запроса одновременно) для ускорения.
+ * Загружает ТОЛЬКО метаданные. Blob-файлы загрузятся лениво.
  */
 const loadPhotos = async () => {
   isLoadingPhotos.value = true
 
-  // Освобождаем старые blob URL
+  // Очистка старой памяти
   Object.values(imgUrls.value).forEach((url) => URL.revokeObjectURL(url))
   imgUrls.value = {}
 
@@ -224,100 +179,156 @@ const loadPhotos = async () => {
       ...photo,
       fileSize: photo.fileSize || 0,
     }))
-
-    // Загрузка blob-файлов с ограничением параллелизма (максимум 4 одновременно)
-    const results = await loadWithConcurrency(photos.value, 4, async (photo) => {
-      const blob = await galleryApi.getPhotoFile(photo.projectId, photo.id)
-      return { id: photo.id, blob }
-    })
-
-    // Создаём blob URL только для успешно загруженных фото
-    for (const result of results) {
-      if (result.status === 'fulfilled') {
-        imgUrls.value[result.value.id] = URL.createObjectURL(result.value.blob)
-      }
-    }
   } catch (error) {
     console.error('Failed to load photos:', error)
+    toast.error('Не удалось загрузить список фото')
   } finally {
     isLoadingPhotos.value = false
   }
 }
 
 /**
- * Загружает полноразмерное фото для просмотра в модальном окне.
- * Создаёт blob URL и открывает модалку с изображением.
+ * Мгновенно открывает модалку и загружает полное фото в фоне.
  */
 const loadPhoto = async (photo) => {
+  showPhotoModal.value = true
+  isModalImageLoading.value = true
+
+  // Очищаем предыдущее фото, чтобы не было мерцания старого изображения
+  if (openedImage.value.url) {
+    URL.revokeObjectURL(openedImage.value.url)
+    openedImage.value.url = ''
+  }
+  openedImage.value.date = photo.uploadedAt
+
   try {
     const blob = await galleryApi.getPhotoFile(photo.projectId, photo.id)
     openedImage.value.url = URL.createObjectURL(blob)
-    openedImage.value.date = photo.uploadedAt
-    showPhotoModal.value = true
   } catch (error) {
     toast.error('Ошибка загрузки фото с сервера')
     console.error('Ошибка загрузки фото:', error)
+  } finally {
+    isModalImageLoading.value = false
   }
 }
 
-/**
- * Обрабатывает удаление фотографии: запрашивает подтверждение,
- * вызывает API удаления и обновляет список фото.
- */
-const deletePhotoHandler = async (photo) => {
-  if (!project.value?.id || !photo?.id) {
-    console.warn('Некорректные данные для удаления')
-    return
+const closePhotoModal = () => {
+  if (openedImage.value.url) {
+    URL.revokeObjectURL(openedImage.value.url)
+    openedImage.value.url = ''
   }
+  showPhotoModal.value = false
+  isModalImageLoading.value = false
+}
+
+const deletePhotoHandler = async (photo) => {
+  if (!project.value?.id || !photo?.id) return
+
   if (confirm('Вы уверены, что хотите удалить это фото?')) {
     try {
       await galleryApi.deletePhoto(project.value.id, photo.id)
-      await loadPhotos()
+
+      // Точечная очистка памяти и массива без полной перезагрузки (работает мгновенно)
+      if (imgUrls.value[photo.id]) {
+        URL.revokeObjectURL(imgUrls.value[photo.id])
+        delete imgUrls.value[photo.id]
+      }
+      photos.value = photos.value.filter((p) => p.id !== photo.id)
+      toast.success('Фото успешно удалено')
     } catch (error) {
+      toast.error('Ошибка удаления фото')
       console.error('Ошибка удаления фото', error)
     }
-  } else {
-    console.log('Удаление фото отменено!')
   }
 }
 
-/**
- * Обрабатывает выбор файлов через input[type=file].
- * Добавляет новые файлы к существующему списку и очищает значение input.
- */
+const compressImage = async (file) => {
+  // Если файл меньше 500 КБ, пропускаем сжатие для экономии времени
+  if (file.size < 500 * 1024) return file
+
+  const options = {
+    maxSizeMB: 1, // Максимальный размер файла: 1 МБ
+    maxWidthOrHeight: 1920, // Максимальное разрешение по большей стороне
+    useWebWorker: true, // ВАЖНО: сжатие в фоновом потоке, интерфейс не зависнет
+    fileType: 'image/jpeg', // Конвертируем в JPEG для максимального сжатия
+    initialQuality: 0.8, // Баланс между качеством и размером
+  }
+
+  try {
+    const compressedFile = await imageCompression(file, options)
+    // Библиотека возвращает File, но с новым именем. Вернём оригинальное имя, чтобы на сервере было красиво
+    return new File([compressedFile], file.name, { type: compressedFile.type })
+  } catch (error) {
+    console.error('Ошибка сжатия изображения:', error)
+    return file // В случае ошибки отправляем оригинал
+  }
+}
+
+const submitUpload = async () => {
+  if (!uploadForm.value.files.length) return
+  showModal.value = false
+  const formData = new FormData()
+
+  // Показываем уведомление о начале сжатия
+  toast.info('Сжатие изображений...')
+
+  try {
+    // Сжимаем все файлы параллельно
+    const compressedFiles = await Promise.all(
+      uploadForm.value.files.map((file) =>
+        compressImage(file, {
+          maxWidth: 1920,
+          maxHeight: 1920,
+          quality: 0.8,
+          mimeType: 'image/jpeg',
+          maxSizeBytes: 500 * 1024, // 500 КБ
+        }),
+      ),
+    )
+
+    // Добавляем в FormData уже сжатые файлы
+    for (const file of compressedFiles) {
+      formData.append('files', file)
+    }
+
+    await galleryApi.uploadPhoto(project.value.id, formData)
+    uploadForm.value.files = []
+    toast.success('Фотографии успешно загружены')
+    resetDateFilter()
+    await loadPhotos()
+  } catch (error) {
+    toast.error('Ошибка загрузки: ' + error.message)
+  }
+}
+
 const handleFileChange = (event) => {
   const newFiles = Array.from(event.target.files)
   uploadForm.value.files = [...uploadForm.value.files, ...newFiles]
   event.target.value = ''
 }
 
-/** Удаляет файл из списка загрузки по индексу */
 const deleteFileString = (index) => {
   uploadForm.value.files.splice(index, 1)
 }
 
-/**
- * Хук монтирования компонента.
- * Загружает проект и фото, подписывается на скролл, получает данные текущего пользователя.
- */
+// --- Хуки жизненного цикла ---
 onMounted(async () => {
   await loadProject()
-  await loadPhotos()
+  await loadPhotos() // Загружаем только метаданные
   window.addEventListener('scroll', onScroll, { passive: true })
   onScroll()
   await authStore.fetchMe()
 })
 
-/**
- * Хук перед размонтированием компонента.
- * Освобождает все blob URL (превью и открытое изображение) и отписывается от скролла.
- */
 onBeforeUnmount(() => {
-  // Освобождаем все blob URL
+  // 1. Отключаем все наблюдатели
+  observers.forEach((obs) => obs.disconnect())
+
+  // 2. Освобождаем все Blob URL превью
   Object.values(imgUrls.value).forEach((url) => URL.revokeObjectURL(url))
   imgUrls.value = {}
 
-  // Освобождаем URL открытого изображения
+  // 3. Освобождаем URL открытого изображения
   if (openedImage.value.url) {
     URL.revokeObjectURL(openedImage.value.url)
   }
@@ -329,6 +340,7 @@ onBeforeUnmount(() => {
 <template>
   <div class="global-container">
     <div v-if="showTopBtn" class="top-btn" @click="scrollToTop"></div>
+
     <div class="gallery">
       <div class="gallery__header">
         <div v-if="hasPhotos" class="gallery__filter">
@@ -339,14 +351,15 @@ onBeforeUnmount(() => {
             <span>До: </span><a-input v-model="endDate" type="date" />
           </div>
           <div>
-            <a-button @click="reversePhotos"
-              >Cначала {{ hasReversedPhotos ? 'новые' : 'старые' }}</a-button
-            >
+            <a-button @click="reversePhotos">
+              Сначала {{ hasReversedPhotos ? 'новые' : 'старые' }}
+            </a-button>
           </div>
           <div>
-            <a-button v-if="hasDateFilterOn" @click="resetDateFilter"
-              >Сброс фильтра ({{ filteredPhotos.length }} фото)</a-button
-            >
+            <a-button v-if="hasDateFilterOn" @click="resetDateFilter">
+              Сброс фильтра ({{ filteredPhotos.length }} фото)
+            </a-button>
+            <span v-else>Всего: {{ filteredPhotos.length }} фото</span>
           </div>
         </div>
 
@@ -354,7 +367,9 @@ onBeforeUnmount(() => {
           <a-button @click="showModal = true">Загрузить фото</a-button>
         </div>
       </div>
+
       <div v-if="!hasPhotos" class="gallery__null-photo">Ещё нет загруженных фотографий!</div>
+
       <div v-else class="gallery__cards">
         <div
           v-for="photo in filteredPhotos"
@@ -362,8 +377,23 @@ onBeforeUnmount(() => {
           class="gallery__card"
           @click="loadPhoto(photo)"
         >
-          <img v-if="imgUrls[photo.id]" class="gallery__image-preview" :src="imgUrls[photo.id]" />
-          <img v-else class="gallery__image-placeholder" src="/src/img/camera.png" />
+          <!-- Если Blob уже загружен, показываем его с нативным lazy loading -->
+          <img
+            v-if="imgUrls[photo.id]"
+            class="gallery__image-preview"
+            :src="imgUrls[photo.id]"
+            loading="lazy"
+            alt="preview"
+          />
+          <!-- Если Blob ещё не загружен, показываем заглушку и вешаем на неё Observer -->
+          <img
+            v-else
+            :ref="(el) => setupLazyLoad(el, photo)"
+            class="gallery__image-placeholder"
+            src="/src/img/camera.png"
+            alt="loading"
+          />
+
           <div class="gallery__image-footer">
             <div class="gallery__image-date">{{ formatShortDate(photo.uploadedAt) }}</div>
             <div
@@ -378,6 +408,8 @@ onBeforeUnmount(() => {
       </div>
     </div>
   </div>
+
+  <!-- Модалка загрузки -->
   <a-modal title="Загрузка фотографий" :opened="showModal" @close-emit="showModal = false">
     <form enctype="multipart/form-data" @submit.prevent="submitUpload">
       <label>Выберите фото с устройства</label>
@@ -397,14 +429,25 @@ onBeforeUnmount(() => {
       <a-button>Загрузить</a-button>
     </form>
   </a-modal>
+
+  <!-- Модалка просмотра -->
   <a-modal
     title="Просмотр фотографии"
     :opened="showPhotoModal"
-    @close-emit="showPhotoModal = false"
-    @click.self="showPhotoModal = false"
+    @close-emit="closePhotoModal"
+    @click.self="closePhotoModal"
   >
-    <div>
-      <img class="image" :src="openedImage.url" />
+    <div class="modal-image-container">
+      <!-- Индикатор загрузки внутри модалки -->
+      <div v-if="isModalImageLoading" class="image-loader">Загрузка изображения...</div>
+
+      <!-- Само изображение (показываем через v-show, чтобы не схлопывало модалку до загрузки) -->
+      <img
+        v-show="!isModalImageLoading && openedImage.url"
+        class="image"
+        :src="openedImage.url"
+        alt="Просмотр"
+      />
     </div>
     <div class="image__date">Загружено: {{ formatShortDate(openedImage.date) }}</div>
   </a-modal>
@@ -424,6 +467,7 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   transition: background 0.2s;
+  z-index: 100;
 }
 
 .top-btn::before {
@@ -452,7 +496,7 @@ onBeforeUnmount(() => {
   gap: 24px;
   grid-template-columns: repeat(auto-fill, minmax(280px, auto));
   margin-top: 24px;
-  align-items: center;
+  align-items: start; /* Изменено с center для корректной работы grid */
 }
 
 .gallery__null-photo {
@@ -464,22 +508,24 @@ onBeforeUnmount(() => {
 .gallery__card {
   cursor: pointer;
   transition: transform 0.2s;
+  position: relative;
 }
 
 .gallery__card:hover {
-  transform: scale(1);
+  transform: scale(1.02);
 }
 
 .gallery__header {
   display: flex;
   margin-top: 24px;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
 }
 
 .gallery__filter {
   display: grid;
   grid-template-columns: max-content max-content max-content max-content;
-
   align-items: center;
   justify-items: center;
   gap: 24px;
@@ -489,7 +535,7 @@ onBeforeUnmount(() => {
 .gallery__date-to {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 12px;
 }
 
 .gallery__image-preview,
@@ -498,6 +544,8 @@ onBeforeUnmount(() => {
   height: 200px;
   object-fit: cover;
   border-radius: 4px;
+  display: block;
+  background-color: #f5f5f5; /* Фон пока грузится */
 }
 
 .gallery__image-footer {
@@ -508,19 +556,46 @@ onBeforeUnmount(() => {
   font-size: 14px;
   font-weight: 400;
   align-items: center;
-  justify-content: center;
-}
-
-.gallery__image-date {
 }
 
 .gallery__image-delete {
   color: rgb(145, 26, 26);
   transition: all 0.2s;
+  padding: 4px 8px;
+  border-radius: 4px;
 }
 
 .gallery__image-delete:hover {
   color: rgb(219, 21, 21);
+  background-color: rgba(219, 21, 21, 0.1);
+}
+
+/* Стили для модального окна просмотра */
+.modal-image-container {
+  position: relative;
+  min-height: 200px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.image-loader {
+  color: #6d6d6d;
+  font-size: 16px;
+  font-weight: 500;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.6;
+  }
 }
 
 .image {
@@ -529,14 +604,18 @@ onBeforeUnmount(() => {
   width: auto;
   height: auto;
   object-fit: contain;
+  display: block;
 }
 
 .form-input {
   margin-bottom: 24px;
+  width: 100%;
 }
 
 .file-names {
   margin-bottom: 25px;
+  max-height: 200px;
+  overflow-y: auto;
 }
 
 .file-string {
@@ -544,24 +623,30 @@ onBeforeUnmount(() => {
   gap: 24px;
   text-align: center;
   justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #eee;
 }
 
 .file-name {
-  margin-bottom: 8px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 400px;
+  font-size: 14px;
 }
 
 .file-delete {
   font-weight: 400;
   color: rgb(78, 78, 78);
   cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 4px;
 }
 
 .file-delete:hover {
-  color: rgb(3, 3, 3);
+  color: rgb(219, 21, 21);
 }
 
 .image__date {
@@ -569,5 +654,17 @@ onBeforeUnmount(() => {
   text-align: center;
   font-weight: 400;
   color: #6d6d6d;
+}
+
+/* Адаптивность для фильтров на мобильных */
+@media (max-width: 768px) {
+  .gallery__filter {
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+  }
+  .gallery__header {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
 </style>
