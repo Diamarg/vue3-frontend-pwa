@@ -135,7 +135,8 @@ const sections = {
   },
   assemblyDevices: {
     label: 'Устройства в сборках',
-    needsAssembly: true,
+    needsProject: true, // <-- ИСПРАВЛЕНИЕ: Добавлено, чтобы отображался селектор проекта
+    needsAssembly: true, // <-- ИСПРАВЛЕНИЕ: Оставлено, чтобы отображался селектор сборки
     searchKeys: ['article', 'description', 'brand', 'deviceType'],
     columns: [
       {
@@ -456,7 +457,6 @@ const openValues = async (device) => {
 
 const saveValues = async () => {
   try {
-    // ✅ ИСПРАВЛЕНИЕ: добавлено поле unit для удовлетворения [Required] на бэкенде
     const payload = propertyRows.value.map((row) => ({
       id: row.propertyId,
       value: row.value === '' ? null : String(row.value),
@@ -542,14 +542,24 @@ const initSection = async () => {
   sortKey.value = 'id'
   sortDir.value = 'asc'
 
-  if (cfg.value.needsAssembly && selectedProjectId.value && !assembliesList.value.length) {
+  // ИСПРАВЛЕНИЕ: Гарантируем актуальный список сборок при переключении разделов
+  if (cfg.value.needsAssembly && selectedProjectId.value) {
     try {
       assembliesList.value = await projectsApi.getAssembliesByProjectId(selectedProjectId.value)
-      if (assembliesList.value.length && !selectedAssemblyId.value)
-        selectedAssemblyId.value = assembliesList.value[0].id
+      // Проверяем, принадлежит ли текущая выбранная сборка новому списку
+      const isValidAssembly = assembliesList.value.some((a) => a.id === selectedAssemblyId.value)
+      if (!isValidAssembly) {
+        selectedAssemblyId.value = assembliesList.value.length ? assembliesList.value[0].id : null
+      }
     } catch (e) {
       console.error('Assemblies load error in initSection:', e)
+      assembliesList.value = []
+      selectedAssemblyId.value = null
     }
+  } else if (!cfg.value.needsAssembly) {
+    // Если раздел не требует сборку, очищаем состояние
+    assembliesList.value = []
+    selectedAssemblyId.value = null
   }
 
   loadedOptions.value = cfg.value.loadOptions ? await cfg.value.loadOptions() : {}
@@ -701,7 +711,6 @@ const buildData = () => {
     data[col.key] = v
   })
 
-  // ✅ ИСПРАВЛЕНИЕ: добавлено поле unit для удовлетворения [Required] на бэкенде при создании устройства
   if (currentSection.value === 'devices' && formProperties.value.length > 0) {
     data.properties = formProperties.value
       .filter((row) => row.value !== '' && row.value !== null && row.value !== undefined)
@@ -813,7 +822,9 @@ watch(selectedAssemblyId, () => {
     <div class="admin-layout">
       <!-- SIDEBAR -->
       <aside class="admin-sidebar">
-        <div class="admin-sidebar__header"><h2 class="admin-sidebar__title">Админ-панель</h2></div>
+        <div class="admin-sidebar__header">
+          <h2 class="admin-sidebar__title">Админ-панель</h2>
+        </div>
         <nav class="admin-nav">
           <div v-for="group in navGroups" :key="group.title" class="admin-nav__group">
             <h3 class="admin-nav__group-title">{{ group.title }}</h3>
@@ -831,10 +842,12 @@ watch(selectedAssemblyId, () => {
 
       <!-- CONTENT -->
       <main class="admin-content">
+        <!-- ИСПРАВЛЕНИЕ: Теперь этот блок отображается и для assemblyDevices, так как добавлен needsProject: true -->
         <div v-if="cfg.needsProject || cfg.needsAssembly" class="admin-card admin-card--row">
           <div v-if="cfg.needsProject" class="context-selector">
             <label class="admin-card__label">Проект:</label>
             <select v-model="selectedProjectId" class="admin-select">
+              <option :value="null" disabled>Выберите проект...</option>
               <option v-for="p in projectsList" :key="p.id" :value="p.id">
                 {{ p.codeName }} (ID {{ p.id }})
               </option>
@@ -847,7 +860,9 @@ watch(selectedAssemblyId, () => {
               class="admin-select"
               :disabled="!selectedProjectId"
             >
-              <option :value="null" disabled>Сначала выберите проект</option>
+              <option :value="null" disabled>
+                {{ selectedProjectId ? 'Выберите сборку...' : 'Сначала выберите проект' }}
+              </option>
               <option v-for="a in assembliesList" :key="a.id" :value="a.id">
                 {{ a.codeName }} (ID {{ a.id }})
               </option>
@@ -876,10 +891,10 @@ watch(selectedAssemblyId, () => {
 
         <div class="admin-card admin-table-wrap">
           <div v-if="cfg.needsProject && !selectedProjectId" class="admin-empty">
-            Выберите проект
+            Выберите проект для отображения данных
           </div>
           <div v-else-if="cfg.needsAssembly && !selectedAssemblyId" class="admin-empty">
-            Выберите сборку
+            Выберите сборку для отображения данных
           </div>
           <div v-else-if="loading" class="admin-empty">Загрузка...</div>
           <div v-else-if="loadError" class="admin-empty admin-empty--error">
@@ -1198,6 +1213,7 @@ watch(selectedAssemblyId, () => {
 </template>
 
 <style scoped>
+/* Стили остались без изменений, так как они уже были адаптивными и корректными */
 .admin-layout {
   display: grid;
   grid-template-columns: 240px 1fr;

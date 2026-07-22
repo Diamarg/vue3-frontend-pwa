@@ -94,7 +94,7 @@ onMounted(async () => {
   gap: 24px;
   box-shadow: 4px 4px 30px -10px rgba(34, 60, 80, 0.2);
 
-  grid-template-columns: repeat(auto-fit, minmax(400px, auto));
+  grid-template-columns: repeat(auto-fit, minmax(300px, auto));
   border-radius: 8px;
   border-color: rgb(230, 230, 230);
   border-style: solid;

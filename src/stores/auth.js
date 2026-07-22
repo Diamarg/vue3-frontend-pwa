@@ -62,8 +62,15 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  const logout = () => {
-    clearToken()
+  // ✅ ИЗМЕНЁННЫЙ МЕТОД: вызываем бэкенд для очистки Cookie
+  const logout = async () => {
+    try {
+      await api.post('/auth/logout')
+    } catch (error) {
+      console.error('Logout error:', error)
+    } finally {
+      clearToken()
+    }
   }
 
   const fetchMe = async () => {
