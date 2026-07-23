@@ -170,7 +170,7 @@ onMounted(async () => {
           ></ainput>
         </div>
         <Abutton v-if="authStore.isAdmin" class="sticky-button" @click="showModal = true"
-          ><template #icon><add-icon color="white" /></template>Новый проект
+          ><template #icon><add-icon color="white" /></template>+ Новый проект
         </Abutton>
       </div>
       <div v-if="!loading" class="projects-cards">
@@ -298,7 +298,7 @@ onMounted(async () => {
 }
 
 .sticky-button {
-  max-width: 150px;
+  max-width: 160px;
 }
 
 .projects-cards {

@@ -13,7 +13,11 @@ import CableJournalPage from '@/pages/CableJournalPage.vue'
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
-    { path: '/admin', component: AdminPanelPage, meta: { guest: false, requiresAuth: true } },
+    {
+      path: '/admin',
+      component: AdminPanelPage,
+      meta: { requiresAuth: true, requiresAdmin: true },
+    },
     { path: '/login', component: LoginPage, meta: { guest: true } },
     { path: '/register', component: RegisterPage, meta: { guest: true } },
     { path: '/', component: ProjectsPage, props: true, meta: { requiresAuth: true } },
@@ -55,41 +59,50 @@ const router = createRouter({
     },
   ],
   scrollBehavior(to, from, savedPosition) {
-    // 1. Восстанавливаем позицию при навигации через историю браузера
     if (savedPosition) return savedPosition
-
-    // 2. При любом другом переходе → наверх
     return { top: 0, left: 0, behavior: 'smooth' }
   },
 })
 
-router.beforeEach((to) => {
+router.beforeEach((to, from, next) => {
   const token = localStorage.getItem('token')
   const isAuthenticated = !!token
 
-  // Если страница для гостей (login/register) и пользователь авторизован — редирект на /
+  // 1. Если страница для гостей (login/register), а пользователь уже вошел → редирект на главную
   if (to.meta.guest && isAuthenticated) {
-    return '/'
+    return next('/')
   }
 
-  // Если маршрут требует авторизацию
+  // 2. Если маршрут требует авторизацию, а токена нет → редирект на логин с сохранением пути
   if (to.meta.requiresAuth && !isAuthenticated) {
-    return { path: '/login', query: { redirect: to.fullPath } }
+    return next({ path: '/login', query: { redirect: to.fullPath } })
   }
 
-  // Если маршрут требует роль Admin — проверяем JWT payload
+  // 3. Если маршрут требует роль Admin → проверяем payload токена
   if (to.meta.requiresAdmin && isAuthenticated) {
     try {
       const payload = JSON.parse(atob(token.split('.')[1]))
-      const roles = payload?.role || []
+      // .NET может писать роль как 'role' или как длинный URI claim
+      const roles =
+        payload?.role ||
+        payload?.['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] ||
+        []
+
       const isAdmin = Array.isArray(roles) ? roles.includes('Admin') : roles === 'Admin'
+
       if (!isAdmin) {
-        return '/'
+        console.warn('Доступ запрещен: недостаточно прав')
+        return next('/') // Или перенаправить на специальную страницу 403
       }
-    } catch {
-      return '/login'
+    } catch (error) {
+      console.error('Ошибка парсинга токена при проверке прав:', error)
+      localStorage.removeItem('token')
+      return next('/login')
     }
   }
+
+  // Если все проверки пройдены, разрешаем переход
+  next()
 })
 
 export default router

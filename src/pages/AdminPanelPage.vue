@@ -1,17 +1,21 @@
 <!-- pages/AdminPanelPage.vue -->
 <script setup>
 import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router' // Добавлено для редиректа при логауте
 import Abutton from '@/components/A-button.vue'
 import Ainput from '@/components/A-input.vue'
 import AModal from '@/components/A-modal.vue'
 import { useToast } from '@/composables/useToast'
+import { useAuthStore } from '@/stores/auth' // Добавлено для доступа к стору
 import { projectsApi } from '@/api/projects'
 import { devicesApi } from '@/api/devices'
 import { cableLinesApi } from '@/api/cableLines'
 import { referenceApi } from '@/api/reference'
 import { filesApi } from '@/api/files'
 
+const router = useRouter()
 const toast = useToast()
+const authStore = useAuthStore()
 
 // ===================== СПРАВОЧНИКИ ДЛЯ СЕЛЕКТОВ =====================
 const projectsList = ref([])
@@ -77,14 +81,17 @@ const sections = {
   },
   assemblies: {
     label: 'Сборки',
+    needsProject: true, // ✅ Включает фильтр по проекту
     searchKeys: ['codeName', 'description'],
     columns: [
       { key: 'codeName', label: 'Кодовое имя', type: 'text', required: true },
       { key: 'description', label: 'Описание', type: 'text' },
-      { key: 'projectId', label: 'Проект', type: 'select', required: true, optionsKey: 'projects' },
+      // ProjectId скрыт из таблицы, так как он уже выбран в фильтре сверху
     ],
     loadOptions: async () => ({ projects: projectOpts() }),
-    fetch: () => projectsApi.getAssemblies(),
+    // ✅ Фильтруем сборки по выбранному проекту
+    fetch: (ctx) =>
+      ctx.projectId ? projectsApi.getAssembliesByProjectId(ctx.projectId) : Promise.resolve([]),
     create: (_ctx, data) => projectsApi.createAssembly(data),
     update: (_ctx, id, data) => projectsApi.updateAssembly(id, data),
     remove: (_ctx, id) => projectsApi.deleteAssembly(id),
@@ -207,7 +214,6 @@ const sections = {
       },
     ],
     fetch: (ctx) => (ctx.projectId ? filesApi.getFiles(ctx.projectId) : Promise.resolve([])),
-    // create отсутствует - кнопка скрыта
     update: (ctx, id, data) => filesApi.updateFile(ctx.projectId, id, data),
     remove: (ctx, id) => filesApi.deleteFile(ctx.projectId, id),
   },
@@ -225,7 +231,6 @@ const sections = {
         placeholder: 'Документация, Чертежи...',
       },
     ],
-    // Категории глобальные, но API требует projectId - используем первый проект
     fetch: (ctx) => {
       const pid = ctx.projectId || projectsList.value[0]?.id
       return pid ? filesApi.getCategories(pid) : Promise.resolve([])
@@ -856,6 +861,12 @@ const displayValue = (item, col) => {
   return rawValue === null || rawValue === undefined || rawValue === '' ? '—' : rawValue
 }
 
+// ===================== ЛОГАУТ =====================
+const handleLogout = () => {
+  authStore.logout()
+  router.push('/login')
+}
+
 // ===================== СТАРТ =====================
 onMounted(async () => {
   try {
@@ -898,7 +909,14 @@ watch(selectedAssemblyId, () => {
       <aside class="admin-sidebar">
         <div class="admin-sidebar__header">
           <h2 class="admin-sidebar__title">Админ-панель</h2>
+          <div class="admin-sidebar__user-info">
+            <span v-if="authStore.user">{{
+              authStore.user.fullName || authStore.user.userName
+            }}</span>
+            <a @click="handleLogout" class="admin-sidebar__logout">Выйти</a>
+          </div>
         </div>
+
         <nav class="admin-nav">
           <div v-for="group in navGroups" :key="group.title" class="admin-nav__group">
             <h3 class="admin-nav__group-title">{{ group.title }}</h3>
@@ -1328,11 +1346,26 @@ watch(selectedAssemblyId, () => {
   padding: 0 16px 16px;
   border-bottom: 1px solid rgb(230, 230, 230);
   margin-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 .admin-sidebar__title {
   font-size: 18px;
   font-weight: 600;
   margin: 0;
+}
+.admin-sidebar__user-info {
+  font-size: 13px;
+  color: #4a5568;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.admin-sidebar__logout {
+  color: #e53e3e;
+  cursor: pointer;
+  text-decoration: underline;
 }
 .admin-nav {
   display: grid;

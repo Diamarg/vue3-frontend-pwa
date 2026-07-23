@@ -1,5 +1,5 @@
 <script setup>
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ref, computed, onMounted, watch } from 'vue'
 import Ainput from '@/components/A-input.vue'
 import AModal from '@/components/A-modal.vue'
@@ -10,9 +10,9 @@ import { referenceApi } from '@/api/reference'
 import { useAuthStore } from '@/stores/auth'
 import { usePageStore } from '@/stores/pages'
 import { useToast } from '@/composables/useToast'
-import router from '@/router'
 
 const route = useRoute()
+const router = useRouter()
 const toast = useToast()
 
 defineProps(['projectId', 'assemblyId'])
@@ -351,10 +351,6 @@ const openProperties = async (device) => {
   }
 }
 
-const toPanelEditor = () => {
-  router.push(`/${route.params.projectId}/assemblies/${route.params.assemblyId}/panelEditor`)
-}
-
 onMounted(async () => {
   await loadProject()
   await loadAssembly()
@@ -366,31 +362,32 @@ onMounted(async () => {
 
 <template>
   <div class="global-container">
-    <div class="admin-card admin-headbar">
-      <div class="admin-headbar__actions">
-        <a @click="router.back()">Назад</a>
+    <!-- === ХЕДЕР В СТИЛЕ ГАЛЕРЕИ (с оригинальными цветами) === -->
+    <div class="gallery__header assembly-header">
+      <div class="assembly-header__info">
+        <div class="admin-headbar__info">
+          <span class="admin-headbar__project">{{ project?.codeName || 'Проект' }}</span>
+          <span class="admin-headbar__separator">/</span>
+          <span class="admin-headbar__assembly">{{ assembly?.codeName || 'Сборка' }}</span>
+        </div>
         <div class="admin-headbar__search">
-          <span class="admin-headbar__search-label">Поиск:</span>
           <Ainput
             class="admin-headbar__search-input"
             v-model="searchBar"
-            placeholder="По артикулу, описанию..."
+            placeholder="Поиск по артикулу, описанию..."
           />
         </div>
-        <div class="admin-headbar__button-group">
-          <Abutton @click="showAddModal = true" class="add-device-btn">
-            + Добавить устройство
-          </Abutton>
-          <Abutton @click="toPanelEditor" class="add-device-btn"> Монтажная панель </Abutton>
-        </div>
       </div>
-      <div class="admin-headbar__info">
-        <span class="admin-headbar__project">{{ project?.codeName || 'Проект' }}</span>
-        <span class="admin-headbar__separator">/</span>
-        <span class="admin-headbar__assembly">{{ assembly?.codeName || 'Сборка' }}</span>
+
+      <div class="assembly-header__actions">
+        <a class="admin-headbar__back-btn" @click="router.back()">← Назад</a>
+        <Abutton @click="showAddModal = true" class="add-device-btn">
+          + Добавить устройство
+        </Abutton>
       </div>
     </div>
 
+    <!-- === ТАБЛИЦА === -->
     <div class="admin-card admin-table-wrap">
       <div v-if="sortedDevices.length === 0" class="admin-empty">
         {{
@@ -470,7 +467,6 @@ onMounted(async () => {
               </div>
             </td>
 
-            <!-- ✅ ДОБАВЛЕНА КНОПКА УДАЛЕНИЯ -->
             <td class="admin-table__td admin-table__td--actions">
               <button
                 class="admin-table__btn"
@@ -638,31 +634,40 @@ onMounted(async () => {
 
 <style scoped>
 .global-container {
-  margin-top: 24px;
-  display: grid;
-  gap: 24px;
-  align-content: start;
+  padding: 16px;
+  width: 100%;
+  box-sizing: border-box;
+  max-width: 1400px;
+  margin: 0 auto;
 }
 
-.admin-card {
+/* === ХЕДЕР В СТИЛЕ ГАЛЕРЕИ (с оригинальными цветами админки) === */
+.gallery__header {
   box-shadow: 4px 4px 30px -10px rgba(34, 60, 80, 0.2);
   border-radius: 8px;
   border: 1px solid rgb(230, 230, 230);
   background-color: #fff;
-  padding: 24px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
 }
 
-.admin-headbar {
-  display: grid;
-  gap: 24px;
-  grid-template-columns: 1fr auto;
+.assembly-header__info {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+}
+
+.assembly-header__actions {
+  display: flex;
+  gap: 12px;
   align-items: center;
 }
-@media (max-width: 768px) {
-  .admin-headbar {
-    grid-template-columns: 1fr;
-  }
-}
+
+/* Оригинальные цвета текстов хедера */
 .admin-headbar__info {
   font-size: 14px;
   color: #4a5568;
@@ -676,51 +681,43 @@ onMounted(async () => {
   margin: 0 8px;
   color: #cbd5e0;
 }
-
-.admin-headbar__actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-@media (max-width: 600px) {
-  .admin-headbar__actions {
-    flex-direction: column;
-    align-items: stretch;
-  }
-}
-
-.admin-headbar__search {
-  display: grid;
-  grid-template-columns: 70px 1fr;
-  align-items: center;
-  gap: 8px;
-}
 .admin-headbar__search-label {
   font-size: 13px;
   color: #4a5568;
 }
 
-.admin-headbar__button-group {
-  display: flex;
-  gap: 16px;
+/* Кнопка "Назад" в оригинальных тонах */
+.admin-headbar__back-btn {
+  font-size: 14px;
+  color: #4a5568;
+  text-decoration: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  transition: all 0.2s;
+  white-space: nowrap;
 }
-
-.admin-headbar__search-input {
-  box-shadow: 4px 4px 20px -10px rgba(34, 60, 80, 0.1);
-  transition: all 0.3s;
-}
-.admin-headbar__search-input:hover {
-  box-shadow: 4px 4px 20px -10px rgba(34, 60, 80, 0.3);
+.admin-headbar__back-btn:hover {
+  background-color: #f7fafc;
+  color: #2d3748;
 }
 
 .add-device-btn {
   white-space: nowrap;
 }
 
+/* === ТАБЛИЦА (Оригинальные стили сохранены) === */
+.admin-card {
+  box-shadow: 4px 4px 30px -10px rgba(34, 60, 80, 0.2);
+  border-radius: 8px;
+  border: 1px solid rgb(230, 230, 230);
+  background-color: #fff;
+  padding: 16px;
+}
+
 .admin-table-wrap {
   padding: 0;
   overflow: auto;
+  margin-top: 16px;
 }
 .admin-empty {
   padding: 40px;
@@ -750,7 +747,7 @@ onMounted(async () => {
   width: 90px;
 }
 .admin-table__th--actions {
-  width: 140px; /* Немного увеличено для двух кнопок */
+  width: 140px;
   text-align: center;
 }
 
@@ -829,7 +826,7 @@ onMounted(async () => {
   cursor: pointer;
   font-size: 16px;
   font-weight: 600;
-  color: #4f46e5;
+  color: #4f46e5; /* Оригинальный цвет */
   transition: all 0.2s;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
@@ -870,12 +867,13 @@ onMounted(async () => {
   background-color: #edf2f7;
 }
 .admin-table__btn--del {
-  color: #e53e3e;
+  color: #e53e3e; /* Оригинальный цвет удаления */
 }
 .admin-table__btn--del:hover {
   background-color: #fed7d7;
 }
 
+/* === ФОРМЫ И МОДАЛКИ === */
 .add-form {
   display: grid;
   gap: 16px;
@@ -905,6 +903,7 @@ onMounted(async () => {
   font-size: 13px;
   color: #2d3748;
   transition: all 0.3s;
+  box-sizing: border-box;
 }
 .admin-select:disabled,
 .admin-input:disabled {
@@ -973,5 +972,40 @@ onMounted(async () => {
 }
 .admin-form__cancel:hover {
   color: #4a5568;
+}
+
+/* === ДЕСКТОПНАЯ АДАПТАЦИЯ === */
+@media (min-width: 768px) {
+  .global-container {
+    padding: 24px;
+  }
+
+  .gallery__header {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 24px;
+    padding: 24px;
+  }
+
+  .assembly-header__info {
+    flex-direction: row;
+    align-items: center;
+    gap: 24px;
+    flex: 1;
+  }
+
+  .admin-headbar__search {
+    flex: 1;
+    max-width: 400px;
+  }
+
+  .admin-card {
+    padding: 24px;
+  }
+
+  .admin-table-wrap {
+    margin-top: 24px;
+  }
 }
 </style>

@@ -4,11 +4,12 @@
     <div class="navbar-navlinks">
       <a @click="router.push('/')">Проекты</a>
       <a v-if="authStore.isAdmin" @click="toAdminPanel">Админка</a>
-      <!-- <a>Устройства</a> -->
     </div>
-    <div v-if="authStore.user" class="navbar-logout">
+
+    <!-- Используем локальную переменную currentUser для безопасности отображения -->
+    <div v-if="currentUser" class="navbar-logout">
       <div class="navbar-user" :class="{ admin: authStore.isAdmin }">
-        {{ authStore.user.fullName }}
+        {{ currentUser.fullName }}
       </div>
       <a @click="handleLogout">Выйти</a>
     </div>
@@ -16,44 +17,45 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { computed } from 'vue' // Используем computed вместо onMounted/ref
 import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
 import { useToast } from '@/composables/useToast'
 import { usePageStore } from '@/stores/pages'
 
-const isAdmin = ref('false')
-
 const router = useRouter()
 const authStore = useAuthStore()
 const toast = useToast()
-
 const pageStore = usePageStore()
 
-onMounted(() => {
-  if (authStore.isAdmin) {
-    isAdmin.value = true
-  } else {
-    isAdmin.value = false
-  }
-})
+// Безопасное получение текущего пользователя через computed
+const currentUser = computed(() => authStore.user)
 
 const toAdminPanel = () => {
   router.push('/admin')
 }
 
 const handleLogout = () => {
-  toast.info(`${authStore.user.fullName} (${authStore.user.userName}) выходит из системы`)
-  router.push('/')
+  // 1. СОХРАНЯЕМ данные пользователя в локальную переменную ДО выхода
+  const userName = authStore.user?.userName || 'Пользователь'
+  const fullName = authStore.user?.fullName || ''
+
+  // 2. Показываем тост с сохраненными данными
+  toast.info(`${fullName} (${userName}) выходит из системы`)
+
+  // 3. Выполняем выход (очищает стор)
   authStore.logout()
+
+  // 4. Перенаправляем на логин
+  router.push('/login')
 }
 </script>
 
 <style scoped>
+/* Стили остаются без изменений */
 .navbar {
   display: grid;
   box-shadow: 4px 4px 30px -10px rgba(34, 60, 80, 0.2);
-
   grid-template-columns: 1fr 2fr 1fr;
   align-items: center;
   justify-items: center;

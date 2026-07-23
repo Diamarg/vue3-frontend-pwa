@@ -476,7 +476,7 @@ onBeforeUnmount(() => {
 
       <!-- Кнопки управления -->
       <div class="modal-controls">
-        <button class="control-btn" @click="openInNewTab" title="Открыть в новой вкладке">↗</button>
+        <button class="control-btn" @click="openInNewTab" title="Скачать">↗</button>
         <button class="control-btn close-btn" @click="closePhotoModal" title="Закрыть (Esc)">
           &times;
         </button>
@@ -827,12 +827,13 @@ onBeforeUnmount(() => {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.3);
   color: white;
   border: none;
   font-size: 20px;
   cursor: pointer;
   display: flex;
+  text-align: center;
   align-items: center;
   justify-content: center;
   transition:
@@ -841,7 +842,7 @@ onBeforeUnmount(() => {
   backdrop-filter: blur(4px);
 }
 .control-btn:hover {
-  background: rgba(0, 0, 0, 0.8);
+  background: rgba(0, 0, 0, 0.5);
   transform: scale(1.1);
 }
 

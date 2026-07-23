@@ -1,6 +1,7 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import { api } from '@/api'
+import router from '@/router' // ✅ Импортируем роутер для принудительного редиректа
 
 export const useAuthStore = defineStore('auth', () => {
   const token = ref(localStorage.getItem('token') || null)
@@ -62,14 +63,18 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // ✅ ИЗМЕНЁННЫЙ МЕТОД: вызываем бэкенд для очистки Cookie
+  // ✅ ИСПРАВЛЕННЫЙ LOGOUT
   const logout = async () => {
     try {
-      await api.post('/auth/logout')
+      // Если вы добавите endpoint /auth/logout на бэкенд, раскомментируйте эту строку:
+      // await api.post('/auth/logout')
     } catch (error) {
-      console.error('Logout error:', error)
+      console.error('Ошибка при запросе выхода на сервер:', error)
     } finally {
+      // 1. Очищаем данные
       clearToken()
+      // 2. Принудительно перенаправляем на страницу входа, чтобы компонент уничтожился
+      router.push('/login')
     }
   }
 

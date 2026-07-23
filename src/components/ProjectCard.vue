@@ -78,7 +78,7 @@ const props = defineProps({
 
 .project-card__header {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
   margin-bottom: 24px;
 }
