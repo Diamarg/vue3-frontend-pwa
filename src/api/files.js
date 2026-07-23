@@ -9,6 +9,10 @@ export const filesApi = {
   createCategory: (projectId, data) =>
     api.post(`/projects/${projectId}/files/categories`, data).then((res) => res.data),
 
+  // ✅ ОБНОВИТЬ категорию
+  updateCategory: (projectId, categoryId, data) =>
+    api.put(`/projects/${projectId}/files/categories/${categoryId}`, data).then((res) => res.data),
+
   // Удалить категорию
   deleteCategory: (projectId, categoryId) =>
     api.delete(`/projects/${projectId}/files/categories/${categoryId}`).then((res) => res.data),
@@ -24,11 +28,15 @@ export const filesApi = {
       })
       .then((res) => res.data),
 
+  // ✅ ОБНОВИТЬ файл (описание)
+  updateFile: (projectId, fileId, data) =>
+    api.put(`/projects/${projectId}/files/${fileId}`, data).then((res) => res.data),
+
   // Удалить файл
   deleteFile: (projectId, fileId) =>
     api.delete(`/projects/${projectId}/files/${fileId}`).then((res) => res.data),
 
-  // Скачать файл (возвращает blob)
+  // Скачать файл
   downloadFile: (projectId, fileId) =>
     api
       .get(`/projects/${projectId}/files/${fileId}/download`, {

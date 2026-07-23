@@ -9,6 +9,7 @@ import { projectsApi } from '@/api/projects'
 import { devicesApi } from '@/api/devices'
 import { cableLinesApi } from '@/api/cableLines'
 import { referenceApi } from '@/api/reference'
+import { filesApi } from '@/api/files'
 
 const toast = useToast()
 
@@ -24,6 +25,27 @@ const mapOpts = (arr, labelKey = 'name') =>
 
 const projectOpts = () =>
   (projectsList.value || []).map((p) => ({ value: p.id, label: `${p.codeName} (ID ${p.id})` }))
+
+// ===================== УТИЛИТЫ ФОРМАТИРОВАНИЯ =====================
+const formatFileSize = (bytes) => {
+  if (!bytes || bytes === 0) return '0 Б'
+  const k = 1024
+  const sizes = ['Б', 'КБ', 'МБ', 'ГБ']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+}
+
+const formatDateTime = (dateStr) => {
+  if (!dateStr) return '—'
+  const d = new Date(dateStr)
+  return d.toLocaleString('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
 
 // ===================== КОНФИГУРАЦИЯ РАЗДЕЛОВ =====================
 const sections = {
@@ -135,8 +157,8 @@ const sections = {
   },
   assemblyDevices: {
     label: 'Устройства в сборках',
-    needsProject: true, // <-- ИСПРАВЛЕНИЕ: Добавлено, чтобы отображался селектор проекта
-    needsAssembly: true, // <-- ИСПРАВЛЕНИЕ: Оставлено, чтобы отображался селектор сборки
+    needsProject: true,
+    needsAssembly: true,
     searchKeys: ['article', 'description', 'brand', 'deviceType'],
     columns: [
       {
@@ -165,6 +187,63 @@ const sections = {
     update: (ctx, id, data) => projectsApi.updateAssemblyDeviceQuantity(id, data.quantity),
     remove: (ctx, id) => projectsApi.removeDeviceFromAssembly(id),
   },
+
+  // ✅ НОВЫЙ РАЗДЕЛ: Файлы проектов
+  projectFiles: {
+    label: 'Файлы проектов',
+    needsProject: true,
+    hideCreateButton: true, // Файлы загружаются через FilesPage
+    searchKeys: ['fileName', 'description'],
+    columns: [
+      { key: 'fileName', label: 'Имя файла', type: 'text', readonly: true },
+      { key: 'description', label: 'Описание', type: 'text', placeholder: 'Описание файла...' },
+      { key: 'fileSize', label: 'Размер', type: 'text', readonly: true, formatFn: formatFileSize },
+      {
+        key: 'uploadedAt',
+        label: 'Загружено',
+        type: 'text',
+        readonly: true,
+        formatFn: formatDateTime,
+      },
+    ],
+    fetch: (ctx) => (ctx.projectId ? filesApi.getFiles(ctx.projectId) : Promise.resolve([])),
+    // create отсутствует - кнопка скрыта
+    update: (ctx, id, data) => filesApi.updateFile(ctx.projectId, id, data),
+    remove: (ctx, id) => filesApi.deleteFile(ctx.projectId, id),
+  },
+
+  // ✅ НОВЫЙ РАЗДЕЛ: Категории файлов
+  fileCategories: {
+    label: 'Категории файлов',
+    searchKeys: ['name'],
+    columns: [
+      {
+        key: 'name',
+        label: 'Название',
+        type: 'text',
+        required: true,
+        placeholder: 'Документация, Чертежи...',
+      },
+    ],
+    // Категории глобальные, но API требует projectId - используем первый проект
+    fetch: (ctx) => {
+      const pid = ctx.projectId || projectsList.value[0]?.id
+      return pid ? filesApi.getCategories(pid) : Promise.resolve([])
+    },
+    create: (ctx, data) => {
+      const pid = ctx.projectId || projectsList.value[0]?.id
+      return filesApi.createCategory(pid, data)
+    },
+    update: (ctx, id, data) => {
+      const pid = ctx.projectId || projectsList.value[0]?.id
+      return filesApi.updateCategory(pid, id, data)
+    },
+    remove: (ctx, id) => {
+      const pid = ctx.projectId || projectsList.value[0]?.id
+      return filesApi.deleteCategory(pid, id)
+    },
+  },
+
   units: {
     label: 'Ед. измерения',
     searchKeys: ['name', 'symbol'],
@@ -274,10 +353,21 @@ const sections = {
 }
 
 const navGroups = [
-  { title: 'Данные', keys: ['projects', 'assemblies', 'devices', 'cableLines', 'assemblyDevices'] },
+  {
+    title: 'Данные',
+    keys: ['projects', 'assemblies', 'devices', 'cableLines', 'assemblyDevices', 'projectFiles'],
+  },
   {
     title: 'Справочники',
-    keys: ['units', 'brands', 'deviceTypes', 'properties', 'cableTypes', 'crossSections'],
+    keys: [
+      'units',
+      'brands',
+      'deviceTypes',
+      'properties',
+      'cableTypes',
+      'crossSections',
+      'fileCategories',
+    ],
   },
 ]
 
@@ -312,7 +402,6 @@ const openTypeProps = async (type) => {
   showTypePropsModal.value = true
   typePropsLoading.value = true
   newPropId.value = null
-
   try {
     const [props, links] = await Promise.all([
       referenceApi.getProperties(),
@@ -321,7 +410,6 @@ const openTypeProps = async (type) => {
     allGlobalProps.value = props || []
     allTypePropLinks.value = links || []
   } catch (e) {
-    console.error('Load type properties error:', e)
     toast.error('Не удалось загрузить свойства типа')
   } finally {
     typePropsLoading.value = false
@@ -331,7 +419,6 @@ const openTypeProps = async (type) => {
 const assignedTypeProps = computed(() => {
   if (!currentDeviceType.value) return []
   const typeId = currentDeviceType.value.id ?? currentDeviceType.value.Id
-
   return allTypePropLinks.value
     .filter((link) => (link.deviceTypeId ?? link.DeviceTypeId) === typeId)
     .map((link) => {
@@ -365,7 +452,6 @@ const addPropToType = async () => {
     newPropId.value = null
     allTypePropLinks.value = await referenceApi.getTypeProperties()
   } catch (e) {
-    console.error('Add type prop error:', e)
     toast.error('Не удалось добавить свойство')
   }
 }
@@ -377,7 +463,6 @@ const removePropFromType = async (linkId) => {
     toast.success('Свойство удалено из типа')
     allTypePropLinks.value = await referenceApi.getTypeProperties()
   } catch (e) {
-    console.error('Remove type prop error:', e)
     toast.error('Не удалось удалить свойство')
   }
 }
@@ -405,7 +490,6 @@ const loadPropertiesForForm = async (deviceTypeId, existingValues = null) => {
       }
     })
   } catch (e) {
-    console.error('Load properties for form error:', e)
   } finally {
     formPropsLoading.value = false
   }
@@ -420,7 +504,7 @@ watch(
   },
 )
 
-// ===================== МОДАЛКА ЗНАЧЕНИЙ СВОЙСТВ (для устройств) =====================
+// ===================== МОДАЛКА ЗНАЧЕНИЙ СВОЙСТВ =====================
 const showValuesModal = ref(false)
 const valuesDevice = ref(null)
 const valuesLoading = ref(false)
@@ -448,7 +532,6 @@ const openValues = async (device) => {
       }
     })
   } catch (e) {
-    console.error('Load device values error:', e)
     toast.error('Не удалось загрузить свойства устройства')
   } finally {
     valuesLoading.value = false
@@ -466,7 +549,6 @@ const saveValues = async () => {
     toast.success('Значения свойств сохранены')
     showValuesModal.value = false
   } catch (e) {
-    console.error('Save device values error:', e)
     toast.error('Ошибка при сохранении значений')
   }
 }
@@ -529,7 +611,6 @@ const fetchItems = async () => {
     items.value = (await cfg.value.fetch(ctx.value)) || []
   } catch (e) {
     loadError.value = true
-    console.error('Load error:', e)
     toast.error('Ошибка загрузки данных')
   } finally {
     loading.value = false
@@ -542,22 +623,18 @@ const initSection = async () => {
   sortKey.value = 'id'
   sortDir.value = 'asc'
 
-  // ИСПРАВЛЕНИЕ: Гарантируем актуальный список сборок при переключении разделов
   if (cfg.value.needsAssembly && selectedProjectId.value) {
     try {
       assembliesList.value = await projectsApi.getAssembliesByProjectId(selectedProjectId.value)
-      // Проверяем, принадлежит ли текущая выбранная сборка новому списку
       const isValidAssembly = assembliesList.value.some((a) => a.id === selectedAssemblyId.value)
       if (!isValidAssembly) {
         selectedAssemblyId.value = assembliesList.value.length ? assembliesList.value[0].id : null
       }
     } catch (e) {
-      console.error('Assemblies load error in initSection:', e)
       assembliesList.value = []
       selectedAssemblyId.value = null
     }
   } else if (!cfg.value.needsAssembly) {
-    // Если раздел не требует сборку, очищаем состояние
     assembliesList.value = []
     selectedAssemblyId.value = null
   }
@@ -682,9 +759,7 @@ const openEdit = async (item) => {
     try {
       const values = await devicesApi.getDeviceValues(item.id ?? item.Id)
       await loadPropertiesForForm(item.deviceTypeId ?? item.DeviceTypeId, values)
-    } catch (e) {
-      console.error('Load edit properties error:', e)
-    }
+    } catch (e) {}
   }
 }
 
@@ -706,6 +781,7 @@ const formReady = computed(() =>
 const buildData = () => {
   const data = {}
   cfg.value.columns.forEach((col) => {
+    if (col.readonly) return // Пропускаем read-only поля
     let v = form[col.key]
     if (col.type === 'number') v = v === '' || v === null || v === undefined ? null : Number(v)
     data[col.key] = v
@@ -714,13 +790,8 @@ const buildData = () => {
   if (currentSection.value === 'devices' && formProperties.value.length > 0) {
     data.properties = formProperties.value
       .filter((row) => row.value !== '' && row.value !== null && row.value !== undefined)
-      .map((row) => ({
-        id: row.propertyId,
-        value: String(row.value),
-        unit: row.unitSymbol ?? '',
-      }))
+      .map((row) => ({ id: row.propertyId, value: String(row.value), unit: row.unitSymbol ?? '' }))
   }
-
   return data
 }
 
@@ -739,8 +810,7 @@ const save = async () => {
     showModal.value = false
     await fetchItems()
   } catch (e) {
-    console.error('Save error:', e)
-    toast.error('Ошибка сохранения')
+    toast.error('Ошибка сохранения: ' + (e.response?.data?.message || e.message))
   }
 }
 
@@ -751,6 +821,7 @@ const remove = async (item) => {
     item.value ??
     item.article ??
     item.linePurpose ??
+    item.fileName ??
     item.id ??
     item.Id
   if (!confirm(`Удалить "${name}" (ID: ${item.id ?? item.Id})?`)) return
@@ -759,8 +830,8 @@ const remove = async (item) => {
     toast.success('Запись удалена')
     await fetchItems()
   } catch (e) {
-    console.error('Delete error:', e)
-    toast.error('Ошибка удаления')
+    const msg = e.response?.data || e.message
+    toast.error(typeof msg === 'string' ? msg : 'Ошибка удаления')
   }
 }
 
@@ -769,13 +840,20 @@ const displayValue = (item, col) => {
   if (currentSection.value === 'assemblyDevices' && col.key === 'deviceId') {
     if (item.article) return `${item.article}${item.description ? ' - ' + item.description : ''}`
   }
+
+  const rawValue = item[col.key]
+
+  // Применяем функцию форматирования, если есть
+  if (col.formatFn && rawValue !== null && rawValue !== undefined) {
+    return col.formatFn(rawValue)
+  }
+
   if (col.type === 'select') {
     const list = loadedOptions.value[col.optionsKey] || []
-    const opt = list.find((o) => o.value === item[col.key])
-    return opt ? opt.label : (item[col.key] ?? '—')
+    const opt = list.find((o) => o.value === rawValue)
+    return opt ? opt.label : (rawValue ?? '—')
   }
-  const v = item[col.key]
-  return v === null || v === undefined || v === '' ? '—' : v
+  return rawValue === null || rawValue === undefined || rawValue === '' ? '—' : rawValue
 }
 
 // ===================== СТАРТ =====================
@@ -783,9 +861,7 @@ onMounted(async () => {
   try {
     projectsList.value = await projectsApi.getProjects()
     if (projectsList.value.length) selectedProjectId.value = projectsList.value[0].id
-  } catch (e) {
-    console.error('Projects load error:', e)
-  }
+  } catch (e) {}
   await initSection()
 })
 
@@ -795,7 +871,6 @@ watch(selectedProjectId, async (newProjectId) => {
       assembliesList.value = await projectsApi.getAssembliesByProjectId(newProjectId)
       selectedAssemblyId.value = assembliesList.value.length ? assembliesList.value[0].id : null
     } catch (e) {
-      console.error('Assemblies load error:', e)
       assembliesList.value = []
       selectedAssemblyId.value = null
     }
@@ -820,7 +895,6 @@ watch(selectedAssemblyId, () => {
 <template>
   <div class="global-container">
     <div class="admin-layout">
-      <!-- SIDEBAR -->
       <aside class="admin-sidebar">
         <div class="admin-sidebar__header">
           <h2 class="admin-sidebar__title">Админ-панель</h2>
@@ -840,9 +914,7 @@ watch(selectedAssemblyId, () => {
         </nav>
       </aside>
 
-      <!-- CONTENT -->
       <main class="admin-content">
-        <!-- ИСПРАВЛЕНИЕ: Теперь этот блок отображается и для assemblyDevices, так как добавлен needsProject: true -->
         <div v-if="cfg.needsProject || cfg.needsAssembly" class="admin-card admin-card--row">
           <div v-if="cfg.needsProject" class="context-selector">
             <label class="admin-card__label">Проект:</label>
@@ -879,7 +951,9 @@ watch(selectedAssemblyId, () => {
               placeholder="Поиск..."
             />
           </div>
+          <!-- ✅ Кнопка скрывается для раздела файлов -->
           <Abutton
+            v-if="!cfg.hideCreateButton"
             @click="openCreate"
             :disabled="
               (cfg.needsProject && !selectedProjectId) || (cfg.needsAssembly && !selectedAssemblyId)
@@ -918,8 +992,9 @@ watch(selectedAssemblyId, () => {
                     <span
                       class="admin-table__th-arrow"
                       :class="{ 'admin-table__th-arrow--active': sortKey === 'id' }"
-                      >{{ sortArrow('id') }}</span
                     >
+                      {{ sortArrow('id') }}
+                    </span>
                   </span>
                 </th>
                 <th
@@ -935,8 +1010,9 @@ watch(selectedAssemblyId, () => {
                     <span
                       class="admin-table__th-arrow"
                       :class="{ 'admin-table__th-arrow--active': sortKey === col.key }"
-                      >{{ sortArrow(col.key) }}</span
                     >
+                      {{ sortArrow(col.key) }}
+                    </span>
                   </span>
                 </th>
                 <th class="admin-table__th admin-table__th--actions">Действия</th>
@@ -1030,7 +1106,6 @@ watch(selectedAssemblyId, () => {
         </div>
       </main>
 
-      <!-- МОДАЛКА: создание / редактирование записи -->
       <AModal
         @close-emit="showModal = false"
         :title="editing ? 'Редактировать запись' : 'Новая запись'"
@@ -1039,8 +1114,19 @@ watch(selectedAssemblyId, () => {
         <form class="admin-form" @submit.prevent="save">
           <div v-for="col in cfg.columns" :key="col.key" class="admin-form__group">
             <label :for="col.key">{{ col.label }}{{ col.required ? '*' : '' }}</label>
+
+            <!-- Read-only поле -->
+            <Ainput
+              v-if="col.readonly"
+              :id="col.key"
+              :model-value="displayValue(editing || {}, col)"
+              disabled
+              class="admin-input--readonly"
+            />
+
+            <!-- Select -->
             <select
-              v-if="col.type === 'select'"
+              v-else-if="col.type === 'select'"
               :id="col.key"
               v-model="form[col.key]"
               class="admin-select"
@@ -1056,6 +1142,8 @@ watch(selectedAssemblyId, () => {
                 {{ opt.label }}
               </option>
             </select>
+
+            <!-- Обычное поле -->
             <Ainput
               v-else
               :id="col.key"
@@ -1070,20 +1158,18 @@ watch(selectedAssemblyId, () => {
           <template v-if="currentSection === 'devices' && form.deviceTypeId">
             <div class="form-divider"></div>
             <h4 class="form-section-title">Значения свойств</h4>
-            <div v-if="formPropsLoading" class="admin-empty" style="padding: 16px">
-              Загрузка свойств...
-            </div>
+            <div v-if="formPropsLoading" class="admin-empty" style="padding: 16px">Загрузка...</div>
             <div v-else-if="formProperties.length === 0" class="admin-empty" style="padding: 16px">
               Для выбранного типа устройства свойства не настроены
             </div>
             <div v-else class="values-form">
               <div v-for="row in formProperties" :key="row.propertyId" class="values-row">
-                <label class="values-row__label" :for="`form-prop-${row.propertyId}`"
-                  >{{ row.name
+                <label class="values-row__label" :for="`form-prop-${row.propertyId}`">
+                  {{ row.name
                   }}<span v-if="row.unitSymbol" class="values-row__unit"
                     >, {{ row.unitSymbol }}</span
-                  ></label
-                >
+                  >
+                </label>
                 <input
                   :id="`form-prop-${row.propertyId}`"
                   class="values-input"
@@ -1094,16 +1180,20 @@ watch(selectedAssemblyId, () => {
             </div>
           </template>
 
+          <!-- Подсказка для раздела файлов -->
+          <div v-if="currentSection === 'projectFiles' && editing" class="admin-form__hint">
+            ℹ️ Имя файла и метаданные нельзя изменить. Можно редактировать только описание.
+          </div>
+
           <div class="admin-form__actions">
-            <Abutton type="submit" :disabled="!formReady">{{
-              editing ? 'Сохранить' : 'Создать'
-            }}</Abutton>
+            <Abutton type="submit" :disabled="!formReady">
+              {{ editing ? 'Сохранить' : 'Создать' }}
+            </Abutton>
             <a class="admin-form__cancel" @click="showModal = false">Отмена</a>
           </div>
         </form>
       </AModal>
 
-      <!-- МОДАЛКА: управление свойствами типа устройства -->
       <AModal
         @close-emit="showTypePropsModal = false"
         :title="
@@ -1143,7 +1233,6 @@ watch(selectedAssemblyId, () => {
               Все доступные свойства уже добавлены к этому типу
             </p>
           </div>
-
           <div class="type-props__list">
             <h4 class="type-props__list-title">Назначенные свойства</h4>
             <div v-if="assignedTypeProps.length === 0" class="admin-empty" style="padding: 16px">
@@ -1151,12 +1240,12 @@ watch(selectedAssemblyId, () => {
             </div>
             <div v-else class="type-props__items">
               <div v-for="item in assignedTypeProps" :key="item.linkId" class="type-props__item">
-                <span class="type-props__item-name"
-                  >{{ item.name }}
+                <span class="type-props__item-name">
+                  {{ item.name }}
                   <span v-if="item.unitSymbol" class="type-props__item-unit"
                     >({{ item.unitSymbol }})</span
-                  ></span
-                >
+                  >
+                </span>
                 <button
                   class="admin-table__btn admin-table__btn--del"
                   @click="removePropFromType(item.linkId)"
@@ -1173,7 +1262,6 @@ watch(selectedAssemblyId, () => {
         </div>
       </AModal>
 
-      <!-- МОДАЛКА: просмотр значений свойств (отдельная) -->
       <AModal
         @close-emit="showValuesModal = false"
         :title="
@@ -1189,12 +1277,10 @@ watch(selectedAssemblyId, () => {
         </div>
         <form v-else class="values-form" @submit.prevent="saveValues">
           <div v-for="row in propertyRows" :key="row.propertyId" class="values-row">
-            <label class="values-row__label" :for="`prop-${row.propertyId}`"
-              >{{ row.name
-              }}<span v-if="row.unitSymbol" class="values-row__unit"
-                >, {{ row.unitSymbol }}</span
-              ></label
-            >
+            <label class="values-row__label" :for="`prop-${row.propertyId}`">
+              {{ row.name
+              }}<span v-if="row.unitSymbol" class="values-row__unit">, {{ row.unitSymbol }}</span>
+            </label>
             <input
               :id="`prop-${row.propertyId}`"
               class="values-input"
@@ -1213,7 +1299,6 @@ watch(selectedAssemblyId, () => {
 </template>
 
 <style scoped>
-/* Стили остались без изменений, так как они уже были адаптивными и корректными */
 .admin-layout {
   display: grid;
   grid-template-columns: 240px 1fr;
@@ -1594,6 +1679,19 @@ watch(selectedAssemblyId, () => {
 .admin-form__cancel:hover {
   color: #4a5568;
 }
+.admin-form__hint {
+  padding: 12px;
+  background-color: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #1e40af;
+}
+.admin-input--readonly {
+  background-color: #f9fafb !important;
+  color: #6b7280 !important;
+  cursor: not-allowed;
+}
 .form-divider {
   height: 1px;
   background-color: rgb(230, 230, 230);
@@ -1644,8 +1742,6 @@ watch(selectedAssemblyId, () => {
   border-color: #6366f1;
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
-
-/* ===== СТИЛИ ДЛЯ МЕНЕДЖЕРА СВОЙСТВ ТИПА ===== */
 .type-props-manager {
   display: grid;
   gap: 24px;

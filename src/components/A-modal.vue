@@ -10,17 +10,13 @@ const props = defineProps({
 <template>
   <transition name="modal-fade">
     <div v-if="opened" class="modal__overlay">
-      <!-- Само модальное окно -->
-
-      <div class="modal__wrapper">
-        <div class="modal__header">
-          <h2 class="modal__title">{{ title }}</h2>
-          <button class="modal__close" @click="$emit('closeEmit')">&times;</button>
-        </div>
-        <div>
-          <div class="modal__content">
-            <slot></slot>
-          </div>
+      <!-- Добавляем класс-модификатор, если это модалка просмотра фото -->
+      <div
+        class="modal__wrapper"
+        :class="{ 'modal--photo-view': $attrs.class?.includes('photo-view-modal') }"
+      >
+        <div class="modal__body">
+          <slot></slot>
         </div>
       </div>
     </div>
@@ -28,60 +24,127 @@ const props = defineProps({
 </template>
 
 <style scoped>
-/* Анимация для оверлея (плавное появление/исчезновение) */
+/* Анимации */
 .modal-fade-enter-active,
 .modal-fade-leave-active {
-  transition: opacity 0.5s cubic-bezier(0.075, 0.82, 0.165, 1);
+  transition: opacity 0.3s ease;
 }
-
 .modal-fade-enter-from,
 .modal-fade-leave-to {
   opacity: 0;
 }
-
-/* Анимация для wrapper (масштабирование) */
 .modal-fade-enter-active .modal__wrapper,
 .modal-fade-leave-active .modal__wrapper {
-  transition: transform 0.5s cubic-bezier(0.075, 0.82, 0.165, 1);
+  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
-
 .modal-fade-enter-from .modal__wrapper,
 .modal-fade-leave-to .modal__wrapper {
-  transform: scale(0.3);
+  transform: scale(0.95);
 }
 
+/* Оверлей */
 .modal__overlay {
   position: fixed;
-  inset: 0; /* top/right/bottom/left: 0 */
-  background: rgba(0, 0, 0, 0.5); /* Полупрозрачное затемнение */
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000; /* Поверх всех элементов */
-  padding: 16px; /* Отступ от краёв экрана на мобильных */
+  z-index: 1000;
+  padding: 16px;
 }
 
+/* Стандартное модальное окно */
 .modal__wrapper {
   background: #fff;
-  border-radius: 8px;
+  border-radius: 12px;
   padding: 24px;
-  min-width: 500px;
-
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  width: 100%;
+  max-width: 600px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
   position: relative;
-  /* Опционально: запретить контенту вылезать за пределы */
-  max-height: 90dvh;
+  max-height: 90vh;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* === СПЕЦИАЛЬНЫЙ РЕЖИМ ДЛЯ ФОТО === */
+.modal--photo-view {
+  padding: 0 !important; /* Убираем отступы вокруг картинки */
+  background: transparent; /* Прозрачный фон самого враппера */
+  box-shadow: none;
+  overflow: visible; /* Разрешаем контенту определять размер */
+  width: auto;
+  height: auto;
+  max-width: none;
+  max-height: none;
+}
+
+/* Заголовок в режиме фото */
+.modal--photo-view .modal__header {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 20;
+  background: rgba(0, 0, 0, 0.4); /* Полупрозрачная подложка для читаемости */
+  border-radius: 20px;
+  padding: 4px 8px;
+  display: flex;
+  align-items: center;
+}
+
+.modal--photo-view .modal__title {
+  display: none; /* Скрываем текст заголовка */
+}
+
+/* Кнопка закрытия (общая) */
+.modal__close {
+  background: none;
+  border: none;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  color: #999;
+  transition: color 0.2s;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Кнопка закрытия в режиме фото */
+.modal--photo-view .modal__close {
+  color: white;
+  font-size: 24px;
+  width: 32px;
+  height: 32px;
+}
+
+.modal__close:hover {
+  color: #333;
+}
+.modal--photo-view .modal__close:hover {
+  color: #fff;
+  opacity: 0.8;
 }
 
 .modal__header {
-  font-size: 20px;
   display: flex;
   justify-content: space-between;
-  margin-bottom: 24px;
+  align-items: center;
+  margin-bottom: 16px;
 }
 
-.modal__content {
-  display: grid;
+.modal__title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+  color: #333;
+}
+
+.modal__body {
+  width: 100%;
 }
 </style>

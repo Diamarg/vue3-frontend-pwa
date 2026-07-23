@@ -44,8 +44,8 @@ const toAdminPanel = () => {
 
 const handleLogout = () => {
   toast.info(`${authStore.user.fullName} (${authStore.user.userName}) выходит из системы`)
+  router.push('/')
   authStore.logout()
-  router.push('/login')
 }
 </script>
 
