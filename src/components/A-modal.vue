@@ -60,7 +60,7 @@ const props = defineProps({
   border-radius: 12px;
   padding: 24px;
   width: 100%;
-  max-width: 600px;
+  max-width: 700px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
   position: relative;
   max-height: 90vh;

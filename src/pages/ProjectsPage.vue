@@ -146,9 +146,10 @@ const goToFiles = (project) => {
   pageStore.pageInfo.projectName = project.codeName
 }
 
-// const goToCableLines = (projectId) => {
-//   router.push(`/projects/${projectId}/cableLines`)
-// }
+const toCableJournal = (project) => {
+  router.push(`${project.id}/cableJournal`)
+  pageStore.pageInfo.projectName = project.codeName
+}
 
 onMounted(async () => {
   fethProjects()
@@ -188,6 +189,7 @@ onMounted(async () => {
           @to-gallery="goToGallery(project)"
           @to-assemblies="goToAssemblies(project)"
           @to-files="goToFiles(project)"
+          @to-cable-journal="toCableJournal(project)"
         />
         <div v-if="filteredProjects == 0" class="project-cards__notfound">
           По запросу '{{ searchBar }}' не найдено проектов.

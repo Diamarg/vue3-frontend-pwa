@@ -40,7 +40,7 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
-      path: '/:projectId/assemblies/:assemblyId/cableJournal',
+      path: '/:projectId/cableJournal',
       component: CableJournalPage,
       props: true,
       meta: { requiresAuth: true },
