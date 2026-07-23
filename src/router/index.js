@@ -64,25 +64,24 @@ const router = createRouter({
   },
 })
 
-router.beforeEach((to, from, next) => {
+router.beforeEach((to, from) => {
   const token = localStorage.getItem('token')
   const isAuthenticated = !!token
 
   // 1. Если страница для гостей (login/register), а пользователь уже вошел → редирект на главную
   if (to.meta.guest && isAuthenticated) {
-    return next('/')
+    return '/'
   }
 
   // 2. Если маршрут требует авторизацию, а токена нет → редирект на логин с сохранением пути
   if (to.meta.requiresAuth && !isAuthenticated) {
-    return next({ path: '/login', query: { redirect: to.fullPath } })
+    return { path: '/login', query: { redirect: to.fullPath } }
   }
 
   // 3. Если маршрут требует роль Admin → проверяем payload токена
   if (to.meta.requiresAdmin && isAuthenticated) {
     try {
       const payload = JSON.parse(atob(token.split('.')[1]))
-      // .NET может писать роль как 'role' или как длинный URI claim
       const roles =
         payload?.role ||
         payload?.['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] ||
@@ -92,17 +91,16 @@ router.beforeEach((to, from, next) => {
 
       if (!isAdmin) {
         console.warn('Доступ запрещен: недостаточно прав')
-        return next('/') // Или перенаправить на специальную страницу 403
+        return '/'
       }
     } catch (error) {
       console.error('Ошибка парсинга токена при проверке прав:', error)
       localStorage.removeItem('token')
-      return next('/login')
+      return '/login'
     }
   }
 
-  // Если все проверки пройдены, разрешаем переход
-  next()
+  // Если ничего не возвращаем — переход разрешается автоматически
 })
 
 export default router
