@@ -534,7 +534,6 @@ label {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  margin-top: 16px;
 }
 
 .files__filter {
@@ -902,7 +901,6 @@ label {
   .files__header {
     flex-direction: row;
     justify-content: space-between;
-    margin-top: 24px;
   }
 
   .files__filter {

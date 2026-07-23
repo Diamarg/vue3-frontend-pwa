@@ -651,7 +651,6 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  margin-top: 16px;
 }
 
 .assembly-header__info {
@@ -984,7 +983,6 @@ onMounted(async () => {
     flex-direction: row;
     justify-content: space-between;
     align-items: center;
-    margin-top: 24px;
     padding: 24px;
   }
 

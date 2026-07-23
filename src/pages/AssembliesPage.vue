@@ -165,30 +165,31 @@ onMounted(async () => {
         </a-button>
       </div>
     </div>
+    <div class="assembly-cards">
+      <!-- === СЕТКА КАРТОЧЕК === -->
+      <div v-if="filteredAssemblies.length > 0" class="gallery__cards assembly-grid">
+        <AssemblyCard
+          v-for="assembly in filteredAssemblies"
+          :key="assembly.id"
+          :project-name="project?.codeName || ''"
+          :assembly-name="assembly.codeName"
+          :description="assembly.description"
+          :is-admin="authStore.isAdmin"
+          @onDelete="deleteAssembly(assembly)"
+          @toDevices="toDevices(assembly.id)"
+          @toPanelEditor="toPanelEditor(assembly.id)"
+          @toCableJournal="toCableJournal(assembly.id)"
+        />
+      </div>
 
-    <!-- === СЕТКА КАРТОЧЕК === -->
-    <div v-if="filteredAssemblies.length > 0" class="gallery__cards assembly-grid">
-      <AssemblyCard
-        v-for="assembly in filteredAssemblies"
-        :key="assembly.id"
-        :project-name="project?.codeName || ''"
-        :assembly-name="assembly.codeName"
-        :description="assembly.description"
-        :is-admin="authStore.isAdmin"
-        @onDelete="deleteAssembly(assembly)"
-        @toDevices="toDevices(assembly.id)"
-        @toPanelEditor="toPanelEditor(assembly.id)"
-        @toCableJournal="toCableJournal(assembly.id)"
-      />
-    </div>
+      <div v-else-if="assemblies.length === 0 && !searchQuery" class="gallery__null-photo">
+        <div class="empty-icon">📦</div>
+        <p>В этом проекте пока нет сборок</p>
+      </div>
 
-    <div v-else-if="assemblies.length === 0 && !searchQuery" class="gallery__null-photo">
-      <div class="empty-icon">📦</div>
-      <p>В этом проекте пока нет сборок</p>
-    </div>
-
-    <div v-else class="gallery__null-photo">
-      <p>Ничего не найдено по запросу "{{ searchQuery }}"</p>
+      <div v-else class="gallery__null-photo">
+        <p>Ничего не найдено по запросу "{{ searchQuery }}"</p>
+      </div>
     </div>
 
     <!-- === МОДАЛКА СОЗДАНИЯ === -->
@@ -246,7 +247,6 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  margin-top: 16px;
 }
 
 /* АДАПТИВНАЯ СЕТКА ДЛЯ ХЕДЕРА */
@@ -329,6 +329,13 @@ onMounted(async () => {
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 24px;
   margin-top: 16px;
+  background-color: #ffffff;
+  padding: 24px;
+  box-shadow: 4px 4px 30px -10px rgba(34, 60, 80, 0.2);
+  border-radius: 8px;
+  border-color: rgb(230, 230, 230);
+  border-style: solid;
+  border-width: 1px;
 }
 
 .gallery__null-photo {
@@ -382,7 +389,6 @@ onMounted(async () => {
   .gallery__header {
     flex-direction: row;
     justify-content: space-between;
-    margin-top: 24px;
     padding: 24px;
   }
 

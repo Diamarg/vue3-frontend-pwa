@@ -545,7 +545,6 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  margin-top: 16px;
 }
 
 .gallery__filter {
@@ -892,7 +891,6 @@ onBeforeUnmount(() => {
   .gallery__header {
     flex-direction: row;
     justify-content: space-between;
-    margin-top: 24px;
   }
 
   /* Возвращаем старую сетку хедера, но 4-ю колонку делаем 1fr, чтобы кнопки не ломали вёрстку */
