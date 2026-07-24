@@ -15,6 +15,10 @@ const props = defineProps({
         class="modal__wrapper"
         :class="{ 'modal--photo-view': $attrs.class?.includes('photo-view-modal') }"
       >
+        <div class="modal__header">
+          <h2 class="modal__title">{{ title }}</h2>
+          <button class="modal__close" @click="$emit('closeEmit')">&times;</button>
+        </div>
         <div class="modal__body">
           <slot></slot>
         </div>

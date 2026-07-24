@@ -1,12 +1,12 @@
 <!-- pages/AdminPanelPage.vue -->
 <script setup>
 import { ref, reactive, computed, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router' // Добавлено для редиректа при логауте
+import { useRouter } from 'vue-router'
 import Abutton from '@/components/A-button.vue'
 import Ainput from '@/components/A-input.vue'
 import AModal from '@/components/A-modal.vue'
 import { useToast } from '@/composables/useToast'
-import { useAuthStore } from '@/stores/auth' // Добавлено для доступа к стору
+import { useAuthStore } from '@/stores/auth'
 import { projectsApi } from '@/api/projects'
 import { devicesApi } from '@/api/devices'
 import { cableLinesApi } from '@/api/cableLines'
@@ -81,15 +81,13 @@ const sections = {
   },
   assemblies: {
     label: 'Сборки',
-    needsProject: true, // ✅ Включает фильтр по проекту
+    needsProject: true,
     searchKeys: ['codeName', 'description'],
     columns: [
       { key: 'codeName', label: 'Кодовое имя', type: 'text', required: true },
       { key: 'description', label: 'Описание', type: 'text' },
-      // ProjectId скрыт из таблицы, так как он уже выбран в фильтре сверху
     ],
     loadOptions: async () => ({ projects: projectOpts() }),
-    // ✅ Фильтруем сборки по выбранному проекту
     fetch: (ctx) =>
       ctx.projectId ? projectsApi.getAssembliesByProjectId(ctx.projectId) : Promise.resolve([]),
     create: (_ctx, data) => projectsApi.createAssembly(data),
@@ -132,7 +130,8 @@ const sections = {
       { key: 'linePurpose', label: 'Назначение', type: 'text', required: true },
       { key: 'startPoint', label: 'Откуда', type: 'text' },
       { key: 'endPoint', label: 'Куда', type: 'text' },
-      { key: 'length', label: 'Длина (м)', type: 'number', required: true },
+      // ✅ ИЗМЕНЕНО: type 'text' + inputmode 'decimal' для корректного ввода запятой
+      { key: 'length', label: 'Длина (м)', type: 'text', inputmode: 'decimal', required: true },
       { key: 'coreCount', label: 'Кол-во жил', type: 'number' },
       {
         key: 'cableTypeId',
@@ -194,12 +193,10 @@ const sections = {
     update: (ctx, id, data) => projectsApi.updateAssemblyDeviceQuantity(id, data.quantity),
     remove: (ctx, id) => projectsApi.removeDeviceFromAssembly(id),
   },
-
-  // ✅ НОВЫЙ РАЗДЕЛ: Файлы проектов
   projectFiles: {
     label: 'Файлы проектов',
     needsProject: true,
-    hideCreateButton: true, // Файлы загружаются через FilesPage
+    hideCreateButton: true,
     searchKeys: ['fileName', 'description'],
     columns: [
       { key: 'fileName', label: 'Имя файла', type: 'text', readonly: true },
@@ -217,8 +214,6 @@ const sections = {
     update: (ctx, id, data) => filesApi.updateFile(ctx.projectId, id, data),
     remove: (ctx, id) => filesApi.deleteFile(ctx.projectId, id),
   },
-
-  // ✅ НОВЫЙ РАЗДЕЛ: Категории файлов
   fileCategories: {
     label: 'Категории файлов',
     searchKeys: ['name'],
@@ -248,7 +243,6 @@ const sections = {
       return filesApi.deleteCategory(pid, id)
     },
   },
-
   units: {
     label: 'Ед. измерения',
     searchKeys: ['name', 'symbol'],
@@ -334,9 +328,9 @@ const sections = {
       },
     ],
     fetch: () => referenceApi.getCableTypes(),
-    create: (_ctx, data) => referenceApi.createCableLine(data),
-    update: (_ctx, id, data) => referenceApi.updateCableLine(id, data),
-    remove: (_ctx, id) => referenceApi.deleteCableLine(id),
+    create: (_ctx, data) => referenceApi.createCableType(data),
+    update: (_ctx, id, data) => referenceApi.updateCableType(id, data),
+    remove: (_ctx, id) => referenceApi.deleteCableType(id),
   },
   crossSections: {
     label: 'Сечения',
@@ -345,7 +339,9 @@ const sections = {
       {
         key: 'value',
         label: 'Сечение',
+        // ✅ ИЗМЕНЕНО: type 'text' + inputmode 'decimal'
         type: 'text',
+        inputmode: 'decimal',
         required: true,
         placeholder: '1.5, 2.5, 4...',
       },
@@ -495,6 +491,7 @@ const loadPropertiesForForm = async (deviceTypeId, existingValues = null) => {
       }
     })
   } catch (e) {
+    // ignore
   } finally {
     formPropsLoading.value = false
   }
@@ -764,7 +761,9 @@ const openEdit = async (item) => {
     try {
       const values = await devicesApi.getDeviceValues(item.id ?? item.Id)
       await loadPropertiesForForm(item.deviceTypeId ?? item.DeviceTypeId, values)
-    } catch (e) {}
+    } catch (e) {
+      /* ignore */
+    }
   }
 }
 
@@ -786,9 +785,23 @@ const formReady = computed(() =>
 const buildData = () => {
   const data = {}
   cfg.value.columns.forEach((col) => {
-    if (col.readonly) return // Пропускаем read-only поля
+    if (col.readonly) return
     let v = form[col.key]
-    if (col.type === 'number') v = v === '' || v === null || v === undefined ? null : Number(v)
+
+    // ✅ СПЕЦИАЛЬНАЯ ОБРАБОТКА ДЛЯ ДРОБНЫХ ЧИСЕЛ (Сечения и Длина)
+    if (col.key === 'value' || col.key === 'length') {
+      if (v === '' || v === null || v === undefined) {
+        v = null
+      } else {
+        // Заменяем запятую на точку и преобразуем в число с плавающей точкой
+        v = parseFloat(String(v).replace(',', '.'))
+      }
+    }
+    // Стандартная обработка для остальных числовых полей (например, кол-во жил)
+    else if (col.type === 'number') {
+      v = v === '' || v === null || v === undefined ? null : Number(v)
+    }
+
     data[col.key] = v
   })
 
@@ -845,14 +858,8 @@ const displayValue = (item, col) => {
   if (currentSection.value === 'assemblyDevices' && col.key === 'deviceId') {
     if (item.article) return `${item.article}${item.description ? ' - ' + item.description : ''}`
   }
-
   const rawValue = item[col.key]
-
-  // Применяем функцию форматирования, если есть
-  if (col.formatFn && rawValue !== null && rawValue !== undefined) {
-    return col.formatFn(rawValue)
-  }
-
+  if (col.formatFn && rawValue !== null && rawValue !== undefined) return col.formatFn(rawValue)
   if (col.type === 'select') {
     const list = loadedOptions.value[col.optionsKey] || []
     const opt = list.find((o) => o.value === rawValue)
@@ -872,7 +879,9 @@ onMounted(async () => {
   try {
     projectsList.value = await projectsApi.getProjects()
     if (projectsList.value.length) selectedProjectId.value = projectsList.value[0].id
-  } catch (e) {}
+  } catch (e) {
+    /* ignore */
+  }
   await initSection()
 })
 
@@ -969,7 +978,6 @@ watch(selectedAssemblyId, () => {
               placeholder="Поиск..."
             />
           </div>
-          <!-- ✅ Кнопка скрывается для раздела файлов -->
           <Abutton
             v-if="!cfg.hideCreateButton"
             @click="openCreate"
@@ -1010,9 +1018,8 @@ watch(selectedAssemblyId, () => {
                     <span
                       class="admin-table__th-arrow"
                       :class="{ 'admin-table__th-arrow--active': sortKey === 'id' }"
+                      >{{ sortArrow('id') }}</span
                     >
-                      {{ sortArrow('id') }}
-                    </span>
                   </span>
                 </th>
                 <th
@@ -1028,9 +1035,8 @@ watch(selectedAssemblyId, () => {
                     <span
                       class="admin-table__th-arrow"
                       :class="{ 'admin-table__th-arrow--active': sortKey === col.key }"
+                      >{{ sortArrow(col.key) }}</span
                     >
-                      {{ sortArrow(col.key) }}
-                    </span>
                   </span>
                 </th>
                 <th class="admin-table__th admin-table__th--actions">Действия</th>
@@ -1124,6 +1130,7 @@ watch(selectedAssemblyId, () => {
         </div>
       </main>
 
+      <!-- МОДАЛКА: Создание/Редактирование -->
       <AModal
         @close-emit="showModal = false"
         :title="editing ? 'Редактировать запись' : 'Новая запись'"
@@ -1132,8 +1139,6 @@ watch(selectedAssemblyId, () => {
         <form class="admin-form" @submit.prevent="save">
           <div v-for="col in cfg.columns" :key="col.key" class="admin-form__group">
             <label :for="col.key">{{ col.label }}{{ col.required ? '*' : '' }}</label>
-
-            <!-- Read-only поле -->
             <Ainput
               v-if="col.readonly"
               :id="col.key"
@@ -1141,8 +1146,6 @@ watch(selectedAssemblyId, () => {
               disabled
               class="admin-input--readonly"
             />
-
-            <!-- Select -->
             <select
               v-else-if="col.type === 'select'"
               :id="col.key"
@@ -1160,12 +1163,11 @@ watch(selectedAssemblyId, () => {
                 {{ opt.label }}
               </option>
             </select>
-
-            <!-- Обычное поле -->
             <Ainput
               v-else
               :id="col.key"
               :type="col.type === 'date' ? 'date' : col.type === 'number' ? 'number' : 'text'"
+              :inputmode="col.inputmode || undefined"
               v-model="form[col.key]"
               :placeholder="col.placeholder || ''"
               @on-touch="touched[col.key] = true"
@@ -1198,20 +1200,20 @@ watch(selectedAssemblyId, () => {
             </div>
           </template>
 
-          <!-- Подсказка для раздела файлов -->
           <div v-if="currentSection === 'projectFiles' && editing" class="admin-form__hint">
             ℹ️ Имя файла и метаданные нельзя изменить. Можно редактировать только описание.
           </div>
 
           <div class="admin-form__actions">
-            <Abutton type="submit" :disabled="!formReady">
-              {{ editing ? 'Сохранить' : 'Создать' }}
-            </Abutton>
+            <Abutton type="submit" :disabled="!formReady">{{
+              editing ? 'Сохранить' : 'Создать'
+            }}</Abutton>
             <a class="admin-form__cancel" @click="showModal = false">Отмена</a>
           </div>
         </form>
       </AModal>
 
+      <!-- МОДАЛКА: Свойства типа устройства -->
       <AModal
         @close-emit="showTypePropsModal = false"
         :title="
@@ -1259,8 +1261,8 @@ watch(selectedAssemblyId, () => {
             <div v-else class="type-props__items">
               <div v-for="item in assignedTypeProps" :key="item.linkId" class="type-props__item">
                 <span class="type-props__item-name">
-                  {{ item.name }}
-                  <span v-if="item.unitSymbol" class="type-props__item-unit"
+                  {{ item.name
+                  }}<span v-if="item.unitSymbol" class="type-props__item-unit"
                     >({{ item.unitSymbol }})</span
                   >
                 </span>
@@ -1280,6 +1282,7 @@ watch(selectedAssemblyId, () => {
         </div>
       </AModal>
 
+      <!-- МОДАЛКА: Значения свойств устройства -->
       <AModal
         @close-emit="showValuesModal = false"
         :title="
