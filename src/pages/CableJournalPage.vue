@@ -520,7 +520,7 @@ onMounted(async () => {
     <AModal
       class="modal"
       @close-emit="showSummaryModal = false"
-      title="Сводка по кабельным линиям"
+      :title="`Сводка по кабельным линиям ${pageStore.pageInfo.projectName}`"
       :opened="showSummaryModal"
     >
       <div v-if="summaryLoading" class="admin-empty">Загрузка...</div>
