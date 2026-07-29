@@ -25,4 +25,6 @@ export const projectsApi = {
   removeDeviceFromAssembly: (id) => api.delete(`/assemblyDevices/${id}`).then((res) => res.data),
   updateAssemblyDeviceQuantity: (id, quantity) =>
     api.patch(`/assemblyDevices/${id}/quantity`, quantity).then((res) => res.data),
+  getAssemblyDevicesWithDetails: (assemblyId) =>
+    api.get(`/assembly-devices/assembly/${assemblyId}/with-details`).then((res) => res.data),
 }

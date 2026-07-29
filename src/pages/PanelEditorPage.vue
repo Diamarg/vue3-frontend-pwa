@@ -1201,56 +1201,7 @@ const clearProject = () => {
   resetMeasure()
 }
 
-const loadAssemblyDevices = async () => {
-  console.log(route.params.assemblyId)
-  try {
-    const rawDevices =
-      (await projectsApi.getAssemblyDevicesByAssemblyId(route.params.assemblyId)) || []
-
-    assemblyDevices.value = rawDevices.map((ad) => {
-      const id = ad.id ?? ad.Id
-      const deviceId = ad.deviceId ?? ad.DeviceId
-      const quantity = ad.quantity ?? ad.Quantity ?? 1
-
-      const deviceDetails = allDevices.value.find((d) => (d.id ?? d.Id) === deviceId)
-
-      return {
-        id,
-        assemblyId: ad.assemblyId ?? ad.AssemblyId,
-        deviceId,
-        quantity,
-        article:
-          ad.article || ad.Article || deviceDetails?.article || deviceDetails?.Article || '—',
-        description:
-          ad.description ||
-          ad.Description ||
-          deviceDetails?.description ||
-          deviceDetails?.Description ||
-          '—',
-        brand: ad.brand || ad.Brand || deviceDetails?.brand || deviceDetails?.Brand || '—',
-        deviceType:
-          ad.deviceType ||
-          ad.DeviceType ||
-          deviceDetails?.deviceType ||
-          deviceDetails?.DeviceType ||
-          '—',
-        properties:
-          ad.properties ||
-          ad.Properties ||
-          deviceDetails?.properties ||
-          deviceDetails?.Properties ||
-          [],
-      }
-    })
-  } catch (error) {
-    toast.error('Не удалось загрузить устройства сборки')
-    console.error('Не удалось загрузить устройства сборки', error)
-  }
-}
-
-onMounted(async () => {
-  await loadAssemblyDevices()
-})
+onMounted(async () => {})
 
 onUnmounted(() => {
   window.removeEventListener('pointermove', onPointerMove)

@@ -81,6 +81,30 @@ const loadAssembly = async () => {
   }
 }
 
+const loadAssemblyDevices = async () => {
+  try {
+    // ✅ Используем новый эндпоинт, который сразу возвращает все детали
+    const rawDevices = await projectsApi.getAssemblyDevicesWithDetails(route.params.assemblyId)
+    console.log(rawDevices)
+
+    assemblyDevices.value = (rawDevices || []).map((item) => ({
+      id: item.id,
+      assemblyId: item.assemblyId,
+      deviceId: item.deviceId,
+      quantity: item.quantity ?? 1,
+      article: item.article || '—',
+      description: item.description || '—',
+      brand: item.brand || '—',
+      deviceType: item.deviceType || '—',
+      properties: item.properties || [], // Свойства уже в нужном формате!
+    }))
+  } catch (error) {
+    toast.error('Не удалось загрузить устройства сборки')
+    console.error('Не удалось загрузить устройства сборки', error)
+  }
+}
+
+// ===================== ЗАГРУЗКА СПРАВОЧНИКОВ (для модального окна) =====================
 const loadAllDevices = async () => {
   try {
     allDevices.value = await devicesApi.getAll()
@@ -113,52 +137,6 @@ const loadBrands = async () => {
   } catch (error) {
     toast.error('Не удалось загрузить бренды')
     console.error('Не удалось загрузить бренды', error)
-  }
-}
-
-const loadAssemblyDevices = async () => {
-  try {
-    const rawDevices =
-      (await projectsApi.getAssemblyDevicesByAssemblyId(route.params.assemblyId)) || []
-
-    assemblyDevices.value = rawDevices.map((ad) => {
-      const id = ad.id ?? ad.Id
-      const deviceId = ad.deviceId ?? ad.DeviceId
-      const quantity = ad.quantity ?? ad.Quantity ?? 1
-
-      const deviceDetails = allDevices.value.find((d) => (d.id ?? d.Id) === deviceId)
-
-      return {
-        id,
-        assemblyId: ad.assemblyId ?? ad.AssemblyId,
-        deviceId,
-        quantity,
-        article:
-          ad.article || ad.Article || deviceDetails?.article || deviceDetails?.Article || '—',
-        description:
-          ad.description ||
-          ad.Description ||
-          deviceDetails?.description ||
-          deviceDetails?.Description ||
-          '—',
-        brand: ad.brand || ad.Brand || deviceDetails?.brand || deviceDetails?.Brand || '—',
-        deviceType:
-          ad.deviceType ||
-          ad.DeviceType ||
-          deviceDetails?.deviceType ||
-          deviceDetails?.DeviceType ||
-          '—',
-        properties:
-          ad.properties ||
-          ad.Properties ||
-          deviceDetails?.properties ||
-          deviceDetails?.Properties ||
-          [],
-      }
-    })
-  } catch (error) {
-    toast.error('Не удалось загрузить устройства сборки')
-    console.error('Не удалось загрузить устройства сборки', error)
   }
 }
 
@@ -226,12 +204,23 @@ watch(selectedBrandId, () => {
   newDeviceId.value = null
 })
 
-watch(showAddModal, (isOpen) => {
+watch(showAddModal, async (isOpen) => {
   if (isOpen) {
     selectedDeviceTypeId.value = null
     selectedBrandId.value = null
     newDeviceId.value = null
     newQuantity.value = 1
+
+    // ✅ Загружаем справочники только при открытии модалки (ленивая загрузка)
+    if (deviceTypes.value.length === 0) {
+      await loadDeviceTypes()
+    }
+    if (brands.value.length === 0) {
+      await loadBrands()
+    }
+    if (allDevices.value.length === 0) {
+      await loadAllDevices()
+    }
   }
 })
 
@@ -320,41 +309,21 @@ const removeDevice = async (assemblyDeviceId, article) => {
 const showPropertiesModal = ref(false)
 const currentDevice = ref(null)
 const deviceProperties = ref([])
-const propertiesLoading = ref(false)
 
 const openProperties = async (device) => {
   currentDevice.value = device
-  deviceProperties.value = []
+  // ✅ Свойства уже загружены благодаря новому эндпоинту!
+  deviceProperties.value = device.properties.map((v) => ({
+    name: v.name,
+    value: v.value ?? '—',
+    unit: v.unit || '',
+  }))
   showPropertiesModal.value = true
-  propertiesLoading.value = true
-
-  try {
-    if (device.properties && device.properties.length > 0) {
-      deviceProperties.value = device.properties.map((v) => ({
-        name: v.name || v.Name,
-        value: v.value ?? v.Value ?? '—',
-        unit: v.unit || v.Unit || '',
-      }))
-    } else {
-      const values = await devicesApi.getDeviceValues(device.deviceId)
-      deviceProperties.value = values.map((v) => ({
-        name: v.name || v.Name,
-        value: v.value ?? v.Value ?? '—',
-        unit: v.unit || v.Unit || '',
-      }))
-    }
-  } catch (error) {
-    console.error('Ошибка загрузки свойств:', error)
-    toast.error('Не удалось загрузить свойства устройства')
-  } finally {
-    propertiesLoading.value = false
-  }
 }
 
 onMounted(async () => {
   await loadProject()
   await loadAssembly()
-  await Promise.all([loadAllDevices(), loadDeviceTypes(), loadBrands()])
   await loadAssemblyDevices()
   await authStore.fetchMe()
 })
@@ -612,8 +581,7 @@ onMounted(async () => {
       "
       :opened="showPropertiesModal"
     >
-      <div v-if="propertiesLoading" class="admin-empty">Загрузка...</div>
-      <div v-else-if="deviceProperties.length === 0" class="admin-empty">
+      <div v-if="deviceProperties.length === 0" class="admin-empty">
         Для этого устройства не заданы свойства
       </div>
       <div v-else class="properties-view">
@@ -641,7 +609,7 @@ onMounted(async () => {
   margin: 0 auto;
 }
 
-/* === ХЕДЕР В СТИЛЕ ГАЛЕРЕИ (с оригинальными цветами админки) === */
+/* === ХЕДЕР В СТИЛЕ ГАЛЕРЕИ (с оригинальными цветами) === */
 .gallery__header {
   box-shadow: 4px 4px 30px -10px rgba(34, 60, 80, 0.2);
   border-radius: 8px;
@@ -825,7 +793,7 @@ onMounted(async () => {
   cursor: pointer;
   font-size: 16px;
   font-weight: 600;
-  color: #4f46e5; /* Оригинальный цвет */
+  color: #4f46e5;
   transition: all 0.2s;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
@@ -866,7 +834,7 @@ onMounted(async () => {
   background-color: #edf2f7;
 }
 .admin-table__btn--del {
-  color: #e53e3e; /* Оригинальный цвет удаления */
+  color: #e53e3e;
 }
 .admin-table__btn--del:hover {
   background-color: #fed7d7;
