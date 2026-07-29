@@ -1201,7 +1201,34 @@ const clearProject = () => {
   resetMeasure()
 }
 
-onMounted(async () => {})
+const assemblyDevices = ref(null)
+
+const loadAssemblyDevices = async () => {
+  try {
+    // ✅ Используем новый эндпоинт, который сразу возвращает все детали
+    const rawDevices = await projectsApi.getAssemblyDevicesWithDetails(route.params.assemblyId)
+    console.log(rawDevices)
+
+    assemblyDevices.value = (rawDevices || []).map((item) => ({
+      id: item.id,
+      assemblyId: item.assemblyId,
+      deviceId: item.deviceId,
+      quantity: item.quantity ?? 1,
+      article: item.article || '—',
+      description: item.description || '—',
+      brand: item.brand || '—',
+      deviceType: item.deviceType || '—',
+      properties: item.properties || [], // Свойства уже в нужном формате!
+    }))
+  } catch (error) {
+    toast.error('Не удалось загрузить устройства сборки')
+    console.error('Не удалось загрузить устройства сборки', error)
+  }
+}
+
+onMounted(async () => {
+  await loadAssemblyDevices()
+})
 
 onUnmounted(() => {
   window.removeEventListener('pointermove', onPointerMove)

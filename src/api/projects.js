@@ -18,13 +18,20 @@ export const projectsApi = {
   deleteAssembly: (id) => api.delete(`/assemblies/${id}`).then((res) => res.data),
 
   // ===== ASSEMBLY DEVICES =====
-  getAssemblyDevices: () => api.get('/assembly-devices').then((res) => res.data),
+  // ✅ ИСПРАВЛЕНО: используем точное имя контроллера "AssemblyDevices" (без дефисов), как в Swagger
+
+  getAssemblyDevices: () => api.get('/AssemblyDevices').then((res) => res.data),
+
   getAssemblyDevicesByAssemblyId: (assemblyId) =>
-    api.get(`/assemblyDevices/assembly/${assemblyId}`).then((res) => res.data),
-  addDeviceToAssembly: (data) => api.post('/assemblyDevices', data).then((res) => res.data),
-  removeDeviceFromAssembly: (id) => api.delete(`/assemblyDevices/${id}`).then((res) => res.data),
+    api.get(`/AssemblyDevices/assembly/${assemblyId}`).then((res) => res.data),
+
+  addDeviceToAssembly: (data) => api.post('/AssemblyDevices', data).then((res) => res.data),
+
+  removeDeviceFromAssembly: (id) => api.delete(`/AssemblyDevices/${id}`).then((res) => res.data),
+
   updateAssemblyDeviceQuantity: (id, quantity) =>
-    api.patch(`/assemblyDevices/${id}/quantity`, quantity).then((res) => res.data),
+    api.patch(`/AssemblyDevices/${id}/quantity`, quantity).then((res) => res.data),
+
   getAssemblyDevicesWithDetails: (assemblyId) =>
-    api.get(`/assembly-devices/assembly/${assemblyId}/with-details`).then((res) => res.data),
+    api.get(`/AssemblyDevices/assembly/${assemblyId}/with-details`).then((res) => res.data),
 }
