@@ -109,6 +109,9 @@ const sections = {
         required: true,
         optionsKey: 'deviceTypes',
       },
+      { key: 'width', label: 'Ширина (мм)', type: 'number' },
+      { key: 'height', label: 'Высота (мм)', type: 'number' },
+      { key: 'depth', label: 'Глубина (мм)', type: 'number' },
     ],
     loadOptions: async () => {
       const [brands, deviceTypes] = await Promise.all([

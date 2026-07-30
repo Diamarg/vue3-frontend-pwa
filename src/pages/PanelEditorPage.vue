@@ -1,10 +1,10 @@
 <script setup>
 import { useToast } from '@/composables/useToast'
 import router from '@/router'
-import { ref, computed, reactive, onMounted, onUnmounted, watch } from 'vue'
-import { routeLocationKey } from 'vue-router'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { projectsApi } from '@/api/projects'
+import { panelLayoutsApi } from '@/api/panelLayouts'
 
 const toast = useToast()
 const route = useRoute()
@@ -19,9 +19,13 @@ const DIN_RAIL_WIDTH_MM = 35
 const DIN_RAIL_LENGTH_MM = 100
 const SNAP_THRESHOLD_MM = 10
 
-// Зона пустоты - настраиваемый отступ от краёв панели (по умолчанию 25мм)
-const panelMarginMm = ref(20)
+// --- СОСТОЯНИЕ РАБОТЫ С БД ---
+const currentLayoutId = ref(null) // ID текущего загруженного макета
+const layoutsList = ref([]) // Список всех макетов сборки
+const isSavingToDb = ref(false)
+const showLayoutsModal = ref(false)
 
+const panelMarginMm = ref(20)
 const zoomPercent = ref(40)
 
 // --- СОСТОЯНИЕ СЕТКИ ---
@@ -31,7 +35,117 @@ const gridSizeMm = ref(10)
 // --- МОДАЛЬНОЕ ОКНО УСТРОЙСТВ ---
 const showDeviceModal = ref(false)
 
+// ✅ ПРОВЕРКА: есть ли у устройства корректные размеры
+const hasValidDimensions = (dev) => {
+  return dev && dev.w > 0 && dev.h > 0
+}
+
+// Сохранить в БД (создать новый или обновить текущий)
+const saveToDatabase = async (asNew = false) => {
+  if (isSavingToDb.value) return
+
+  isSavingToDb.value = true
+  try {
+    const projectData = buildProjectData()
+    const jsonString = JSON.stringify(projectData)
+
+    if (currentLayoutId.value && !asNew) {
+      // Обновляем существующий макет
+      await panelLayoutsApi.update(currentLayoutId.value, {
+        layoutData: jsonString,
+      })
+      toast.success('Макет сохранён')
+    } else {
+      // Создаём новый макет
+      const created = await panelLayoutsApi.create({
+        assemblyId: Number(route.params.assemblyId),
+        layoutData: jsonString,
+        isDefault: true,
+      })
+      currentLayoutId.value = created.id
+      toast.success('Новый макет создан')
+    }
+  } catch (error) {
+    console.error('Ошибка сохранения в БД:', error)
+    toast.error('Не удалось сохранить макет')
+  } finally {
+    isSavingToDb.value = false
+  }
+}
+
+// Загрузить макет из БД
+const loadLayoutFromDb = async (layoutId) => {
+  try {
+    const layout = await panelLayoutsApi.getById(layoutId)
+    const data = JSON.parse(layout.layoutData)
+
+    // Используем ту же логику, что и для импорта из файла
+    selectedPanelId.value = data.selectedPanelId || 1
+    panelMarginMm.value = data.panelMarginMm ?? 20
+    zoomPercent.value = data.zoomPercent ?? 40
+    isGridEnabled.value = data.isGridEnabled ?? true
+    gridSizeMm.value = data.gridSizeMm ?? 10
+    items.value = data.items || []
+    boxCounter = data.boxCounter || 1
+    railCounter = data.railCounter || 1
+    nextId =
+      data.nextId || (items.value.length > 0 ? Math.max(...items.value.map((i) => i.id)) + 1 : 1)
+
+    currentLayoutId.value = layout.id
+    selectedItem.value = null
+    selectedItems.value = []
+    resetMeasure()
+
+    toast.success('Макет загружен')
+  } catch (error) {
+    console.error('Ошибка загрузки макета:', error)
+    toast.error('Не удалось загрузить макет')
+  }
+}
+
+// Загрузить список макетов при открытии страницы
+const loadLayoutsList = async () => {
+  try {
+    layoutsList.value = await panelLayoutsApi.getByAssembly(route.params.assemblyId)
+
+    // Автоматически загружаем макет по умолчанию, если он есть
+    const defaultLayout = layoutsList.value.find((l) => l.isDefault)
+    if (defaultLayout) {
+      await loadLayoutFromDb(defaultLayout.id)
+    }
+  } catch (error) {
+    console.error('Ошибка загрузки списка макетов:', error)
+  }
+}
+
+// Удалить макет из БД
+const deleteLayout = async (layoutId) => {
+  if (!confirm('Удалить этот макет?')) return
+  try {
+    await panelLayoutsApi.delete(layoutId)
+    layoutsList.value = layoutsList.value.filter((l) => l.id !== layoutId)
+    if (currentLayoutId.value === layoutId) {
+      currentLayoutId.value = null
+    }
+    toast.success('Макет удалён')
+  } catch (error) {
+    console.error('Ошибка удаления:', error)
+    toast.error('Не удалось удалить макет')
+  }
+}
+
 const openDeviceModal = () => {
+  devicePalette.value.forEach((dev) => {
+    const available = getAvailableQuantity(dev.id)
+    // Выбираем только если есть размеры и устройство доступно
+    if (hasValidDimensions(dev) && available > 0) {
+      selectedDevices.value[dev.id] = true
+      deviceQuantities.value[dev.id] = available // Ставим максимум по умолчанию
+    } else {
+      selectedDevices.value[dev.id] = false
+      deviceQuantities.value[dev.id] = 1
+    }
+  })
   showDeviceModal.value = true
 }
 
@@ -49,15 +163,10 @@ const panels = [
   { id: 6, name: 'Мега', w: 1000, h: 1200 },
 ]
 
-// ID устройств — числовые по порядку (1, 2, 3, 4, 5, 6)
-const devicePalette = [
-  { id: 1, name: 'Автомат 1P', w: 18, h: 70, quantity: 5 },
-  { id: 2, name: 'Контактор', w: 36, h: 70, quantity: 3 },
-  { id: 3, name: 'Реле', w: 50, h: 50, quantity: 4 },
-  { id: 4, name: 'Блок питания', w: 90, h: 90, quantity: 2 },
-  { id: 5, name: 'ПЧ', w: 190, h: 260, quantity: 1 },
-  { id: 6, name: 'ПЛК F5-40MR-DC', w: 172, h: 90, quantity: 1 },
-]
+// ✅ ИСПРАВЛЕНИЕ: используем ref для реактивности
+const devicePalette = ref([])
+const selectedDevices = ref({})
+const deviceQuantities = ref({})
 
 const selectedPanelId = ref(1)
 const currentPanel = computed(() => panels.find((p) => p.id === selectedPanelId.value))
@@ -91,24 +200,21 @@ const getDisplaySize = (item) => {
   }
 }
 
-// --- ДОБАВЛЕНИЕ УСТРОЙСТВ ---
-const selectedDevices = reactive({})
-const deviceQuantities = reactive({})
-
-devicePalette.forEach((dev) => {
-  selectedDevices[dev.id] = false
-  deviceQuantities[dev.id] = 1
-})
-
+// ✅ ИСПРАВЛЕНИЕ: надежный watch с учетом проверки размеров
 watch(
   selectedDevices,
-  (newVal, oldVal) => {
-    devicePalette.forEach((dev) => {
-      if (newVal[dev.id] && !oldVal[dev.id]) {
-        deviceQuantities[dev.id] = getAvailableQuantity(dev.id)
+  (newVal) => {
+    devicePalette.value.forEach((dev) => {
+      // Принудительно снимаем галочку, если размеров нет
+      if (!hasValidDimensions(dev)) {
+        newVal[dev.id] = false
+        return
       }
-      if (!newVal[dev.id] && oldVal[dev.id]) {
-        deviceQuantities[dev.id] = 1
+
+      if (newVal[dev.id]) {
+        deviceQuantities.value[dev.id] = getAvailableQuantity(dev.id)
+      } else {
+        deviceQuantities.value[dev.id] = 1
       }
     })
   },
@@ -118,14 +224,14 @@ watch(
 watch(
   items,
   () => {
-    devicePalette.forEach((dev) => {
-      if (selectedDevices[dev.id]) {
+    devicePalette.value.forEach((dev) => {
+      if (selectedDevices.value[dev.id]) {
         const available = getAvailableQuantity(dev.id)
-        if (deviceQuantities[dev.id] > available) {
-          deviceQuantities[dev.id] = available
+        if (deviceQuantities.value[dev.id] > available) {
+          deviceQuantities.value[dev.id] = available
         }
         if (available === 0) {
-          selectedDevices[dev.id] = false
+          selectedDevices.value[dev.id] = false
         }
       }
     })
@@ -134,32 +240,42 @@ watch(
 )
 
 const getAvailableQuantity = (devId) => {
-  const dev = devicePalette.find((d) => d.id === devId)
+  const dev = devicePalette.value.find((d) => d.id === devId)
   if (!dev) return 0
   return Math.max(0, dev.quantity - getDeviceUsedCount(devId))
 }
 
+// ✅ ИСПРАВЛЕНИЕ: учитываем hasValidDimensions в проверке возможности добавления
 const canAddDevices = computed(() => {
-  return devicePalette.some(
+  return devicePalette.value.some(
     (dev) =>
-      selectedDevices[dev.id] && getAvailableQuantity(dev.id) > 0 && deviceQuantities[dev.id] > 0,
+      hasValidDimensions(dev) &&
+      selectedDevices.value[dev.id] &&
+      getAvailableQuantity(dev.id) > 0 &&
+      deviceQuantities.value[dev.id] > 0,
   )
 })
 
 const allDevicesAdded = computed(() => {
-  return devicePalette.every((dev) => isDeviceFullyUsed(dev.id))
+  if (devicePalette.value.length === 0) return false
+
+  // Проверяем ВСЕ устройства в палитре.
+  // Если у устройства нет размеров, оно не может быть добавлено,
+  // getDeviceUsedCount для него вернет 0, и isDeviceFullyUsed вернет false.
+  // Это корректно оставит статус "Не все устройства добавлены".
+  return devicePalette.value.every((dev) => isDeviceFullyUsed(dev.id))
 })
 
 const incrementQuantity = (devId) => {
   const available = getAvailableQuantity(devId)
-  if (deviceQuantities[devId] < available) {
-    deviceQuantities[devId]++
+  if (deviceQuantities.value[devId] < available) {
+    deviceQuantities.value[devId]++
   }
 }
 
 const decrementQuantity = (devId) => {
-  if (deviceQuantities[devId] > 1) {
-    deviceQuantities[devId]--
+  if (deviceQuantities.value[devId] > 1) {
+    deviceQuantities.value[devId]--
   }
 }
 
@@ -177,12 +293,10 @@ const findCenterPosition = (width, height) => {
 
 // --- Вспомогательная функция для поиска свободного места в рабочей зоне ---
 const findFreePosition = (width, height, itemType = 'device') => {
-  // Для коробов и DIN-реек — центральная позиция без проверки коллизий
   if (itemType === 'box' || itemType === 'din-rail') {
     return findCenterPosition(width, height)
   }
 
-  // Для устройств — размещение с выравниванием по сетке
   const margin = panelMarginMm.value
   const gridStep = isGridEnabled.value ? gridSizeMm.value : BASE_STEP_MM
 
@@ -195,24 +309,20 @@ const findFreePosition = (width, height, itemType = 'device') => {
   while (iterations < maxIterations) {
     iterations++
 
-    // Если выходит за правую границу — перенос на новую строку
     if (currentX + width > panelWidthMm.value - margin) {
       currentX = Math.ceil(margin / gridStep) * gridStep
       currentY = Math.ceil((currentY + height) / gridStep) * gridStep
     }
 
-    // Если выходит за нижнюю границу — нет места
     if (currentY + height > panelHeightMm.value - margin) {
       return null
     }
 
-    // Проверяем коллизии ТОЛЬКО с устройствами и коробами (игнорируем DIN-рейки)
     const testItem = { x: currentX, y: currentY, w: width, h: height }
     let hasCollision = false
     let collisionItem = null
 
     for (const existingItem of items.value) {
-      // Пропускаем DIN-рейки — устройства могут размещаться поверх них
       if (existingItem.type === 'din-rail') {
         continue
       }
@@ -228,12 +338,10 @@ const findFreePosition = (width, height, itemType = 'device') => {
       return { x: currentX, y: currentY }
     }
 
-    // Есть коллизия — сдвигаем вправо за элемент, выравнивая по сетке
     const { w: collisionW } = getDisplaySize(collisionItem)
     const endX = collisionItem.x + collisionW
     currentX = Math.ceil(endX / gridStep) * gridStep
 
-    // Если endX уже кратно gridStep, сдвигаем на один шаг вперёд
     if (currentX <= endX) {
       currentX += gridStep
     }
@@ -242,7 +350,6 @@ const findFreePosition = (width, height, itemType = 'device') => {
   return null
 }
 
-// Простая проверка пересечения (без зазора — зазор обеспечивается выравниванием по сетке)
 const checkCollision = (item1, item2) => {
   const { w: w1, h: h1 } = getDisplaySize(item1)
   const { w: w2, h: h2 } = getDisplaySize(item2)
@@ -258,9 +365,14 @@ const checkCollision = (item1, item2) => {
 const addSelectedDevices = () => {
   const devicesToAdd = []
 
-  devicePalette.forEach((dev) => {
-    if (selectedDevices[dev.id] && deviceQuantities[dev.id] > 0) {
-      const qty = Math.min(deviceQuantities[dev.id], getAvailableQuantity(dev.id))
+  devicePalette.value.forEach((dev) => {
+    // Дополнительная защита: добавляем только устройства с размерами
+    if (
+      hasValidDimensions(dev) &&
+      selectedDevices.value[dev.id] &&
+      deviceQuantities.value[dev.id] > 0
+    ) {
+      const qty = Math.min(deviceQuantities.value[dev.id], getAvailableQuantity(dev.id))
       for (let i = 0; i < qty; i++) {
         devicesToAdd.push({ ...dev })
       }
@@ -272,7 +384,6 @@ const addSelectedDevices = () => {
   devicesToAdd.forEach((dev) => {
     const itemWidth = dev.w
     const itemHeight = dev.h
-
     const pos = findFreePosition(itemWidth, itemHeight, 'device')
 
     if (!pos) {
@@ -295,13 +406,13 @@ const addSelectedDevices = () => {
     items.value.push(newItem)
   })
 
-  devicePalette.forEach((dev) => {
-    selectedDevices[dev.id] = false
-    deviceQuantities[dev.id] = 1
+  // Сброс состояний после добавления
+  devicePalette.value.forEach((dev) => {
+    selectedDevices.value[dev.id] = false
+    deviceQuantities.value[dev.id] = 1
   })
 }
 
-// Добавление устройств с закрытием модального окна
 const addSelectedDevicesAndClose = () => {
   addSelectedDevices()
   closeDeviceModal()
@@ -344,7 +455,7 @@ const getDeviceUsedCount = (devId) => {
 }
 
 const isDeviceFullyUsed = (devId) => {
-  const dev = devicePalette.find((d) => d.id === devId)
+  const dev = devicePalette.value.find((d) => d.id === devId)
   if (!dev) return false
   return getDeviceUsedCount(devId) >= dev.quantity
 }
@@ -409,11 +520,6 @@ const getItemStyle = (item) => {
   const isSelected = selectedItems.value.includes(item)
   const { w, h } = getDisplaySize(item)
 
-  // Иерархия z-index:
-  // - DIN-рейка: 1 (не выделена)
-  // - Короб: 15
-  // - Устройство: 20 (всегда поверх DIN-реек)
-  // - Выделенный элемент любого типа: 50 (поверх всего)
   let zIndex = 15
   if (item.type === 'din-rail') {
     zIndex = 1
@@ -476,7 +582,6 @@ const snapToGrid = (val) => {
 
 const mmToPx = (mm) => mm * PIXELS_PER_MM * currentScale.value
 
-// Проверка выхода за границы с учётом зоны пустоты
 const isOutOfBounds = (item) => {
   const margin = panelMarginMm.value
   const { w, h } = getDisplaySize(item)
@@ -567,17 +672,13 @@ const getMmFromEvent = (e) => {
 
 const getPxFromEvent = (e, el) => {
   const rect = el.getBoundingClientRect()
-
   const screenX = e.clientX - rect.left
   const screenY = e.clientY - rect.top
 
   const contentX = screenX - el.clientLeft
   const contentY = screenY - el.clientTop
 
-  return {
-    x: contentX,
-    y: contentY,
-  }
+  return { x: contentX, y: contentY }
 }
 
 const applyOrthogonal = (point) => {
@@ -634,7 +735,6 @@ const onCanvasMouseDown = (e) => {
 
 const onWindowMouseMove = (e) => {
   if (!isSelecting.value || !selectionStart.value) return
-
   const canvas = document.querySelector('.canvas')
   if (canvas) {
     selectionCurrent.value = getPxFromEvent(e, canvas)
@@ -672,9 +772,7 @@ const onCanvasClick = (e) => {
   if (e.target.closest('.panel-item')) return
   if (e.target.closest('.floating-actions')) return
 
-  if (justFinishedSelection.value) {
-    return
-  }
+  if (justFinishedSelection.value) return
 
   if (isMeasuring.value) {
     const rawPoint = getMmFromEvent(e)
@@ -700,7 +798,6 @@ const onCanvasClick = (e) => {
 
 const onCanvasMouseMove = (e) => {
   if (!isMeasuring.value || !pointA.value || pointB.value) return
-
   const rawPoint = getMmFromEvent(e)
   rawMousePoint.value = rawPoint
   previewPoint.value = applyOrthogonal(rawPoint)
@@ -726,7 +823,6 @@ const addBox = () => {
   }
 
   const pos = findFreePosition(newBox.w, newBox.h, 'box')
-
   if (pos) {
     newBox.x = pos.x
     newBox.y = pos.y
@@ -752,7 +848,6 @@ const addDinRail = () => {
   }
 
   const pos = findFreePosition(newRail.w, newRail.h, 'din-rail')
-
   if (pos) {
     newRail.x = pos.x
     newRail.y = pos.y
@@ -785,7 +880,6 @@ const copyItem = () => {
   }
 
   const pos = findFreePosition(w, h, original.type)
-
   if (pos) {
     copiedItem.x = pos.x
     copiedItem.y = pos.y
@@ -810,7 +904,6 @@ const rotateItem = () => {
     let adjustedX = item.x
     let adjustedY = item.y
     const margin = panelMarginMm.value
-
     const { w: newW, h: newH } = getDisplaySize(item)
 
     if (adjustedX + newW > panelWidthMm.value - margin) {
@@ -911,7 +1004,6 @@ const onPointerMove = (e) => {
 
       if (newX < margin) newX = margin
       if (newX + w > panelWidthMm.value - margin) newX = panelWidthMm.value - margin - w
-
       if (newY < margin) newY = margin
       if (newY + h > panelHeightMm.value - margin) newY = panelHeightMm.value - margin - h
 
@@ -945,7 +1037,6 @@ const onPointerMove = (e) => {
           newH = DIN_RAIL_WIDTH_MM
         }
 
-        // Ограничение по рабочей зоне для горизонтальной рейки
         if (newX < margin) {
           const overflow = margin - newX
           newX = margin
@@ -954,10 +1045,7 @@ const onPointerMove = (e) => {
         if (newX + newW > panelWidthMm.value - margin) {
           newW = panelWidthMm.value - margin - newX
         }
-        // Минимальная длина после ограничения
-        if (newW < DIN_RAIL_WIDTH_MM) {
-          newW = DIN_RAIL_WIDTH_MM
-        }
+        if (newW < DIN_RAIL_WIDTH_MM) newW = DIN_RAIL_WIDTH_MM
       } else {
         if (direction.includes('s')) {
           newH = Math.max(DIN_RAIL_WIDTH_MM, snapToGrid(startItemH + rawDyMm))
@@ -971,7 +1059,6 @@ const onPointerMove = (e) => {
           newW = DIN_RAIL_WIDTH_MM
         }
 
-        // Ограничение по рабочей зоне для вертикальной рейки
         if (newY < margin) {
           const overflow = margin - newY
           newY = margin
@@ -980,10 +1067,7 @@ const onPointerMove = (e) => {
         if (newY + newH > panelHeightMm.value - margin) {
           newH = panelHeightMm.value - margin - newY
         }
-        // Минимальная длина после ограничения
-        if (newH < DIN_RAIL_WIDTH_MM) {
-          newH = DIN_RAIL_WIDTH_MM
-        }
+        if (newH < DIN_RAIL_WIDTH_MM) newH = DIN_RAIL_WIDTH_MM
       }
     } else {
       if (direction.includes('e')) {
@@ -1048,7 +1132,6 @@ const onPointerUp = () => {
   window.removeEventListener('pointerup', onPointerUp)
 }
 
-//
 const showTrueSize = (width, height) => {
   if (width >= height) return `${height} x ${width}`
   return `${width} x ${height}`
@@ -1061,7 +1144,6 @@ const triggerImport = () => {
   fileInput.value?.click()
 }
 
-// Формируем данные проекта для сохранения
 const buildProjectData = () => {
   return {
     version: '1.0',
@@ -1078,7 +1160,6 @@ const buildProjectData = () => {
   }
 }
 
-// Fallback для браузеров без поддержки File System Access API
 const fallbackExport = () => {
   const projectData = buildProjectData()
   const jsonString = JSON.stringify(projectData, null, 2)
@@ -1094,36 +1175,26 @@ const fallbackExport = () => {
   URL.revokeObjectURL(url)
 }
 
-// Сохранение проекта через нативный диалог сохранения файла
 const exportProject = async () => {
   const projectData = buildProjectData()
   const jsonString = JSON.stringify(projectData, null, 2)
 
-  // Проверяем поддержку File System Access API
   if ('showSaveFilePicker' in window) {
     try {
       const fileHandle = await window.showSaveFilePicker({
         suggestedName: `panel-project-${Date.now()}.json`,
-        types: [
-          {
-            description: 'Файл проекта панели',
-            accept: { 'application/json': ['.json'] },
-          },
-        ],
+        types: [{ description: 'Файл проекта панели', accept: { 'application/json': ['.json'] } }],
       })
-
       const writable = await fileHandle.createWritable()
       await writable.write(jsonString)
       await writable.close()
     } catch (error) {
-      // Пользователь отменил сохранение (AbortError) — ничего не делаем
       if (error.name !== 'AbortError') {
         console.error('Ошибка при сохранении файла:', error)
         alert('Ошибка при сохранении файла: ' + error.message)
       }
     }
   } else {
-    // Fallback для неподдерживаемых браузеров
     fallbackExport()
   }
 }
@@ -1136,14 +1207,11 @@ const importProject = (event) => {
   reader.onload = (e) => {
     try {
       const data = JSON.parse(e.target.result)
-
-      // Валидация версии
       if (data.version !== '1.0') {
         alert('Неподдерживаемая версия формата проекта')
         return
       }
 
-      // Восстановление состояния
       selectedPanelId.value = data.selectedPanelId || 1
       panelMarginMm.value = data.panelMarginMm ?? 25
       zoomPercent.value = data.zoomPercent ?? 40
@@ -1155,7 +1223,6 @@ const importProject = (event) => {
       nextId =
         data.nextId || (items.value.length > 0 ? Math.max(...items.value.map((i) => i.id)) + 1 : 1)
 
-      // Сброс выделения
       selectedItem.value = null
       selectedItems.value = []
       resetMeasure()
@@ -1169,45 +1236,36 @@ const importProject = (event) => {
   }
 
   reader.readAsText(file)
-
-  // Сброс input, чтобы можно было загрузить тот же файл повторно
   event.target.value = ''
 }
 
-// --- ОЧИСТКА ПРОЕКТА ---
 const clearProject = () => {
-  // Если проект пустой — просто выходим
-  if (items.value.length === 0) {
-    return
-  }
+  if (items.value.length === 0) return
 
   const confirmed = confirm(
     'Вы уверены, что хотите очистить проект?\n\nВсе элементы (короба, DIN-рейки, устройства) будут удалены. Это действие нельзя отменить.',
   )
-
   if (!confirmed) return
 
-  // Очистка всех элементов
   items.value = []
   selectedItem.value = null
   selectedItems.value = []
-
-  // Сброс счётчиков
   nextId = 1
   boxCounter = 1
   railCounter = 1
-
-  // Сброс измерения
   resetMeasure()
 }
 
 const assemblyDevices = ref(null)
 
+const loadAndCloseModal = async (layoutId) => {
+  await loadLayoutFromDb(layoutId)
+  showLayoutsModal.value = false
+}
+
 const loadAssemblyDevices = async () => {
   try {
-    // ✅ Используем новый эндпоинт, который сразу возвращает все детали
     const rawDevices = await projectsApi.getAssemblyDevicesWithDetails(route.params.assemblyId)
-    console.log(rawDevices)
 
     assemblyDevices.value = (rawDevices || []).map((item) => ({
       id: item.id,
@@ -1216,10 +1274,32 @@ const loadAssemblyDevices = async () => {
       quantity: item.quantity ?? 1,
       article: item.article || '—',
       description: item.description || '—',
+      width: item.width,
+      height: item.height,
+      depth: item.depth,
       brand: item.brand || '—',
       deviceType: item.deviceType || '—',
-      properties: item.properties || [], // Свойства уже в нужном формате!
+      properties: item.properties || [],
     }))
+
+    devicePalette.value = (rawDevices || []).map((device) => ({
+      id: device.id,
+      name: device.description || `Устройство ${device.id}`,
+      w: device.width || 0,
+      h: device.height || 0,
+      quantity: device.quantity ?? 1,
+    }))
+
+    // Инициализация состояний
+    const newSelected = {}
+    const newQuantities = {}
+    devicePalette.value.forEach((dev) => {
+      newSelected[dev.id] = false
+      newQuantities[dev.id] = 1
+    })
+
+    selectedDevices.value = newSelected
+    deviceQuantities.value = newQuantities
   } catch (error) {
     toast.error('Не удалось загрузить устройства сборки')
     console.error('Не удалось загрузить устройства сборки', error)
@@ -1228,6 +1308,7 @@ const loadAssemblyDevices = async () => {
 
 onMounted(async () => {
   await loadAssemblyDevices()
+  await loadLayoutsList()
 })
 
 onUnmounted(() => {
@@ -1313,16 +1394,39 @@ onUnmounted(() => {
           <div class="tools-grid">
             <div class="tools-group">
               <button
+                @click="saveToDatabase(false)"
+                class="icon-button icon-button--save"
+                :disabled="isSavingToDb"
+                :title="currentLayoutId ? 'Сохранить в БД' : 'Создать макет в БД'"
+              >
+                {{ isSavingToDb ? '⏳' : '💾' }}
+              </button>
+              <button
+                @click="saveToDatabase(true)"
+                class="icon-button icon-button--save"
+                :disabled="isSavingToDb"
+                title="Сохранить как новый макет"
+              >
+                📝
+              </button>
+              <button
+                @click="showLayoutsModal = true"
+                class="icon-button icon-button--load"
+                title="Список макетов"
+              >
+                📋
+              </button>
+              <button
                 @click="exportProject"
                 class="icon-button icon-button--save"
-                title="Сохранить"
+                title="Скачать файл"
               >
-                💾
+                ⬇️
               </button>
               <button
                 @click="triggerImport"
                 class="icon-button icon-button--load"
-                title="Загрузить"
+                title="Загрузить из файла"
               >
                 📂
               </button>
@@ -1350,7 +1454,6 @@ onUnmounted(() => {
               </button>
             </div>
 
-            <!-- Скрытый input для выбора файла -->
             <input
               ref="fileInput"
               type="file"
@@ -1443,7 +1546,7 @@ onUnmounted(() => {
             </div>
           </div>
         </div>
-        <!-- Статус: все устройства добавлены -->
+
         <div v-if="allDevicesAdded" class="modal-status modal-status--success">
           <span>Все устройства добавлены на монтажную панель</span>
         </div>
@@ -1455,7 +1558,6 @@ onUnmounted(() => {
       <!-- Основная область (Холст) -->
       <main class="editor-canvas-wrapper" ref="canvasWrapper">
         <div class="canvas-container" :style="containerStyle">
-          <!-- Разметка по оси Y (слева) -->
           <div class="ruler ruler-y" :style="rulerYStyle">
             <div
               v-for="mark in yMarks"
@@ -1467,7 +1569,6 @@ onUnmounted(() => {
             </div>
           </div>
 
-          <!-- Разметка по оси X (сверху) -->
           <div class="ruler ruler-x" :style="rulerXStyle">
             <div
               v-for="mark in xMarks"
@@ -1479,7 +1580,6 @@ onUnmounted(() => {
             </div>
           </div>
 
-          <!-- Холст с панелью -->
           <div
             class="canvas"
             :class="{
@@ -1492,11 +1592,8 @@ onUnmounted(() => {
             @mousemove="onCanvasMouseMove"
             @mousedown="onCanvasMouseDown"
           >
-            <!-- SVG для отрисовки линии измерения, рамки выделения и зоны пустоты -->
             <svg class="measure-svg" :width="panelWidthPx" :height="panelHeightPx">
-              <!-- Зона пустоты (недоступная область) -->
               <g v-if="panelMarginMm > 0" class="margin-zone">
-                <!-- Верхняя полоса -->
                 <rect
                   x="0"
                   y="0"
@@ -1504,7 +1601,6 @@ onUnmounted(() => {
                   :height="panelMarginMm * PIXELS_PER_MM * currentScale"
                   fill="rgba(239, 68, 68, 0.1)"
                 />
-                <!-- Нижняя полоса -->
                 <rect
                   x="0"
                   :y="(panelHeightMm - panelMarginMm) * PIXELS_PER_MM * currentScale"
@@ -1512,7 +1608,6 @@ onUnmounted(() => {
                   :height="panelMarginMm * PIXELS_PER_MM * currentScale"
                   fill="rgba(239, 68, 68, 0.1)"
                 />
-                <!-- Левая полоса -->
                 <rect
                   x="0"
                   :y="panelMarginMm * PIXELS_PER_MM * currentScale"
@@ -1520,7 +1615,6 @@ onUnmounted(() => {
                   :height="(panelHeightMm - 2 * panelMarginMm) * PIXELS_PER_MM * currentScale"
                   fill="rgba(239, 68, 68, 0.1)"
                 />
-                <!-- Правая полоса -->
                 <rect
                   :x="(panelWidthMm - panelMarginMm) * PIXELS_PER_MM * currentScale"
                   :y="panelMarginMm * PIXELS_PER_MM * currentScale"
@@ -1528,7 +1622,6 @@ onUnmounted(() => {
                   :height="(panelHeightMm - 2 * panelMarginMm) * PIXELS_PER_MM * currentScale"
                   fill="rgba(239, 68, 68, 0.1)"
                 />
-                <!-- Внутренняя рамка рабочей зоны -->
                 <rect
                   :x="panelMarginMm * PIXELS_PER_MM * currentScale"
                   :y="panelMarginMm * PIXELS_PER_MM * currentScale"
@@ -1593,7 +1686,6 @@ onUnmounted(() => {
               />
             </svg>
 
-            <!-- Плавающие кнопки действий для выделенного элемента -->
             <div
               v-if="selectedItems.length === 1 && selectedItem"
               class="floating-actions"
@@ -1624,12 +1716,10 @@ onUnmounted(() => {
               </button>
             </div>
 
-            <!-- Tooltip с размерами рядом с курсором -->
             <div v-if="resizeState && mousePosition" class="size-tooltip" :style="tooltipStyle">
               {{ resizeState.item.w }} × {{ resizeState.item.h }} мм
             </div>
 
-            <!-- Элементы на панели -->
             <div
               v-for="item in items"
               :key="item.id"
@@ -1650,7 +1740,6 @@ onUnmounted(() => {
                 }}
               </div>
 
-              <!-- Ручки изменения размера для коробов -->
               <template
                 v-if="
                   item.type === 'box' && selectedItems.length === 1 && selectedItems[0] === item
@@ -1690,7 +1779,6 @@ onUnmounted(() => {
                 ></div>
               </template>
 
-              <!-- Ручки изменения размера для DIN-рейки (только длина) -->
               <template
                 v-if="
                   item.type === 'din-rail' &&
@@ -1743,51 +1831,65 @@ onUnmounted(() => {
                 :class="[
                   'device-selection-item',
                   { 'device-selection-item--complete': isDeviceFullyUsed(dev.id) },
+                  { 'device-selection-item--invalid': !hasValidDimensions(dev) },
                 ]"
               >
-                <div class="device-selection-info">
-                  <input
-                    type="checkbox"
-                    :id="`modal-dev-check-${dev.id}`"
-                    v-model="selectedDevices[dev.id]"
-                    :disabled="isDeviceFullyUsed(dev.id)"
-                    class="device-checkbox"
-                  />
-                  <label :for="`modal-dev-check-${dev.id}`" class="device-selection-name">
-                    {{ dev.name }}
-                  </label>
-                  <span class="device-selection-size">{{ dev.w }}×{{ dev.h }}</span>
-                </div>
-                <div class="device-selection-controls" v-if="!isDeviceFullyUsed(dev.id)">
-                  <span class="device-selection-available">
-                    На панели: {{ getDeviceUsedCount(dev.id) }}/{{ dev.quantity }}
-                  </span>
-                  <div class="quantity-control">
-                    <button
-                      @click="decrementQuantity(dev.id)"
-                      class="qty-btn"
-                      :disabled="!selectedDevices[dev.id]"
-                    >
-                      −
-                    </button>
-                    <input
-                      type="number"
-                      v-model.number="deviceQuantities[dev.id]"
-                      class="qty-input"
-                      :min="1"
-                      :max="getAvailableQuantity(dev.id)"
-                      :disabled="!selectedDevices[dev.id]"
-                    />
-                    <button
-                      @click="incrementQuantity(dev.id)"
-                      class="qty-btn"
-                      :disabled="!selectedDevices[dev.id]"
-                    >
-                      +
-                    </button>
+                <!-- ВАРИАНТ А: У устройства НЕТ размеров (Показываем предупреждение) -->
+                <div v-if="!hasValidDimensions(dev)" class="device-invalid-info">
+                  <span class="warning-icon">⚠️</span>
+                  <div class="device-invalid-text">
+                    <span class="device-selection-name">{{ dev.name }}</span>
+                    <span class="invalid-reason">Нельзя добавить: не заданы размеры (Ш×В)</span>
                   </div>
                 </div>
-                <span v-else class="fully-used-label">✓ Все добавлены</span>
+
+                <!-- ВАРИАНТ Б: У устройства ЕСТЬ размеры (Стандартная логика) -->
+                <div v-else>
+                  <div class="device-selection-info">
+                    <input
+                      type="checkbox"
+                      :id="`modal-dev-check-${dev.id}`"
+                      v-model="selectedDevices[dev.id]"
+                      :disabled="isDeviceFullyUsed(dev.id)"
+                      class="device-checkbox"
+                    />
+                    <label :for="`modal-dev-check-${dev.id}`" class="device-selection-name">
+                      {{ dev.name }}
+                    </label>
+                    <span class="device-selection-size">{{ dev.w }}×{{ dev.h }}</span>
+                  </div>
+
+                  <div class="device-selection-controls" v-if="!isDeviceFullyUsed(dev.id)">
+                    <span class="device-selection-available">
+                      На панели: {{ getDeviceUsedCount(dev.id) }}/{{ dev.quantity }}
+                    </span>
+                    <div class="quantity-control">
+                      <button
+                        @click="decrementQuantity(dev.id)"
+                        class="qty-btn"
+                        :disabled="!selectedDevices[dev.id]"
+                      >
+                        −
+                      </button>
+                      <input
+                        type="number"
+                        v-model.number="deviceQuantities[dev.id]"
+                        class="qty-input"
+                        :min="1"
+                        :max="getAvailableQuantity(dev.id)"
+                        :disabled="!selectedDevices[dev.id]"
+                      />
+                      <button
+                        @click="incrementQuantity(dev.id)"
+                        class="qty-btn"
+                        :disabled="!selectedDevices[dev.id]"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                  <span v-else class="fully-used-label">✓ Все добавлены</span>
+                </div>
               </div>
             </div>
           </div>
@@ -1802,6 +1904,46 @@ onUnmounted(() => {
               <span>Добавить выбранные</span>
             </button>
             <button @click="closeDeviceModal" class="modal-btn modal-btn--secondary">Отмена</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- Модальное окно со списком макетов -->
+    <Teleport to="body">
+      <div v-if="showLayoutsModal" class="modal-overlay" @click.self="showLayoutsModal = false">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3 class="modal-title">Макеты панели</h3>
+            <button @click="showLayoutsModal = false" class="modal-close">✕</button>
+          </div>
+          <div class="modal-body">
+            <div v-if="layoutsList.length === 0" class="admin-empty">Нет сохранённых макетов</div>
+            <div v-else class="layouts-list">
+              <div
+                v-for="layout in layoutsList"
+                :key="layout.id"
+                :class="['layout-item', { 'layout-item--active': layout.id === currentLayoutId }]"
+              >
+                <div class="layout-item__info">
+                  <span class="layout-item__name">
+                    {{ layout.name }}
+                    <span v-if="layout.isDefault" class="layout-item__badge">По умолчанию</span>
+                  </span>
+                  <span class="layout-item__date">
+                    {{ new Date(layout.updatedAt).toLocaleString('ru-RU') }}
+                  </span>
+                </div>
+                <div class="layout-item__actions">
+                  <button @click="loadAndCloseModal(layout.id)" class="layout-btn layout-btn--load">
+                    Загрузить
+                  </button>
+                  <button @click="deleteLayout(layout.id)" class="layout-btn layout-btn--delete">
+                    🗑️
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -2756,6 +2898,44 @@ a {
   border-color: #86efac;
 }
 
+/* ✅ НОВЫЕ СТИЛИ: для устройств без размеров */
+.device-selection-item--invalid {
+  background-color: #fffbeb;
+  border-color: #fcd34d;
+  cursor: not-allowed;
+}
+
+.device-invalid-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0;
+}
+
+.warning-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.device-invalid-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.device-invalid-text .device-selection-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: #92400e;
+}
+
+.invalid-reason {
+  font-size: 11px;
+  color: #b45309;
+  font-style: italic;
+}
+/* ======================================================== */
+
 .device-selection-info {
   display: flex;
   align-items: center;
@@ -2852,5 +3032,99 @@ a {
   color: #10b981;
   font-weight: 600;
   padding-left: 24px;
+}
+
+/* Стили для списка макетов */
+.admin-empty {
+  padding: 40px;
+  text-align: center;
+  color: #718096;
+  font-weight: 300;
+}
+
+.layouts-list {
+  display: grid;
+  gap: 8px;
+}
+
+.layout-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border: 1px solid rgb(230, 230, 230);
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.layout-item:hover {
+  border-color: #cbd5e0;
+  background: #f7fafc;
+}
+
+.layout-item--active {
+  border-color: #6366f1;
+  background: #eef2ff;
+}
+
+.layout-item__info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.layout-item__name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #2d3748;
+}
+
+.layout-item__badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  background-color: #10b981;
+  color: white;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.layout-item__date {
+  font-size: 11px;
+  color: #718096;
+}
+
+.layout-item__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.layout-btn {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.layout-btn--load {
+  background: #6366f1;
+  color: white;
+}
+
+.layout-btn--load:hover {
+  background: #4f46e5;
+}
+
+.layout-btn--delete {
+  background: #ef4444;
+  color: white;
+}
+
+.layout-btn--delete:hover {
+  background: #dc2626;
 }
 </style>
