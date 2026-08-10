@@ -1959,7 +1959,6 @@ a {
 /* Глобальный контейнер */
 .global-container {
   min-height: 100vh;
-  background-color: #f5f7fa;
   padding: 16px;
   font-family:
     -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;

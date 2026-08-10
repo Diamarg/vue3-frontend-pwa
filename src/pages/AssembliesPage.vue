@@ -376,8 +376,6 @@ onMounted(async () => {
 /* === ДЕСКТОПНАЯ АДАПТАЦИЯ === */
 @media (min-width: 768px) {
   .global-container {
-    padding: 24px;
-    max-width: 1200px;
     margin: 0 auto;
   }
 

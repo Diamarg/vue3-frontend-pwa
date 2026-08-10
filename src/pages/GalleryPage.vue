@@ -499,11 +499,6 @@ onBeforeUnmount(() => {
 
 <style scoped>
 /* === БАЗОВЫЕ СТИЛИ (Старый дизайн) === */
-.global-container {
-  padding: 16px;
-  width: 100%;
-  box-sizing: border-box;
-}
 
 .top-btn {
   position: fixed;
@@ -873,8 +868,6 @@ onBeforeUnmount(() => {
 @media (min-width: 768px) {
   .global-container {
     padding: 24px;
-    max-width: 1200px;
-    margin: 0 auto;
   }
   .top-btn {
     left: 100px;
