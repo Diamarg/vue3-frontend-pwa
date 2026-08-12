@@ -439,18 +439,18 @@ onMounted(async () => {
           <Ainput
             id="line-purpose"
             v-model="lineForm.linePurpose"
-            placeholder="Например: Питание щита освещения"
+            placeholder="Например: питание шкафа управления обратным осмосом"
           />
         </div>
 
         <div class="add-form__row">
           <div class="add-form__group">
             <label for="start-point">Откуда</label>
-            <Ainput id="start-point" v-model="lineForm.startPoint" placeholder="Например: ЩР-1" />
+            <Ainput id="start-point" v-model="lineForm.startPoint" placeholder="Например: ШУ1" />
           </div>
           <div class="add-form__group">
             <label for="end-point">Куда</label>
-            <Ainput id="end-point" v-model="lineForm.endPoint" placeholder="Например: ЩО-1" />
+            <Ainput id="end-point" v-model="lineForm.endPoint" placeholder="Например: КЭ1" />
           </div>
         </div>
 
@@ -504,7 +504,7 @@ onMounted(async () => {
 
         <div class="add-form__group">
           <label for="notes">Примечание</label>
-          <Ainput id="notes" v-model="lineForm.notes" placeholder="Необязательно" />
+          <Ainput id="notes" v-model="lineForm.notes" placeholder="Необязательное примечание" />
         </div>
 
         <div class="admin-form__actions" style="margin-top: 24px">
