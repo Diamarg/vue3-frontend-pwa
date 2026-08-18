@@ -17,7 +17,9 @@ const props = defineProps({
     </div>
     <hr />
     <div class="project-card__line">
-      <span class="project-card__line-text">{{ props.description }}</span>
+      <span class="project-card__line-text">{{
+        props.description ? props.description : '-- Нет описания --'
+      }}</span>
     </div>
     <hr />
     <div class="project-card__links">

@@ -25,7 +25,7 @@ const pageStore = usePageStore()
 const scrollY = ref(0)
 const showModal = ref(false)
 const showPhotoModal = ref(false)
-const isLoadingPhotos = ref(false)
+const isLoadingPhotos = ref(true)
 const isModalImageLoading = ref(false)
 const hasReversedPhotos = ref(false)
 
@@ -326,7 +326,7 @@ onBeforeUnmount(() => {
     <div class="gallery">
       <!-- === ХЕДЕР === -->
       <div class="gallery__header">
-        <div v-if="hasPhotos" class="gallery__filter">
+        <div v-if="!isLoadingPhotos" class="gallery__filter">
           <div class="gallery__date-from">
             <span>От: </span><a-input v-model="startDate" type="date" />
           </div>
@@ -335,7 +335,7 @@ onBeforeUnmount(() => {
           </div>
           <div>
             <a-button @click="reversePhotos">
-              Сначала {{ hasReversedPhotos ? 'новые' : 'старые' }}
+              {{ hasReversedPhotos ? '⬇⬆ ' : '⬆⬇' }}
             </a-button>
           </div>
 
@@ -348,7 +348,7 @@ onBeforeUnmount(() => {
               <span class="gallery__total-photos" v-else>Всего: {{ filteredPhotos.length }}</span>
 
               <a-button
-                v-if="authStore.isAdmin"
+                v-if="authStore.isAdmin && hasPhotos"
                 @click="isSelectionMode = true"
                 class="btn-small btn-select-mode"
               >
@@ -377,7 +377,16 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <div v-if="!hasPhotos" class="gallery__null-photo">Ещё нет загруженных фотографий!</div>
+      <!-- Состояние загрузки -->
+      <div v-if="isLoadingPhotos" class="gallery__null-photo">Загрузка фотографий...</div>
+
+      <!-- Состояние пустой галереи (когда загрузка завершена, но фото нет) -->
+      <!-- <div v-else-if="!hasPhotos" class="gallery__null-photo">Ещё нет загруженных фотографий!</div> -->
+
+      <div v-else-if="!hasPhotos" class="gallery__null-photo">
+        <div class="empty-icon">📷</div>
+        <p>Нет загруженных фотографий</p>
+      </div>
 
       <!-- === СЕТКА КАРТОЧЕК === -->
       <div v-else class="gallery__cards">
@@ -499,6 +508,9 @@ onBeforeUnmount(() => {
 
 <style scoped>
 /* === БАЗОВЫЕ СТИЛИ (Старый дизайн) === */
+.global-container {
+  padding: 16px;
+}
 
 .top-btn {
   position: fixed;
@@ -534,6 +546,12 @@ onBeforeUnmount(() => {
   border: 1px solid rgb(230, 230, 230);
   background-color: rgb(255, 255, 255);
   padding: 16px;
+}
+
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.5;
 }
 
 .gallery__header {
@@ -649,11 +667,8 @@ onBeforeUnmount(() => {
   top: 8px;
   left: 8px;
   z-index: 10;
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 4px;
   padding: 4px;
   cursor: pointer;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   display: flex;
 }
 

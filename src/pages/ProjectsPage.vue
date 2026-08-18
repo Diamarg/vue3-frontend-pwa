@@ -171,10 +171,12 @@ onMounted(async () => {
           ></ainput>
         </div>
         <Abutton v-if="authStore.isAdmin" class="sticky-button" @click="showModal = true"
-          ><template #icon><add-icon color="white" /></template>+ Новый проект
+          ><template #icon><add-icon color="white" /></template>Создать
         </Abutton>
       </div>
-      <div v-if="!loading" class="projects-cards">
+
+      <div v-if="loading" class="project-cards__loading">Загрузка...</div>
+      <div v-else class="projects-cards">
         <ProjectCard
           v-for="project in filteredProjects"
           :key="project.id"
@@ -195,7 +197,6 @@ onMounted(async () => {
           По запросу '{{ searchBar }}' не найдено проектов.
         </div>
       </div>
-      <div v-else class="project-cards__loading">Загрузка...</div>
     </div>
   </div>
 
@@ -251,6 +252,9 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.global-container {
+  padding: 24px;
+}
 .projects {
   display: grid;
   gap: 24px;
@@ -268,7 +272,6 @@ onMounted(async () => {
   border-width: 1px;
   background-color: rgb(255, 255, 255);
   padding: 24px;
-  margin-top: 24px;
   justify-content: space-between;
 }
 
