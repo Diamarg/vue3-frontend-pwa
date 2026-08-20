@@ -90,8 +90,9 @@ const sections = {
     loadOptions: async () => ({ projects: projectOpts() }),
     fetch: (ctx) =>
       ctx.projectId ? projectsApi.getAssembliesByProjectId(ctx.projectId) : Promise.resolve([]),
-    create: (_ctx, data) => projectsApi.createAssembly(data),
-    update: (_ctx, id, data) => projectsApi.updateAssembly(id, data),
+    create: (ctx, data) => projectsApi.createAssembly({ ...data, projectId: ctx.projectId }),
+    update: (ctx, id, data) =>
+      projectsApi.updateAssembly(id, { ...data, projectId: ctx.projectId }),
     remove: (_ctx, id) => projectsApi.deleteAssembly(id),
   },
   devices: {
