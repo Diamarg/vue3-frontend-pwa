@@ -262,12 +262,12 @@ const exportToTxt = async () => {
     const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `Ведомость_кабелей_${project.value?.codeName || 'project'}.txt`
+    link.download = `Кабельный_журнал_${project.value?.codeName || 'project'}.txt`
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
     window.URL.revokeObjectURL(url)
-    toast.success('Ведомость экспортирована')
+    toast.success('Скачивание файла')
   } catch (error) {
     console.error('Ошибка экспорта:', error)
     toast.error('Не удалось экспортировать ведомость')
