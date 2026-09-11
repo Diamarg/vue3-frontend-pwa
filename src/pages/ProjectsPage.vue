@@ -82,13 +82,16 @@ const formReady = computed(() => {
 const filteredProjects = computed(() => {
   const query = searchBar.value.trim().toLowerCase()
 
-  if (!query) return projects.value
+  if (!query) return projects.value.sort((a, b) => a.dateOfCreation.localeCompare(b.dateOfCreation))
 
-  return projects.value.filter(
+  const filtered = projects.value.filter(
     (p) =>
       (p.codeName || '').toLowerCase().includes(query) ||
       (p.customer || '').toLowerCase().includes(query),
   )
+
+  console.log(filtered)
+  return filtered
 })
 
 const fethProjects = async () => {

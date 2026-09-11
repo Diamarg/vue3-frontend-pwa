@@ -165,7 +165,7 @@ const panels = [
   { id: 8, name: 'Мега', w: 1000, h: 1200 },
 ]
 
-// ✅ ИСПРАВЛЕНИЕ: используем ref для реактивности
+// ИСПРАВЛЕНИЕ: используем ref для реактивности
 const devicePalette = ref([])
 const selectedDevices = ref({})
 const deviceQuantities = ref({})
