@@ -157,12 +157,13 @@ const closeDeviceModal = () => {
 const panels = [
   { id: 1, name: 'Микро', w: 200, h: 300 },
   { id: 2, name: 'Мини', w: 300, h: 400 },
-  { id: 3, name: 'Малая', w: 500, h: 500 },
-  { id: 4, name: 'Средняя', w: 500, h: 600 },
-  { id: 5, name: 'Широкая', w: 500, h: 700 },
-  { id: 6, name: 'Большая', w: 600, h: 800 },
-  { id: 7, name: 'Макси', w: 800, h: 1000 },
-  { id: 8, name: 'Мега', w: 1000, h: 1200 },
+  { id: 3, name: 'Небольшая', w: 400, h: 400 },
+  { id: 4, name: 'Малая', w: 500, h: 500 },
+  { id: 5, name: 'Средняя', w: 500, h: 600 },
+  { id: 6, name: 'Широкая', w: 500, h: 700 },
+  { id: 7, name: 'Большая', w: 600, h: 800 },
+  { id: 8, name: 'Макси', w: 800, h: 1000 },
+  { id: 9, name: 'Мега', w: 1000, h: 1200 },
 ]
 
 // ИСПРАВЛЕНИЕ: используем ref для реактивности
@@ -1369,6 +1370,7 @@ onUnmounted(() => {
               v-model.number="gridSizeMm"
               class="form-select grid-size-select"
             >
+              <option :value="0">0 мм</option>
               <option :value="1">1 мм</option>
               <option :value="2">2 мм</option>
               <option :value="4">4 мм</option>
