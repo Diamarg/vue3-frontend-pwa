@@ -1370,7 +1370,6 @@ onUnmounted(() => {
               v-model.number="gridSizeMm"
               class="form-select grid-size-select"
             >
-              <option :value="0">0 мм</option>
               <option :value="1">1 мм</option>
               <option :value="2">2 мм</option>
               <option :value="4">4 мм</option>
