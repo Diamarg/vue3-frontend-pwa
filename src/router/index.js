@@ -9,6 +9,7 @@ import FilesPage from '@/pages/FilesPage.vue'
 import DevicesPage from '@/pages/DevicesPage.vue'
 import PanelEditorPage from '@/pages/PanelEditorPage.vue'
 import CableJournalPage from '@/pages/CableJournalPage.vue'
+import TestPage from '@/pages/TestPage.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -54,6 +55,12 @@ const router = createRouter({
     {
       path: '/:projectId/files',
       component: FilesPage,
+      props: true,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/test',
+      component: TestPage,
       props: true,
       meta: { requiresAuth: true },
     },

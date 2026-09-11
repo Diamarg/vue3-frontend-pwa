@@ -86,9 +86,9 @@ const sendForm = async () => {
           :disabled="!formReady"
           >Вход</abutton
         >
-        <a @click="router.push('/register')" class="login-form__register-link"
+        <!-- <a @click="router.push('/register')" class="login-form__register-link"
           >Создать учётную запись</a
-        >
+        > -->
       </div>
       <a-loader :enable="loading" />
     </form>

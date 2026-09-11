@@ -155,12 +155,14 @@ const closeDeviceModal = () => {
 
 // --- ДАННЫЕ ---
 const panels = [
-  { id: 1, name: 'Малая', w: 500, h: 500 },
-  { id: 2, name: 'Средняя', w: 500, h: 600 },
-  { id: 3, name: 'Широкая', w: 500, h: 700 },
-  { id: 4, name: 'Большая', w: 600, h: 800 },
-  { id: 5, name: 'Макси', w: 800, h: 1000 },
-  { id: 6, name: 'Мега', w: 1000, h: 1200 },
+  { id: 1, name: 'Микро', w: 200, h: 300 },
+  { id: 2, name: 'Мини', w: 300, h: 400 },
+  { id: 3, name: 'Малая', w: 500, h: 500 },
+  { id: 4, name: 'Средняя', w: 500, h: 600 },
+  { id: 5, name: 'Широкая', w: 500, h: 700 },
+  { id: 6, name: 'Большая', w: 600, h: 800 },
+  { id: 7, name: 'Макси', w: 800, h: 1000 },
+  { id: 8, name: 'Мега', w: 1000, h: 1200 },
 ]
 
 // ✅ ИСПРАВЛЕНИЕ: используем ref для реактивности
@@ -817,8 +819,8 @@ const addBox = () => {
     name: `Короб ${boxCounter}`,
     x: panelMarginMm.value,
     y: panelMarginMm.value,
-    w: 40,
-    h: 40,
+    w: 25,
+    h: 25,
     rotated: false,
   }
 
@@ -1367,8 +1369,10 @@ onUnmounted(() => {
               v-model.number="gridSizeMm"
               class="form-select grid-size-select"
             >
+              <option :value="1">1 мм</option>
               <option :value="2">2 мм</option>
               <option :value="4">4 мм</option>
+              <option :value="5">5 мм</option>
               <option :value="10">10 мм</option>
               <option :value="20">20 мм</option>
             </select>
