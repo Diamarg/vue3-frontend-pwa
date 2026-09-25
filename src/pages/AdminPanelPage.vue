@@ -991,6 +991,21 @@ watch(selectedAssemblyId, () => {
           >
             + Добавить
           </Abutton>
+          <div class="admin-mobile-sort">
+            <select v-model="sortKey" class="admin-select admin-mobile-sort__field">
+              <option value="id">ID</option>
+              <option v-for="col in cfg.columns" :key="col.key" :value="col.key">
+                {{ col.label }}
+              </option>
+            </select>
+            <button
+              class="admin-pagination__btn"
+              @click="sortDir = sortDir === 'asc' ? 'desc' : 'asc'"
+              title="Направление сортировки"
+            >
+              {{ sortDir === 'asc' ? '↑' : '↓' }}
+            </button>
+          </div>
         </div>
 
         <div class="admin-card admin-table-wrap">
@@ -1048,11 +1063,18 @@ watch(selectedAssemblyId, () => {
             </thead>
             <tbody>
               <tr v-for="item in paginatedItems" :key="item.id ?? item.Id" class="admin-table__row">
-                <td class="admin-table__td admin-table__td--id">{{ item.id ?? item.Id }}</td>
-                <td v-for="col in cfg.columns" :key="col.key" class="admin-table__td">
+                <td class="admin-table__td admin-table__td--id" data-label="ID">
+                  {{ item.id ?? item.Id }}
+                </td>
+                <td
+                  v-for="col in cfg.columns"
+                  :key="col.key"
+                  class="admin-table__td"
+                  :data-label="col.label"
+                >
                   {{ displayValue(item, col) }}
                 </td>
-                <td class="admin-table__td admin-table__td--actions">
+                <td class="admin-table__td admin-table__td--actions" data-label="Действия">
                   <button
                     v-if="cfg.showTypeProps"
                     class="admin-table__btn"
@@ -1688,6 +1710,9 @@ watch(selectedAssemblyId, () => {
   display: grid;
   gap: 16px;
 }
+.admin-mobile-sort {
+  display: none;
+}
 .admin-form__group {
   display: grid;
   gap: 4px;
@@ -1849,5 +1874,178 @@ watch(selectedAssemblyId, () => {
   color: #a0aec0;
   font-weight: 400;
   font-size: 12px;
+}
+
+/* ===================== МОБИЛЬНАЯ ВЕРСИЯ ===================== */
+@media (max-width: 768px) {
+  .admin-layout {
+    min-height: 0;
+  }
+
+  /* Сайдбар: компактная верхняя панель с горизонтальной прокруткой навигации */
+  .admin-sidebar {
+    position: static;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid rgb(230, 230, 230);
+    padding: 8px 0;
+    box-shadow: none;
+  }
+  .admin-sidebar__header {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 12px 8px;
+  }
+  .admin-sidebar__title {
+    font-size: 16px;
+  }
+  .admin-sidebar__user-info {
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+  }
+  .admin-nav {
+    flex-direction: row;
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 4px 12px 10px;
+    scrollbar-width: none;
+  }
+  .admin-nav::-webkit-scrollbar {
+    display: none;
+  }
+  .admin-nav__group {
+    display: flex;
+    flex-direction: row;
+    gap: 6px;
+  }
+  .admin-nav__group-title {
+    display: none;
+  }
+  .admin-nav__link {
+    width: auto;
+    flex-shrink: 0;
+    border: 1px solid rgb(230, 230, 230);
+    border-left: 1px solid rgb(230, 230, 230);
+    border-radius: 20px;
+    padding: 9px 14px;
+    font-size: 14px;
+    background-color: #f7fafc;
+    white-space: nowrap;
+  }
+  .admin-nav__link--active {
+    border-color: #6366f1;
+    background-color: #eef2ff;
+  }
+
+  /* Контент: уменьшаем отступы */
+  .admin-content {
+    padding: 12px;
+    gap: 12px;
+  }
+  .admin-card {
+    padding: 14px;
+  }
+  .admin-headbar {
+    gap: 12px;
+  }
+  .admin-empty {
+    padding: 24px 12px;
+  }
+
+  /* Сортировка: доступна только на мобильных (thead скрыт) */
+  .admin-mobile-sort {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    grid-column: 1 / -1;
+  }
+  .admin-mobile-sort__field {
+    flex: 1;
+    max-width: none;
+  }
+
+  /* Селекты: 16px чтобы iOS не приближала страницу при фокусе */
+  .admin-select,
+  .admin-pagination__select {
+    font-size: 16px;
+    padding: 10px;
+  }
+
+  /* Таблица превращается в карточки */
+  .admin-table-wrap {
+    overflow: visible;
+    padding: 0;
+  }
+  .admin-table thead {
+    display: none;
+  }
+  .admin-table,
+  .admin-table tbody {
+    display: block;
+  }
+  .admin-table__row {
+    display: block;
+    margin: 12px;
+    padding: 10px 14px;
+    border: 1px solid rgb(230, 230, 230);
+    border-radius: 10px;
+    box-shadow: 2px 2px 16px -8px rgba(34, 60, 80, 0.15);
+  }
+  .admin-table__td {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    padding: 6px 0;
+    border-bottom: 1px solid rgb(245, 245, 245);
+    font-size: 14px;
+  }
+  .admin-table__td:last-child {
+    border-bottom: none;
+  }
+  .admin-table__td::before {
+    content: attr(data-label);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: #a0aec0;
+    flex-shrink: 0;
+  }
+  .admin-table__td--actions {
+    justify-content: flex-end;
+    gap: 4px;
+  }
+  .admin-table__td--actions::before {
+    content: none;
+  }
+
+  /* Крупные кнопки действий под пальцы */
+  .admin-table__btn {
+    font-size: 20px;
+    padding: 10px 12px;
+  }
+
+  /* Пагинация: в столбик, крупные кнопки */
+  .admin-pagination {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 12px;
+  }
+  .admin-pagination__controls {
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .admin-pagination__btn {
+    min-width: 40px;
+    height: 40px;
+    font-size: 15px;
+  }
 }
 </style>

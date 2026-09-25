@@ -16,6 +16,8 @@ const toast = useToast()
 
 const project = ref(null)
 const assemblies = ref([])
+const loading = ref(true)
+const loadError = ref(false)
 
 const authStore = useAuthStore()
 const pageStore = usePageStore()
@@ -50,34 +52,25 @@ const loadProject = async () => {
 }
 
 const loadAssemblies = async () => {
+  loading.value = true
+  loadError.value = false
   try {
     const data = await projectsApi.getAssembliesByProjectId(route.params.projectId)
     assemblies.value = data || []
   } catch (error) {
-    toast.error('Ошибка загрузки сборок')
+    loadError.value = true
     console.error('Ошибка загрузки сборок:', error)
+  } finally {
+    loading.value = false
   }
 }
 
 const toDevices = (assemblyId) => {
-  router.push(`/${project.value.id}/assemblies/${assemblyId}/devices`)
+  router.push(`/${route.params.projectId}/assemblies/${assemblyId}/devices`)
 }
 
 const toPanelEditor = (assemblyId) => {
-  router.push(`/${project.value.id}/assemblies/${assemblyId}/panelEditor`)
-}
-
-const deleteAssembly = async (assembly) => {
-  if (confirm(`Действительно удалить сборку "${assembly.codeName}"?`)) {
-    try {
-      await projectsApi.deleteAssembly(assembly.id)
-      toast.success('Сборка удалена')
-      await loadAssemblies()
-    } catch (error) {
-      toast.error(`Ошибка удаления: возможно, в сборке есть устройства`)
-      console.error(`Ошибка удаления сборки ${assembly.codeName}`, error)
-    }
-  }
+  router.push(`/${route.params.projectId}/assemblies/${assemblyId}/panelEditor`)
 }
 
 const createAssembly = async () => {
@@ -109,9 +102,8 @@ const createAssembly = async () => {
 }
 
 onMounted(async () => {
-  await loadProject()
-  await loadAssemblies()
-  await authStore.fetchMe()
+  authStore.fetchMe()
+  await Promise.all([loadProject(), loadAssemblies()])
 })
 </script>
 
@@ -162,8 +154,16 @@ onMounted(async () => {
       </div>
     </div>
     <div class="assembly-cards">
+      <!-- === СОСТОЯНИЯ ЗАГРУЗКИ/ОШИБКИ === -->
+      <div v-if="loading" class="gallery__null-photo">Загрузка сборок...</div>
+
+      <div v-else-if="loadError" class="gallery__null-photo">
+        <p>Не удалось загрузить сборки</p>
+        <AButton @click="loadAssemblies" class="retry-btn">Повторить</AButton>
+      </div>
+
       <!-- === СЕТКА КАРТОЧЕК === -->
-      <div v-if="filteredAssemblies.length > 0" class="gallery__cards assembly-grid">
+      <div v-else-if="filteredAssemblies.length > 0" class="gallery__cards assembly-grid">
         <AssemblyCard
           v-for="assembly in filteredAssemblies"
           :key="assembly.id"
@@ -171,7 +171,6 @@ onMounted(async () => {
           :assembly-name="assembly.codeName"
           :description="assembly.description"
           :is-admin="authStore.isAdmin"
-          @onDelete="deleteAssembly(assembly)"
           @toDevices="toDevices(assembly.id)"
           @toPanelEditor="toPanelEditor(assembly.id)"
         />
@@ -206,6 +205,7 @@ onMounted(async () => {
             id="asm-desc"
             v-model="newAssemblyDesc"
             placeholder="Например: Шкаф управления обратным осмосом"
+            @keyup.enter="createAssembly"
           />
         </div>
 
@@ -218,7 +218,7 @@ onMounted(async () => {
           >
             {{ isCreating ? 'Создание...' : 'Создать' }}
           </AButton>
-          <a class="btn-cancel-link" @click="showCreateModal = false">Отмена</a>
+          <button class="btn-cancel-link" @click="showCreateModal = false">Отмена</button>
         </div>
       </div>
     </AModal>
@@ -305,7 +305,10 @@ onMounted(async () => {
 /* Ссылка-кнопка Отмена (в стиле GalleryPage) */
 .btn-cancel-link {
   display: block;
+  width: 100%;
   text-align: center;
+  background: none;
+  border: none;
   margin-top: 12px;
   font-size: 14px;
   color: #718096;
@@ -348,6 +351,10 @@ onMounted(async () => {
   font-size: 48px;
   margin-bottom: 16px;
   opacity: 0.5;
+}
+
+.retry-btn {
+  margin-top: 12px;
 }
 
 /* === ФОРМА В МОДАЛКЕ === */

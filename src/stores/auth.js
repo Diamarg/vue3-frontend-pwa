@@ -78,13 +78,35 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  const userFromToken = () => {
+    try {
+      const payload = JSON.parse(atob(token.value.split('.')[1]))
+      const roles =
+        payload.role || payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role']
+      return {
+        userName: payload.name || payload.unique_name || payload.sub,
+        email: payload.email,
+        fullName: payload.fullName,
+        roles: Array.isArray(roles) ? roles : roles ? [roles] : [],
+      }
+    } catch {
+      return null
+    }
+  }
+
   const fetchMe = async () => {
     if (!token.value) return
     try {
       const response = await api.get('/auth/me')
       user.value = response.data
     } catch (error) {
-      clearToken()
+      if (error.response?.status === 401) {
+        clearToken()
+      } else {
+        // нет сети / сервер недоступен: восстанавливаем пользователя из JWT,
+        // чтобы авторизованный пользователь мог войти в офлайн-оболочку
+        user.value = userFromToken()
+      }
     }
   }
 

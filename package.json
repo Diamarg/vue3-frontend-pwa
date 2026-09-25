@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "deploy": "vite build && cp -r dist /var/www/a-service/",
     "preview": "vite preview",
     "format": "prettier --write --experimental-cli src/"
   },
@@ -20,6 +21,7 @@
     "@vitejs/plugin-vue": "^6.0.5",
     "prettier": "^3.8.1",
     "vite": "^8.0.3",
+    "vite-plugin-pwa": "^1.3.0",
     "vite-plugin-vue-devtools": "^8.1.1"
   },
   "engines": {

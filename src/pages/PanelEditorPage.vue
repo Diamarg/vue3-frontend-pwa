@@ -183,6 +183,14 @@ const panelWidthPx = computed(() => panelWidthMm.value * PIXELS_PER_MM)
 const panelHeightPx = computed(() => panelHeightMm.value * PIXELS_PER_MM)
 
 const scaledPanelWidthPx = computed(() => panelWidthPx.value * currentScale.value)
+
+// На телефоне: подобрать масштаб, чтобы панель целиком влезала в ширину экрана
+const fitZoomToScreen = () => {
+  if (window.innerWidth > 768) return
+  const available = window.innerWidth - 64
+  const fit = Math.round((available / panelWidthPx.value) * 50)
+  zoomPercent.value = Math.max(10, Math.min(50, fit))
+}
 const scaledPanelHeightPx = computed(() => panelHeightPx.value * currentScale.value)
 const scaledRulerSize = computed(() => RULER_SIZE * currentScale.value)
 
@@ -811,6 +819,7 @@ const onPanelChange = () => {
   selectedItem.value = null
   selectedItems.value = []
   resetMeasure()
+  fitZoomToScreen()
 }
 
 const addBox = () => {
@@ -939,6 +948,12 @@ let resizeState = null
 
 const startDrag = (e, item) => {
   if (isMeasuring.value || isSelecting.value) return
+  if (e.pointerType !== 'mouse') {
+    // касание пальцем: только выделение, перетаскивание запрещено
+    selectedItems.value = [item]
+    selectedItem.value = item
+    return
+  }
   if (e.target.classList.contains('resize-handle')) return
   e.preventDefault()
 
@@ -961,6 +976,7 @@ const startDrag = (e, item) => {
 
 const startResize = (e, item, direction) => {
   if (isMeasuring.value || isSelecting.value) return
+  if (e.pointerType !== 'mouse') return // ресайз только мышью
   e.preventDefault()
   selectedItem.value = item
 
@@ -1312,6 +1328,7 @@ const loadAssemblyDevices = async () => {
 onMounted(async () => {
   await loadAssemblyDevices()
   await loadLayoutsList()
+  fitZoomToScreen()
 })
 
 onUnmounted(() => {
@@ -3130,5 +3147,52 @@ a {
 
 .layout-btn--delete:hover {
   background: #dc2626;
+}
+
+/* ===================== МОБИЛЬНАЯ ВЕРСИЯ ===================== */
+@media (max-width: 768px) {
+  .editor-layout {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    height: auto;
+  }
+
+  /* Холст наверху и фиксированной высотой — инструменты под ним */
+  .editor-canvas-wrapper {
+    order: -1;
+    height: 55dvh;
+    padding: 12px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .editor-sidebar {
+    padding: 12px;
+  }
+
+  .sidebar-section {
+    padding: 10px 0;
+  }
+
+  .action-button {
+    min-height: 40px;
+    font-size: 13px;
+  }
+
+  .form-select,
+  .zoom-slider {
+    min-height: 40px;
+  }
+
+  .floating-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+  }
+
+  /* Долгое нажатие не должно выделять текст на элементах панели */
+  .panel-item {
+    -webkit-user-select: none;
+    user-select: none;
+  }
 }
 </style>
