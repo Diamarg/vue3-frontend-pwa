@@ -53,6 +53,7 @@ const sendForm = async () => {
   <div class="login-container">
     <form class="login-form">
       <div class="login-form__header">
+        <img src="/images/logo-a-service.png" alt="А-Сервис" class="login-form__logo" />
         <h3>Вход в систему</h3>
       </div>
       <div class="login-form__inputs">
@@ -122,6 +123,13 @@ const sendForm = async () => {
   text-align: center;
   font-size: 24px;
   color: rgb(114, 114, 114);
+}
+
+.login-form__logo {
+  display: block;
+  width: 100%;
+  max-width: 170px;
+  margin: 0 auto 16px;
 }
 
 .login-form__inputs {
