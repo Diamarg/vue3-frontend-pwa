@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "deploy": "vite build && cp -r dist /var/www/a-service/",
+    "deploy": "vite build && rsync -a --delete dist/ /var/www/a-service/dist/",
     "preview": "vite preview",
     "format": "prettier --write --experimental-cli src/"
   },
