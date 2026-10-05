@@ -20,16 +20,16 @@ const props = defineProps({
         {{ props.codename }}
       </div>
     </div>
-    <hr />
-    <div class="project-card__line">
+    <hr class="customer-separator" />
+    <div class="project-card__line-customer">
       <span class="project-card__line-label">Заказчик:</span
       ><span class="project-card__line-text">{{ props.customer }}</span>
     </div>
-    <div class="project-card__line">
+    <div class="project-card__line-customer">
       <span class="project-card__line-label">Создано:</span
       ><span class="project-card__line-text">{{ formatShortDate(props.creationDate) }}</span>
     </div>
-    <hr />
+    <hr class="info-separator" />
     <div class="project-card__line">
       <span class="project-card__line-label">Фотографий:</span
       ><span class="project-card__line-text">{{ photosCount ? photosCount : 'нет' }}</span>
@@ -42,7 +42,7 @@ const props = defineProps({
       <span class="project-card__line-label">Сборок:</span
       ><span class="project-card__line-text">{{ assembliesCount ? assembliesCount : 'нет' }}</span>
     </div>
-    <hr />
+    <hr class="button-separator" />
     <div class="project-card__links">
       <a class="project-card__link project-card__link--outline" @click="$emit('toGallery')"
         >Галерея</a
@@ -101,10 +101,26 @@ const props = defineProps({
 .project-card__content {
   color: rgb(82, 82, 82);
 }
+
+.project-card__line-customer {
+  display: flex;
+  justify-content: space-between;
+  margin-block: 12px;
+}
+
 .project-card__line {
   display: flex;
   justify-content: space-between;
   margin-block: 12px;
+}
+
+@media (max-width: 600px) {
+  .project-card__line {
+    display: none;
+  }
+  .info-separator {
+    display: none;
+  }
 }
 
 .project-card__description {

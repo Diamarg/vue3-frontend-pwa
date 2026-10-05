@@ -145,7 +145,7 @@ const loadProject = async () => {
   } catch (error) {
     project.value = { codeName: 'Неизвестный проект', customer: 'Заказчик' }
   }
-  pageStore.pageInfo.name = `Галерея "${project.value.codeName}"`
+  pageStore.setEntity(project.value.codeName)
 }
 
 const loadPhotos = async () => {
@@ -333,42 +333,41 @@ onBeforeUnmount(() => {
           <div class="gallery__date-to">
             <span>До: </span><a-input v-model="endDate" type="date" />
           </div>
-          <div>
-            <a-button @click="reversePhotos">
+          <div class="gallery__filter-tools">
+            <a-button class="btn-sort" @click="reversePhotos">
               {{ hasReversedPhotos ? '⬇⬆ ' : '⬆⬇' }}
             </a-button>
-          </div>
 
-          <!-- 4-я колонка: действия и управление выделением -->
-          <div class="gallery__filter-actions">
-            <template v-if="!isSelectionMode">
-              <a-button v-if="hasDateFilterOn" @click="resetDateFilter" class="btn-small">
-                Сброс ({{ filteredPhotos.length }})
-              </a-button>
-              <span class="gallery__total-photos" v-else>Всего: {{ filteredPhotos.length }}</span>
+            <div class="gallery__filter-actions">
+              <template v-if="!isSelectionMode">
+                <a-button v-if="hasDateFilterOn" @click="resetDateFilter" class="btn-small">
+                  Сброс ({{ filteredPhotos.length }})
+                </a-button>
+                <span class="gallery__total-photos" v-else>Всего: {{ filteredPhotos.length }}</span>
 
-              <a-button
-                v-if="authStore.isAdmin && hasPhotos"
-                @click="isSelectionMode = true"
-                class="btn-small btn-select-mode"
-              >
-                Выбрать
-              </a-button>
-            </template>
+                <a-button
+                  v-if="authStore.isAdmin && hasPhotos"
+                  @click="isSelectionMode = true"
+                  class="btn-small btn-select-mode"
+                >
+                  Выбрать
+                </a-button>
+              </template>
 
-            <template v-else>
-              <span class="selection-count">Выбрано: {{ selectedPhotoIds.size }}</span>
-              <a-button
-                @click="deleteSelectedPhotos"
-                class="btn-small btn-danger"
-                :disabled="selectedPhotoIds.size === 0"
-              >
-                Удалить
-              </a-button>
-              <a-button @click="isSelectionMode = false" class="btn-small btn-cancel">
-                Отмена
-              </a-button>
-            </template>
+              <template v-else>
+                <span class="selection-count">Выбрано: {{ selectedPhotoIds.size }}</span>
+                <a-button
+                  @click="deleteSelectedPhotos"
+                  class="btn-small btn-danger"
+                  :disabled="selectedPhotoIds.size === 0"
+                >
+                  Удалить
+                </a-button>
+                <a-button @click="isSelectionMode = false" class="btn-small btn-cancel">
+                  Отмена
+                </a-button>
+              </template>
+            </div>
           </div>
         </div>
 
@@ -563,26 +562,61 @@ onBeforeUnmount(() => {
 .gallery__filter {
   align-items: center;
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
   width: 100%;
 }
 
 .gallery__date-from,
 .gallery__date-to {
-  display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 14px;
+  display: flex;
+  gap: 6px;
+  font-size: 13px;
+  min-width: 0;
 }
 
-/* Адаптация 4-й колонки под новые кнопки */
-.gallery__filter-actions {
+.gallery__date-from span,
+.gallery__date-to span {
+  flex: 0 0 auto;
+}
+
+/* date-инпут шире узкой ячейки, поэтому разрешаем ему сжиматься */
+.gallery__date-from :deep(.input),
+.gallery__date-to :deep(.input) {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-inline: 8px;
+}
+
+.gallery__filter-tools {
+  align-items: center;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.btn-sort {
+  flex: 0 0 auto;
+}
+
+.gallery__filter-actions {
   align-items: center;
+  display: flex;
+  flex: 1 1 160px;
+  flex-wrap: wrap;
+  gap: 8px;
   justify-content: flex-start;
+  min-width: 0;
+}
+
+/* на самых узких экранах две колонки дат не помещаются */
+@media (max-width: 340px) {
+  .gallery__filter {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .btn-small {
@@ -901,15 +935,27 @@ onBeforeUnmount(() => {
     justify-content: space-between;
   }
 
-  /* Возвращаем старую сетку хедера, но 4-ю колонку делаем 1fr, чтобы кнопки не ломали вёрстку */
+  /* date + переворот + действия в одну строку, действия прижаты к правому краю */
   .gallery__filter {
-    grid-template-columns: max-content max-content max-content 1fr;
+    grid-template-columns: max-content max-content 1fr;
     gap: 24px;
     width: auto;
   }
 
+  .gallery__filter-tools {
+    flex-wrap: nowrap;
+    gap: 16px;
+    grid-column: auto;
+  }
+
   .gallery__filter-actions {
+    flex: 1 1 auto;
     justify-content: flex-end;
+  }
+
+  .gallery__date-from :deep(.input),
+  .gallery__date-to :deep(.input) {
+    padding-inline: 16px;
   }
 
   .gallery__date-from,

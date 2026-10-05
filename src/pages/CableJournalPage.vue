@@ -30,6 +30,7 @@ const searchBar = ref('')
 const sortKey = ref('id')
 const sortDir = ref('asc')
 const isSaving = ref(false)
+const isLoadingLines = ref(true)
 
 const columns = [
   { key: 'linePurpose', label: 'Назначение' },
@@ -75,11 +76,14 @@ const loadProject = async () => {
 }
 
 const loadCableLines = async () => {
+  isLoadingLines.value = true
   try {
     cableLines.value = await cableLinesApi.getLines(route.params.projectId)
   } catch (error) {
     toast.error('Не удалось загрузить кабельные линии')
     console.error('Не удалось загрузить кабельные линии', error)
+  } finally {
+    isLoadingLines.value = false
   }
 }
 
@@ -122,6 +126,9 @@ const filteredLines = computed(() => {
     ),
   )
 })
+
+// Сводка и экспорт имеют смысл только когда в журнале есть хотя бы одна линия
+const hasLines = computed(() => cableLines.value.length > 0)
 
 const sortedLines = computed(() => {
   const arr = [...filteredLines.value]
@@ -297,9 +304,10 @@ const totalSummaryLength = computed(() =>
 )
 
 onMounted(async () => {
+  const linesReady = Promise.all([loadCableLines(), loadCableTypes(), loadCrossSections()])
   await loadProject()
-  pageStore.pageInfo.name = `Кабельный журнал: ${project.value?.codeName || 'Проект'}`
-  await Promise.all([loadCableLines(), loadCableTypes(), loadCrossSections()])
+  pageStore.setEntity(project.value?.codeName)
+  await linesReady
   await authStore.fetchMe()
 })
 </script>
@@ -325,8 +333,8 @@ onMounted(async () => {
 
       <div class="assembly-header__actions">
         <a class="admin-headbar__back-btn" @click="router.back()">← Назад</a>
-        <Abutton @click="openSummary" class="summary-btn">📊 Сводка</Abutton>
-        <Abutton @click="exportToTxt" class="export-btn">⬇ Экспорт</Abutton>
+        <Abutton v-if="hasLines" @click="openSummary" class="summary-btn">📊 Сводка</Abutton>
+        <Abutton v-if="hasLines" @click="exportToTxt" class="export-btn">⬇ Экспорт</Abutton>
         <Abutton v-if="authStore.isAdmin" @click="openCreateModal" class="add-line-btn">
           + Добавить линию
         </Abutton>
@@ -335,7 +343,9 @@ onMounted(async () => {
 
     <!-- === ТАБЛИЦА === -->
     <div class="admin-card admin-table-wrap">
-      <div v-if="sortedLines.length === 0" class="admin-empty">
+      <div v-if="isLoadingLines" class="admin-empty">Загрузка...</div>
+
+      <div v-else-if="sortedLines.length === 0" class="admin-empty">
         {{
           searchBar
             ? `По запросу «${searchBar}» ничего не найдено`
@@ -520,7 +530,7 @@ onMounted(async () => {
     <AModal
       class="modal"
       @close-emit="showSummaryModal = false"
-      :title="`Сводка по кабельным линиям ${pageStore.pageInfo.projectName}`"
+      :title="`Сводка по кабельным линиям ${project?.codeName || ''}`"
       :opened="showSummaryModal"
     >
       <div v-if="summaryLoading" class="admin-empty">Загрузка...</div>

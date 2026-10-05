@@ -22,7 +22,8 @@ const pageStore = usePageStore()
 
 // --- Состояние UI ---
 const showModal = ref(false)
-const isLoadingFiles = ref(false)
+const isLoadingFiles = ref(true)
+const isLoadingCategories = ref(true)
 const isSelectionMode = ref(false)
 const showCreateCategory = ref(false)
 const newCategoryName = ref('')
@@ -73,6 +74,7 @@ const getFileIcon = (fileName) => {
 
 // --- Вычисляемые свойства ---
 const hasFiles = computed(() => files.value.length > 0)
+const isListLoading = computed(() => isLoadingFiles.value || isLoadingCategories.value)
 
 const filteredFiles = computed(() => {
   let result = files.value
@@ -143,7 +145,7 @@ const loadProject = async () => {
     console.error('Ошибка загрузки проекта:', error)
     project.value = { codeName: 'Неизвестный проект' }
   }
-  pageStore.pageInfo.name = `Файлы: "${project.value.codeName}"`
+  pageStore.setEntity(project.value.codeName)
 }
 
 const loadFiles = async () => {
@@ -159,11 +161,14 @@ const loadFiles = async () => {
 }
 
 const loadCategories = async () => {
+  isLoadingCategories.value = true
   try {
     categories.value = await filesApi.getCategories(route.params.projectId)
   } catch (error) {
     console.error('Ошибка загрузки категорий:', error)
     toast.error('Не удалось загрузить категории')
+  } finally {
+    isLoadingCategories.value = false
   }
 }
 
@@ -287,9 +292,7 @@ const toggleSelectAll = () => {
 
 // --- Хуки жизненного цикла ---
 onMounted(async () => {
-  await loadProject()
-  await loadCategories()
-  await loadFiles()
+  await Promise.all([loadProject(), loadCategories(), loadFiles()])
 })
 </script>
 
@@ -361,14 +364,14 @@ onMounted(async () => {
         </a-button>
       </div>
 
+      <!-- Загрузка -->
+      <div v-if="isListLoading" class="files__loading">Загрузка...</div>
+
       <!-- Пустое состояние -->
-      <div v-if="!hasFiles && !isLoadingFiles" class="files__null">
+      <div v-else-if="!hasFiles" class="files__null">
         <div class="empty-icon">📁</div>
         <p>Нет загруженных файлов</p>
       </div>
-
-      <!-- Загрузка -->
-      <div v-else-if="isLoadingFiles" class="files__loading">Загрузка...</div>
 
       <!-- Список файлов по категориям -->
       <div v-else-if="groupedFiles.length > 0" class="files__list">
@@ -432,9 +435,15 @@ onMounted(async () => {
         </div>
       </div>
 
-      <!-- Нет результатов фильтрации -->
-      <div v-else-if="filteredFiles.length === 0 && hasFiles" class="files__null">
-        <p>Файлы не найдены по заданным фильтрам</p>
+      <!-- Ни один файл не прошёл фильтрацию либо не имеет категории -->
+      <div v-else class="files__null">
+        <p>
+          {{
+            hasActiveFilters
+              ? 'Файлы не найдены по заданным фильтрам'
+              : 'Нет файлов для отображения'
+          }}
+        </p>
       </div>
     </div>
 
