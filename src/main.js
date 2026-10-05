@@ -4,6 +4,7 @@ import { registerSW } from 'virtual:pwa-register'
 
 import App from './App.vue'
 import router from './router'
+import { getStoredToken } from './utils/token'
 
 import './styles/reset.css'
 import './styles/base.css'
@@ -26,6 +27,10 @@ if (import.meta.env.PROD) {
     })
   }
 }
+
+// Сбрасываем протухший токен до инициализации стора, иначе приложение
+// сочтёт пользователя авторизованным и покажет пустую защищённую страницу
+getStoredToken()
 
 const app = createApp(App)
 

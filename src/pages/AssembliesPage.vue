@@ -48,7 +48,7 @@ const loadProject = async () => {
     console.error('Ошибка загрузки проекта:', error)
     project.value = { codeName: 'Неизвестный проект', customer: 'Заказчик' }
   }
-  pageStore.pageInfo.name = `Сборки "${project.value.codeName}"`
+  pageStore.setEntity(project.value.codeName)
 }
 
 const loadAssemblies = async () => {

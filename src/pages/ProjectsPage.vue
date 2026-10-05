@@ -2,7 +2,6 @@
 import Abutton from '@/components/A-button.vue'
 import { computed, ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
-import { usePageStore } from '@/stores/pages'
 import { onMounted } from 'vue'
 import Ainput from '@/components/A-input.vue'
 import ProjectCard from '@/components/ProjectCard.vue'
@@ -13,7 +12,6 @@ import { useToast } from '@/composables/useToast'
 import { useRouter } from 'vue-router'
 
 const authStore = useAuthStore()
-const pageStore = usePageStore()
 const router = useRouter()
 
 const toast = useToast()
@@ -136,27 +134,22 @@ const saveProject = async () => {
 
 const goToAssemblies = (project) => {
   router.push(`${project.id}/assemblies`)
-  pageStore.pageInfo.projectName = project.codeName
 }
 
 const goToGallery = (project) => {
   router.push(`${project.id}/gallery`)
-  pageStore.pageInfo.projectName = project.codeName
 }
 
 const goToFiles = (project) => {
   router.push(`${project.id}/files`)
-  pageStore.pageInfo.projectName = project.codeName
 }
 
 const toCableJournal = (project) => {
   router.push(`${project.id}/cableJournal`)
-  pageStore.pageInfo.projectName = project.codeName
 }
 
 onMounted(async () => {
   fethProjects()
-  pageStore.pageInfo.name = 'Проекты'
   await authStore.fetchMe()
 })
 </script>

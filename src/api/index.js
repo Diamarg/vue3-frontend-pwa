@@ -17,11 +17,15 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      const isAuthError =
-        error.config?.url?.includes('/login') || error.config?.url?.includes('/auth')
-      if (!isAuthError) {
-        localStorage.removeItem('token')
+    const url = error.config?.url || ''
+    // 401 на логине/регистрации — это неверные данные, а не протухшая сессия
+    const isCredentialsRequest = url.includes('/auth/login') || url.includes('/auth/register')
+
+    if (error.response?.status === 401 && !isCredentialsRequest) {
+      localStorage.removeItem('token')
+      if (window.location.pathname !== '/login') {
+        const redirect = encodeURIComponent(window.location.pathname + window.location.search)
+        window.location.assign(`/login?redirect=${redirect}`)
       }
     }
     console.error('API Error:', error)

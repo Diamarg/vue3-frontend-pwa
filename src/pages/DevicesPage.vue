@@ -75,7 +75,7 @@ const loadProject = async () => {
 const loadAssembly = async () => {
   try {
     assembly.value = await projectsApi.getAssemblyById(route.params.assemblyId)
-    pageStore.pageInfo.name = `Устройства: ${assembly.value?.codeName || 'Сборка'}`
+    pageStore.setEntity(assembly.value?.codeName)
   } catch (error) {
     console.error('Ошибка загрузки сборки:', error)
   }
