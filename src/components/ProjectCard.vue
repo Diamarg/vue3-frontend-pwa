@@ -29,28 +29,26 @@ const props = defineProps({
       <span class="project-card__line-label">Создано:</span
       ><span class="project-card__line-text">{{ formatShortDate(props.creationDate) }}</span>
     </div>
-    <hr class="info-separator" />
-    <div class="project-card__line">
-      <span class="project-card__line-label">Фотографий:</span
-      ><span class="project-card__line-text">{{ photosCount ? photosCount : 'нет' }}</span>
-    </div>
-    <div class="project-card__line">
-      <span class="project-card__line-label">Файлов:</span
-      ><span class="project-card__line-text">{{ filesCount ? filesCount : 'нет' }}</span>
-    </div>
-    <div class="project-card__line">
-      <span class="project-card__line-label">Сборок:</span
-      ><span class="project-card__line-text">{{ assembliesCount ? assembliesCount : 'нет' }}</span>
-    </div>
     <hr class="button-separator" />
     <div class="project-card__links">
       <a class="project-card__link project-card__link--outline" @click="$emit('toGallery')"
-        >Галерея</a
+        >Изображения -
+        <span class="project-card__link-count">{{
+          photosCount ? photosCount + ' шт.' : 'пусто'
+        }}</span>
+      </a>
+      <a class="project-card__link project-card__link--outline" @click="$emit('toFiles')"
+        >Файлы -
+        <span class="project-card__link-count">{{
+          filesCount ? filesCount + ' шт.' : 'пусто'
+        }}</span></a
       >
-      <a class="project-card__link project-card__link--outline" @click="$emit('toFiles')">Файлы</a>
 
       <a class="project-card__link project-card__link--outline" @click="$emit('toAssemblies')"
-        >Сборки</a
+        >Сборки ШУ -
+        <span class="project-card__link-count">{{
+          assembliesCount ? assembliesCount + ' шт.' : 'пусто'
+        }}</span></a
       >
       <a class="project-card__link project-card__link--outline" @click="$emit('toCableJournal')"
         >Кабельный журнал</a
@@ -121,6 +119,10 @@ const props = defineProps({
   .info-separator {
     display: none;
   }
+}
+
+.project-card__link-count {
+  color: rgb(155, 155, 155);
 }
 
 .project-card__description {
