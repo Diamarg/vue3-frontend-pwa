@@ -12,6 +12,7 @@ import { devicesApi } from '@/api/devices'
 import { cableLinesApi } from '@/api/cableLines'
 import { referenceApi } from '@/api/reference'
 import { filesApi } from '@/api/files'
+import { adminUsersApi } from '@/api/adminUsers'
 
 const router = useRouter()
 const toast = useToast()
@@ -355,6 +356,38 @@ const sections = {
     update: (_ctx, id, data) => referenceApi.updateCrossSection(id, data),
     remove: (_ctx, id) => referenceApi.deleteCrossSection(id),
   },
+  users: {
+    label: 'Пользователи',
+    hideCreateButton: true,
+    hideEditButton: true,
+    hideIdColumn: true,
+    showResetPassword: true,
+    showRoles: true,
+    deleteIrreversible: true,
+    defaultSort: 'userName',
+    searchKeys: ['userName', 'fullName', 'email'],
+    columns: [
+      { key: 'userName', label: 'Логин', type: 'text', readonly: true },
+      { key: 'fullName', label: 'ФИО', type: 'text', readonly: true },
+      { key: 'email', label: 'Email', type: 'text', readonly: true },
+      {
+        key: 'roles',
+        label: 'Роли',
+        type: 'text',
+        readonly: true,
+        formatFn: (v) => (v || []).join(', '),
+      },
+      {
+        key: 'createdAt',
+        label: 'Создан',
+        type: 'text',
+        readonly: true,
+        formatFn: formatDateTime,
+      },
+    ],
+    fetch: () => adminUsersApi.getUsers(),
+    remove: (_ctx, id) => adminUsersApi.deleteUser(id),
+  },
 }
 
 const navGroups = [
@@ -373,6 +406,10 @@ const navGroups = [
       'crossSections',
       'fileCategories',
     ],
+  },
+  {
+    title: 'Доступ',
+    keys: ['users'],
   },
 ]
 
@@ -626,7 +663,7 @@ const fetchItems = async () => {
 const initSection = async () => {
   searchBar.value = ''
   currentPage.value = 1
-  sortKey.value = 'id'
+  sortKey.value = cfg.value.defaultSort || 'id'
   sortDir.value = 'asc'
 
   if (cfg.value.needsAssembly && selectedProjectId.value) {
@@ -838,6 +875,7 @@ const save = async () => {
 
 const remove = async (item) => {
   const name =
+    item.userName ??
     item.name ??
     item.codeName ??
     item.value ??
@@ -846,14 +884,98 @@ const remove = async (item) => {
     item.fileName ??
     item.id ??
     item.Id
-  if (!confirm(`Удалить "${name}" (ID: ${item.id ?? item.Id})?`)) return
+  const idPart = cfg.value.hideIdColumn ? '' : ` (ID: ${item.id ?? item.Id})`
+  const irreversible = cfg.value.deleteIrreversible ? ' Это действие необратимо.' : ''
+  if (!confirm(`Удалить "${name}"${idPart}?${irreversible}`)) return
   try {
     await cfg.value.remove(ctx.value, item.id ?? item.Id)
     toast.success('Запись удалена')
     await fetchItems()
   } catch (e) {
-    const msg = e.response?.data || e.message
-    toast.error(typeof msg === 'string' ? msg : 'Ошибка удаления')
+    const data = e.response?.data
+    const msg = typeof data === 'string' ? data : (data?.message ?? e.message)
+    toast.error(msg || 'Ошибка удаления')
+  }
+}
+
+// ===================== СБРОС ПАРОЛЯ ПОЛЬЗОВАТЕЛЯ =====================
+const showPasswordModal = ref(false)
+const passwordTarget = ref(null)
+const newPassword = ref('')
+const confirmPassword = ref('')
+const passwordSaving = ref(false)
+
+const passwordError = computed(() => {
+  if (!newPassword.value && !confirmPassword.value) return ''
+  if (newPassword.value.length < 6) return 'Минимум 6 символов'
+  if (!confirmPassword.value) return 'Повторите пароль'
+  if (newPassword.value !== confirmPassword.value) return 'Пароли не совпадают'
+  return ''
+})
+
+const openResetPassword = (user) => {
+  passwordTarget.value = user
+  newPassword.value = ''
+  confirmPassword.value = ''
+  showPasswordModal.value = true
+}
+
+const savePassword = async () => {
+  if (passwordError.value || !passwordTarget.value) return
+  passwordSaving.value = true
+  try {
+    await adminUsersApi.resetPassword(passwordTarget.value.id, newPassword.value)
+    toast.success(`Пароль пользователя ${passwordTarget.value.userName} изменён`)
+    showPasswordModal.value = false
+  } catch (e) {
+    const errors = e.response?.data?.errors
+    const msg = e.response?.data?.message
+    toast.error(errors?.length ? errors.join('; ') : msg || 'Не удалось изменить пароль')
+  } finally {
+    passwordSaving.value = false
+  }
+}
+
+// ===================== РОЛИ ПОЛЬЗОВАТЕЛЯ =====================
+const roleOptions = ['User', 'Admin']
+const showRolesModal = ref(false)
+const rolesTarget = ref(null)
+const rolesDraft = ref([])
+const rolesSaving = ref(false)
+
+const selectedRoles = computed(() => roleOptions.filter((role) => rolesDraft.value.includes(role)))
+
+const rolesChanged = computed(
+  () =>
+    !!rolesTarget.value && selectedRoles.value.join() !== (rolesTarget.value.roles || []).join(),
+)
+
+const openRoles = (user) => {
+  rolesTarget.value = user
+  rolesDraft.value = [...(user.roles || [])]
+  showRolesModal.value = true
+}
+
+const toggleRole = (role) => {
+  const idx = rolesDraft.value.indexOf(role)
+  if (idx === -1) rolesDraft.value.push(role)
+  else rolesDraft.value.splice(idx, 1)
+}
+
+const saveRoles = async () => {
+  if (!rolesTarget.value || selectedRoles.value.length === 0) return
+  rolesSaving.value = true
+  try {
+    await adminUsersApi.setRoles(rolesTarget.value.id, selectedRoles.value)
+    toast.success(`Роли пользователя ${rolesTarget.value.userName} обновлены`)
+    showRolesModal.value = false
+    await fetchItems()
+  } catch (e) {
+    const data = e.response?.data
+    const msg = typeof data === 'string' ? data : data?.message
+    toast.error(msg || 'Не удалось изменить роли')
+  } finally {
+    rolesSaving.value = false
   }
 }
 
@@ -993,7 +1115,7 @@ watch(selectedAssemblyId, () => {
           </Abutton>
           <div class="admin-mobile-sort">
             <select v-model="sortKey" class="admin-select admin-mobile-sort__field">
-              <option value="id">ID</option>
+              <option v-if="!cfg.hideIdColumn" value="id">ID</option>
               <option v-for="col in cfg.columns" :key="col.key" :value="col.key">
                 {{ col.label }}
               </option>
@@ -1027,6 +1149,7 @@ watch(selectedAssemblyId, () => {
             <thead>
               <tr>
                 <th
+                  v-if="!cfg.hideIdColumn"
                   class="admin-table__th admin-table__th--id admin-table__th--sortable"
                   :class="{ 'admin-table__th--sorted': sortKey === 'id' }"
                   @click="toggleSort('id')"
@@ -1063,7 +1186,11 @@ watch(selectedAssemblyId, () => {
             </thead>
             <tbody>
               <tr v-for="item in paginatedItems" :key="item.id ?? item.Id" class="admin-table__row">
-                <td class="admin-table__td admin-table__td--id" data-label="ID">
+                <td
+                  v-if="!cfg.hideIdColumn"
+                  class="admin-table__td admin-table__td--id"
+                  data-label="ID"
+                >
                   {{ item.id ?? item.Id }}
                 </td>
                 <td
@@ -1091,10 +1218,32 @@ watch(selectedAssemblyId, () => {
                   >
                     📋
                   </button>
-                  <button class="admin-table__btn" @click="openEdit(item)" title="Редактировать">
+                  <button
+                    v-if="cfg.showRoles"
+                    class="admin-table__btn"
+                    @click="openRoles(item)"
+                    title="Роли пользователя"
+                  >
+                    👥
+                  </button>
+                  <button
+                    v-if="cfg.showResetPassword"
+                    class="admin-table__btn"
+                    @click="openResetPassword(item)"
+                    title="Изменить пароль"
+                  >
+                    🔑
+                  </button>
+                  <button
+                    v-if="!cfg.hideEditButton"
+                    class="admin-table__btn"
+                    @click="openEdit(item)"
+                    title="Редактировать"
+                  >
                     ✏️
                   </button>
                   <button
+                    v-if="!cfg.hideDeleteButton"
                     class="admin-table__btn admin-table__btn--del"
                     @click="remove(item)"
                     title="Удалить"
@@ -1235,6 +1384,75 @@ watch(selectedAssemblyId, () => {
               editing ? 'Сохранить' : 'Создать'
             }}</Abutton>
             <a class="admin-form__cancel" @click="showModal = false">Отмена</a>
+          </div>
+        </form>
+      </AModal>
+
+      <!-- МОДАЛКА: Роли пользователя -->
+      <AModal
+        @close-emit="showRolesModal = false"
+        :title="`Роли пользователя ${rolesTarget?.userName || ''}`"
+        :opened="showRolesModal"
+      >
+        <div class="admin-form">
+          <div class="admin-form__roles">
+            <label v-for="role in roleOptions" :key="role" class="admin-form__role">
+              <input
+                type="checkbox"
+                :checked="rolesDraft.includes(role)"
+                @change="toggleRole(role)"
+              />
+              <span>{{ role }}</span>
+            </label>
+          </div>
+          <div class="admin-form__hint">
+            User — доступ к проектам, Admin — ещё и эта панель. Снять Admin с собственной учётной
+            записи нельзя, как и оставить систему без администратора.
+          </div>
+          <div class="admin-form__actions">
+            <Abutton @click="saveRoles" :disabled="!rolesChanged || rolesSaving">
+              {{ rolesSaving ? 'Сохранение...' : 'Сохранить' }}
+            </Abutton>
+            <a class="admin-form__cancel" @click="showRolesModal = false">Отмена</a>
+          </div>
+        </div>
+      </AModal>
+
+      <!-- МОДАЛКА: Изменение пароля пользователя -->
+      <AModal
+        @close-emit="showPasswordModal = false"
+        :title="`Пароль пользователя ${passwordTarget?.userName || ''}`"
+        :opened="showPasswordModal"
+      >
+        <form class="admin-form" @submit.prevent="savePassword">
+          <div class="admin-form__group">
+            <label for="newPassword">Новый пароль*</label>
+            <Ainput
+              id="newPassword"
+              type="password"
+              v-model="newPassword"
+              placeholder="Минимум 6 символов"
+            />
+          </div>
+          <div class="admin-form__group">
+            <label for="confirmPassword">Повторите пароль*</label>
+            <Ainput
+              id="confirmPassword"
+              type="password"
+              v-model="confirmPassword"
+              placeholder="Ещё раз"
+            />
+          </div>
+          <p v-if="passwordError" class="admin-form__error">{{ passwordError }}</p>
+          <div class="admin-form__hint">
+            ⚠️ Новый пароль нужно передать пользователю лично. Старый вход устройства пользователя
+            разорвётся не сразу — токен живёт до 8 часов.
+          </div>
+          <div class="admin-form__actions">
+            <Abutton type="submit" :disabled="!passwordTarget || !!passwordError || passwordSaving">
+              {{ passwordSaving ? 'Сохранение...' : 'Изменить пароль' }}
+            </Abutton>
+            <a class="admin-form__cancel" @click="showPasswordModal = false">Отмена</a>
           </div>
         </form>
       </AModal>
@@ -1721,6 +1939,22 @@ watch(selectedAssemblyId, () => {
   font-size: 13px;
   font-weight: 500;
   color: #4a5568;
+}
+.admin-form__roles {
+  display: grid;
+  gap: 8px;
+}
+.admin-form__role {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  font-size: 14px;
+  gap: 8px;
+}
+.admin-form__role input {
+  cursor: pointer;
+  height: 16px;
+  width: 16px;
 }
 .admin-form__error {
   font-size: 12px;
