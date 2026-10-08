@@ -1564,10 +1564,16 @@ watch(selectedAssemblyId, () => {
 </template>
 
 <style scoped>
+/* навбар съедает 65px сверху, поэтому высота считается от него, иначе
+   админка прокручивается на пустую полосу внизу */
+.global-container {
+  height: auto;
+  min-height: calc(100vh - var(--navbar-height));
+}
 .admin-layout {
   display: grid;
   grid-template-columns: 240px 1fr;
-  min-height: 100vh;
+  min-height: calc(100vh - var(--navbar-height));
   background-color: #f5f7fa;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   color: #2d3748;
@@ -1583,8 +1589,9 @@ watch(selectedAssemblyId, () => {
   box-shadow: 4px 0 30px -10px rgba(34, 60, 80, 0.1);
   padding: 16px 0;
   position: sticky;
-  top: 0;
-  height: 100vh;
+  /* прилипает под навбаром, иначе шапка сайдбара пряталась бы за ним */
+  top: var(--navbar-height);
+  height: calc(100vh - var(--navbar-height));
   overflow-y: auto;
   display: flex;
   flex-direction: column;

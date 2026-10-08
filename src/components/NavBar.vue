@@ -126,10 +126,15 @@ watch(() => route.fullPath, closeMenu)
   grid-template-columns: auto minmax(0, 1fr) auto;
   grid-template-areas: 'back title menu';
   align-items: center;
-  height: 65px;
+  height: var(--navbar-height);
   gap: 10px;
   padding-inline: 16px;
-  position: relative;
+  /* Прилипание вместо fixed: навбар остаётся в потоке, поэтому страницам
+     не приходится добавлять себе отступ сверху */
+  position: sticky;
+  top: 0;
+  /* Выше плавающих кнопок страниц, но ниже модальных окон (z-index 1000) */
+  z-index: 120;
   border-color: rgba(0, 0, 0, 0);
   border-bottom-width: 1px;
   border-bottom-color: rgb(230, 230, 230);

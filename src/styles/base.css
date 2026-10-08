@@ -3,6 +3,9 @@
   background-color: #ffffff;
   font-weight: 200;
   font-size: 15px;
+
+  /* высота прилипающего навбара: страницы вычитают её из 100vh */
+  --navbar-height: 65px;
 }
 
 a {

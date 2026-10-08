@@ -200,9 +200,12 @@ const fitZoomToScreen = () => {
 
   const pad = window.innerWidth <= 768 ? 12 : 24
   const rect = el.getBoundingClientRect()
+  // Навбар прилипает к верху и перекрывает холст, поэтому верхним краем
+  // видимой области считается его нижняя граница, а не ноль экрана
+  const navbarBottom = document.querySelector('.navbar')?.getBoundingClientRect().bottom ?? 0
   // на планшете блок холста не ограничен по высоте и растёт вместе с панелью,
   // поэтому в расчёт идёт только то, что действительно видно на экране
-  const visibleTop = Math.max(rect.top, 0)
+  const visibleTop = Math.max(rect.top, navbarBottom)
   const visibleBottom = Math.min(rect.bottom, window.innerHeight)
   const availW = rect.width - pad * 2
   const availH = visibleBottom - visibleTop - pad * 2
@@ -2254,7 +2257,9 @@ onUnmounted(() => {
 <style scoped>
 /* Глобальный контейнер */
 .global-container {
-  min-height: 100vh;
+  /* навбар съедает 65px сверху, поэтому высота отсчитывается от него */
+  height: auto;
+  min-height: calc(100vh - var(--navbar-height));
   padding: 16px;
   font-family:
     -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
@@ -2266,7 +2271,8 @@ onUnmounted(() => {
   display: grid;
   grid-template-columns: 350px 1fr;
   gap: 16px;
-  height: calc(100vh - 32px);
+  /* минус навбар и отступы контейнера: редактор должен вмещаться в экран целиком */
+  height: calc(100vh - var(--navbar-height) - 32px);
 }
 
 @media (max-width: 1024px) {
@@ -3691,11 +3697,12 @@ onUnmounted(() => {
     display: flex;
   }
 
-  /* Холст наверху и фиксированной высотой — инструменты под ним */
+  /* Холст наверху и фиксированной высотой — инструменты под ним.
+     Прилипает сразу под навбаром, который тоже приклеен к верху */
   .editor-canvas-wrapper {
     order: -1;
     position: sticky;
-    top: 8px;
+    top: calc(var(--navbar-height) + 8px);
     z-index: 5;
     height: 55dvh;
     padding: 12px;
