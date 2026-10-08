@@ -977,19 +977,72 @@ const deleteSelectedItems = () => {
 }
 
 // --- DRAG & RESIZE ---
+// Пальцем элемент двигается только после долгого нажатия: короткий сдвиг означает
+// «панорамируем холст», иначе любой промах пальца ломал бы раскладку
+const LONG_PRESS_MS = 350
+const TAP_SLOP_PX = 10
+
 let dragState = null
 let resizeState = null
+let touchGesture = null
+const isDragging = ref(false)
+
+const beginDrag = (x, y, item, pointerId) => {
+  if (!selectedItems.value.includes(item)) {
+    selectedItems.value = [item]
+    selectedItem.value = item
+  }
+
+  dragState = {
+    type: 'move',
+    pointerId,
+    items: [...selectedItems.value],
+    startPositions: selectedItems.value.map((i) => ({ x: i.x, y: i.y })),
+    startMouseX: x,
+    startMouseY: y,
+  }
+  isDragging.value = true
+}
+
+const attachDragListeners = () => {
+  window.addEventListener('pointermove', onPointerMove)
+  window.addEventListener('pointerup', onPointerUp)
+  window.addEventListener('pointercancel', onPointerUp)
+}
+
+const endTouchGesture = () => {
+  if (touchGesture?.timer) clearTimeout(touchGesture.timer)
+  touchGesture = null
+  window.removeEventListener('pointermove', onTouchMove)
+  window.removeEventListener('pointerup', endTouchGesture)
+  window.removeEventListener('pointercancel', endTouchGesture)
+}
+
+const onTouchMove = (e) => {
+  const g = touchGesture
+  if (!g || e.pointerId !== g.pointerId || dragState) return
+
+  const dx = e.clientX - g.startX
+  const dy = e.clientY - g.startY
+  if (!g.panning && Math.hypot(dx, dy) < TAP_SLOP_PX) return
+
+  if (!g.panning) {
+    clearTimeout(g.timer)
+    g.panning = true
+  }
+
+  // touch-action: none на элементе отбирает у браузера право прокручивать холст
+  // этим пальцем, поэтому сдвиг обрабатываем сами
+  const el = canvasWrapper.value
+  if (el) {
+    el.scrollLeft = g.scrollLeft - dx
+    el.scrollTop = g.scrollTop - dy
+  }
+}
 
 const startDrag = (e, item) => {
   if (isMeasuring.value || isSelecting.value) return
-  if (e.pointerType !== 'mouse') {
-    // касание пальцем: только выделение, перетаскивание запрещено
-    selectedItems.value = [item]
-    selectedItem.value = item
-    return
-  }
   if (e.target.classList.contains('resize-handle')) return
-  e.preventDefault()
 
   if (!selectedItems.value.includes(item)) {
     selectedItems.value = [item]
@@ -998,22 +1051,44 @@ const startDrag = (e, item) => {
 
   if (!canEdit.value) return
 
-  dragState = {
-    type: 'move',
-    items: [...selectedItems.value],
-    startPositions: selectedItems.value.map((i) => ({ x: i.x, y: i.y })),
-    startMouseX: e.clientX,
-    startMouseY: e.clientY,
+  // Мышь и стилус двигают сразу, палец — только после долгого нажатия
+  if (e.pointerType !== 'touch') {
+    e.preventDefault()
+    beginDrag(e.clientX, e.clientY, item, e.pointerId)
+    attachDragListeners()
+    return
   }
 
-  window.addEventListener('pointermove', onPointerMove)
-  window.addEventListener('pointerup', onPointerUp)
+  // Второй палец означает щипок: снимаем ожидание долгого нажатия и активное
+  // перетаскивание, иначе пошло бы за чужим пальцем
+  if (touchGesture && touchGesture.pointerId !== e.pointerId) {
+    endTouchGesture()
+    onPointerUp()
+    return
+  }
+
+  touchGesture = {
+    pointerId: e.pointerId,
+    startX: e.clientX,
+    startY: e.clientY,
+    scrollLeft: canvasWrapper.value?.scrollLeft ?? 0,
+    scrollTop: canvasWrapper.value?.scrollTop ?? 0,
+    panning: false,
+    timer: setTimeout(() => {
+      if (!touchGesture) return
+      navigator.vibrate?.(15)
+      beginDrag(touchGesture.startX, touchGesture.startY, item, touchGesture.pointerId)
+      attachDragListeners()
+    }, LONG_PRESS_MS),
+  }
+  window.addEventListener('pointermove', onTouchMove)
+  window.addEventListener('pointerup', endTouchGesture)
+  window.addEventListener('pointercancel', endTouchGesture)
 }
 
 const startResize = (e, item, direction) => {
   if (!canEdit.value) return
   if (isMeasuring.value || isSelecting.value) return
-  if (e.pointerType !== 'mouse') return // ресайз только мышью
   e.preventDefault()
   selectedItem.value = item
 
@@ -1021,6 +1096,7 @@ const startResize = (e, item, direction) => {
 
   resizeState = {
     type: 'resize',
+    pointerId: e.pointerId,
     item,
     direction,
     startMouseX: e.clientX,
@@ -1030,19 +1106,21 @@ const startResize = (e, item, direction) => {
     startItemW: w,
     startItemH: h,
   }
-  window.addEventListener('pointermove', onPointerMove)
-  window.addEventListener('pointerup', onPointerUp)
+  isDragging.value = true
+  attachDragListeners()
 }
 
 const onPointerMove = (e) => {
+  // жест ведёт только тот палец/мышь, на котором он начался
+  const anchor = dragState || resizeState
+  if (!anchor || e.pointerId !== anchor.pointerId) return
+
   const scale = currentScale.value
   const scaledPixelPerMm = PIXELS_PER_MM * scale
   const margin = panelMarginMm.value
 
-  const rawDxMm =
-    (e.clientX - (dragState?.startMouseX || resizeState?.startMouseX)) / scaledPixelPerMm
-  const rawDyMm =
-    (e.clientY - (dragState?.startMouseY || resizeState?.startMouseY)) / scaledPixelPerMm
+  const rawDxMm = (e.clientX - anchor.startMouseX) / scaledPixelPerMm
+  const rawDyMm = (e.clientY - anchor.startMouseY) / scaledPixelPerMm
 
   if (dragState) {
     dragState.startPositions.forEach((pos, idx) => {
@@ -1184,8 +1262,32 @@ const onPointerUp = () => {
   dragState = null
   resizeState = null
   mousePosition.value = null
+  isDragging.value = false
+  endTouchGesture()
   window.removeEventListener('pointermove', onPointerMove)
   window.removeEventListener('pointerup', onPointerUp)
+  window.removeEventListener('pointercancel', onPointerUp)
+}
+
+// Точная доводка пальцем. Шаг не округляем к сетке: при сетке 10 мм смещение
+// на 1 мм вернулось бы ровно на то же место
+const nudgeStepMm = ref(1)
+
+const moveSelectedItemBy = (dxMm, dyMm) => {
+  if (!canEdit.value || selectedItems.value.length === 0) return
+  const margin = panelMarginMm.value
+
+  selectedItems.value.forEach((item) => {
+    const { w, h } = getDisplaySize(item)
+    let x = item.x + dxMm
+    let y = item.y + dyMm
+    if (x < margin) x = margin
+    if (x + w > panelWidthMm.value - margin) x = panelWidthMm.value - margin - w
+    if (y < margin) y = margin
+    if (y + h > panelHeightMm.value - margin) y = panelHeightMm.value - margin - h
+    item.x = x
+    item.y = y
+  })
 }
 
 const showTrueSize = (width, height) => {
@@ -1195,6 +1297,7 @@ const showTrueSize = (width, height) => {
 
 // --- СОХРАНЕНИЕ И ЗАГРУЗКА ПРОЕКТА ---
 const fileInput = ref(null)
+const canvasWrapper = ref(null)
 
 const triggerImport = () => {
   if (!canEdit.value) return
@@ -1390,6 +1493,9 @@ const mobileTools = computed(() => [
 ])
 
 onMounted(async () => {
+  // Палец, дёргающий панель, не должен случайно вызвать pull-to-refresh всей страницы
+  document.documentElement.classList.add('panel-editor-page')
+
   // Без этого при прямом заходе на страницу user пустой и isAdmin=false даже у администратора
   await authStore.fetchMe()
   await loadAssemblyDevices()
@@ -1398,8 +1504,11 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  document.documentElement.classList.remove('panel-editor-page')
+  endTouchGesture()
   window.removeEventListener('pointermove', onPointerMove)
   window.removeEventListener('pointerup', onPointerUp)
+  window.removeEventListener('pointercancel', onPointerUp)
   window.removeEventListener('mousemove', onWindowMouseMove)
   window.removeEventListener('mouseup', onWindowMouseUp)
 })
@@ -1457,6 +1566,38 @@ onUnmounted(() => {
               >
             </div>
           </div>
+        </div>
+
+        <!-- Точная доводка: пальцем по холсту в 1 мм не попасть -->
+        <div class="sidebar-section" v-if="canEdit && selectedItem && selectedItems.length === 1">
+          <h3 class="section-title">Точное перемещение</h3>
+          <div class="nudge">
+            <div class="nudge__pad">
+              <span></span>
+              <button class="nudge__btn" @click="moveSelectedItemBy(0, -nudgeStepMm)">▲</button>
+              <span></span>
+              <button class="nudge__btn" @click="moveSelectedItemBy(-nudgeStepMm, 0)">◀</button>
+              <span class="nudge__center">{{ selectedItem.x }},{{ selectedItem.y }}</span>
+              <button class="nudge__btn" @click="moveSelectedItemBy(nudgeStepMm, 0)">▶</button>
+              <span></span>
+              <button class="nudge__btn" @click="moveSelectedItemBy(0, nudgeStepMm)">▼</button>
+              <span></span>
+            </div>
+            <div class="nudge__steps">
+              <button
+                v-for="step in [1, 5, 10]"
+                :key="step"
+                :class="['step-chip', { active: nudgeStepMm === step }]"
+                @click="nudgeStepMm = step"
+              >
+                {{ step }} мм
+              </button>
+            </div>
+          </div>
+          <p class="gesture-hint">
+            Удержите палец на элементе около секунды — он «прилипнет» к пальцу. Короткий сдвиг
+            перемещает сам холст.
+          </p>
         </div>
 
         <!-- Множественный выбор -->
@@ -1848,6 +1989,7 @@ onUnmounted(() => {
                 'panel-item',
                 item.type,
                 { selected: selectedItems.includes(item) },
+                { dragging: isDragging && selectedItems.includes(item) },
                 { 'din-rail-vertical': item.type === 'din-rail' && isRotated(item) },
               ]"
               :style="getItemStyle(item)"
@@ -2629,6 +2771,90 @@ onUnmounted(() => {
   font-weight: 500;
 }
 
+/* Двойной тап по кнопке не должен ещё и зумить страницу */
+.tool-btn,
+.zoom-btn,
+.sidebar-back,
+.mtool,
+.nudge__btn,
+.step-chip,
+.floating-btn {
+  touch-action: manipulation;
+}
+
+/* Точное перемещение */
+.nudge {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.nudge__pad {
+  display: grid;
+  grid-template-columns: repeat(3, 44px);
+  grid-template-rows: repeat(3, 44px);
+  gap: 4px;
+}
+
+.nudge__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgb(230, 230, 230);
+  border-radius: 8px;
+  background-color: white;
+  color: #4a5568;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.nudge__btn:hover {
+  border-color: #cbd5e0;
+  background-color: #f7fafc;
+}
+
+.nudge__btn:active {
+  border-color: #6366f1;
+  background-color: #eef2ff;
+  color: #6366f1;
+}
+
+.nudge__center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #718096;
+  font-size: 11px;
+}
+
+.nudge__steps {
+  display: grid;
+  gap: 6px;
+}
+
+.step-chip {
+  padding: 7px 10px;
+  border: 1px solid rgb(230, 230, 230);
+  border-radius: 999px;
+  background-color: white;
+  color: #4a5568;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.step-chip.active {
+  border-color: #6366f1;
+  background-color: #eef2ff;
+  color: #4338ca;
+}
+
+.gesture-hint {
+  margin: 0;
+  color: #718096;
+  font-size: 12px;
+}
+
 /* Кнопки действий */
 .action-button {
   display: flex;
@@ -2678,6 +2904,9 @@ onUnmounted(() => {
   box-shadow: 4px 4px 30px -10px rgba(34, 60, 80, 0.2);
   padding: 24px;
   overflow: auto;
+  /* упёрся холст в край — прокрутка не должна уезжать в страницу */
+  overscroll-behavior: contain;
+  touch-action: pan-x pan-y;
 }
 
 .canvas-container {
@@ -2842,8 +3071,20 @@ onUnmounted(() => {
   justify-content: center;
   cursor: move;
   user-select: none;
+  /* палец на элементе — это жест редактора, а не прокрутка холста */
+  touch-action: none;
+  -webkit-touch-callout: none;
   transition: all 0.2s;
   overflow: visible;
+}
+
+.panel-item.dragging {
+  border-color: #6366f1;
+  box-shadow: 0 10px 24px -8px rgba(99, 102, 241, 0.55);
+  cursor: grabbing;
+  opacity: 0.92;
+  /* переход для координат иначе тащит элемент на 200ms позади пальца */
+  transition: none;
 }
 
 .canvas.read-only .panel-item {
@@ -3448,8 +3689,11 @@ onUnmounted(() => {
 
 /* ===================== МОБИЛЬНАЯ ВЕРСИЯ ===================== */
 @media (max-width: 768px) {
+  /* flex вместо grid: sticky работает только внутри высокого контейнера,
+     в grid-ячейке холст прилипал бы к границам собственной строки */
   .editor-layout {
-    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
     gap: 12px;
     height: auto;
   }
@@ -3466,9 +3710,55 @@ onUnmounted(() => {
   /* Холст наверху и фиксированной высотой — инструменты под ним */
   .editor-canvas-wrapper {
     order: -1;
+    position: sticky;
+    top: 8px;
+    z-index: 5;
     height: 55dvh;
     padding: 12px;
     -webkit-overflow-scrolling: touch;
+  }
+
+  /* Ручки ресайза под палец: 10px попадать невозможно */
+  .resize-handle {
+    width: 22px;
+    height: 22px;
+    border-radius: 5px;
+  }
+
+  .resize-nw,
+  .resize-ne {
+    top: -11px;
+  }
+
+  .resize-sw,
+  .resize-se {
+    bottom: -11px;
+  }
+
+  .resize-nw,
+  .resize-sw {
+    left: -11px;
+  }
+
+  .resize-ne,
+  .resize-se {
+    right: -11px;
+  }
+
+  .resize-n {
+    top: -11px;
+  }
+
+  .resize-s {
+    bottom: -11px;
+  }
+
+  .resize-w {
+    left: -11px;
+  }
+
+  .resize-e {
+    right: -11px;
   }
 
   .editor-sidebar {
@@ -3515,5 +3805,13 @@ onUnmounted(() => {
     -webkit-user-select: none;
     user-select: none;
   }
+}
+</style>
+
+<style>
+/* Только на странице редактора: палец, дёргающий холст, не должен провоцировать
+   pull-to-refresh всей страницы */
+html.panel-editor-page {
+  overscroll-behavior-y: none;
 }
 </style>
