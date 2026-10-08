@@ -5,9 +5,11 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { projectsApi } from '@/api/projects'
 import { panelLayoutsApi } from '@/api/panelLayouts'
+import { useAuthStore } from '@/stores/auth'
 
 const toast = useToast()
 const route = useRoute()
+const authStore = useAuthStore()
 
 // --- КОНСТАНТЫ И НАСТРОЙКИ ---
 const PIXELS_PER_MM = 2
@@ -24,6 +26,9 @@ const currentLayoutId = ref(null) // ID текущего загруженног�
 const layoutsList = ref([]) // Список всех макетов сборки
 const isSavingToDb = ref(false)
 const showLayoutsModal = ref(false)
+
+// Макет правят только администраторы: остальные могут открыть панель и загрузить сохранённый макет
+const canEdit = computed(() => authStore.isAdmin)
 
 const panelMarginMm = ref(20)
 const zoomPercent = ref(40)
@@ -42,6 +47,7 @@ const hasValidDimensions = (dev) => {
 
 // Сохранить в БД (создать новый или обновить текущий)
 const saveToDatabase = async (asNew = false) => {
+  if (!canEdit.value) return
   if (isSavingToDb.value) return
 
   isSavingToDb.value = true
@@ -120,6 +126,7 @@ const loadLayoutsList = async () => {
 
 // Удалить макет из БД
 const deleteLayout = async (layoutId) => {
+  if (!canEdit.value) return
   if (!confirm('Удалить этот макет?')) return
   try {
     await panelLayoutsApi.delete(layoutId)
@@ -135,6 +142,7 @@ const deleteLayout = async (layoutId) => {
 }
 
 const openDeviceModal = () => {
+  if (!canEdit.value) return
   devicePalette.value.forEach((dev) => {
     const available = getAvailableQuantity(dev.id)
     // Выбираем только если есть размеры и устройство доступно
@@ -707,6 +715,7 @@ const applyOrthogonal = (point) => {
 
 // --- ЛОГИКА ИЗМЕРЕНИЯ ---
 const toggleMeasureMode = () => {
+  if (!canEdit.value) return
   isMeasuring.value = !isMeasuring.value
   if (!isMeasuring.value) {
     resetMeasure()
@@ -816,6 +825,7 @@ const onCanvasMouseMove = (e) => {
 
 // --- ЛОГИКА ДОБАВЛЕНИЯ ---
 const onPanelChange = () => {
+  if (!canEdit.value) return
   selectedItem.value = null
   selectedItems.value = []
   resetMeasure()
@@ -823,6 +833,7 @@ const onPanelChange = () => {
 }
 
 const addBox = () => {
+  if (!canEdit.value) return
   const newBox = {
     id: nextId++,
     type: 'box',
@@ -848,6 +859,7 @@ const addBox = () => {
 }
 
 const addDinRail = () => {
+  if (!canEdit.value) return
   const newRail = {
     id: nextId++,
     type: 'din-rail',
@@ -873,6 +885,7 @@ const addDinRail = () => {
 }
 
 const copyItem = () => {
+  if (!canEdit.value) return
   if (!selectedItem.value) return
   if (selectedItem.value.type !== 'box' && selectedItem.value.type !== 'din-rail') return
 
@@ -906,6 +919,7 @@ const copyItem = () => {
 }
 
 const rotateItem = () => {
+  if (!canEdit.value) return
   if (!selectedItem.value) return
   const item = selectedItem.value
   if (item.type !== 'device' && item.type !== 'din-rail') return
@@ -936,6 +950,7 @@ const rotateItem = () => {
 }
 
 const deleteSelectedItems = () => {
+  if (!canEdit.value) return
   if (selectedItems.value.length === 0) return
   items.value = items.value.filter((i) => !selectedItems.value.includes(i))
   selectedItems.value = []
@@ -962,6 +977,8 @@ const startDrag = (e, item) => {
     selectedItem.value = item
   }
 
+  if (!canEdit.value) return
+
   dragState = {
     type: 'move',
     items: [...selectedItems.value],
@@ -975,6 +992,7 @@ const startDrag = (e, item) => {
 }
 
 const startResize = (e, item, direction) => {
+  if (!canEdit.value) return
   if (isMeasuring.value || isSelecting.value) return
   if (e.pointerType !== 'mouse') return // ресайз только мышью
   e.preventDefault()
@@ -1160,6 +1178,7 @@ const showTrueSize = (width, height) => {
 const fileInput = ref(null)
 
 const triggerImport = () => {
+  if (!canEdit.value) return
   fileInput.value?.click()
 }
 
@@ -1195,6 +1214,7 @@ const fallbackExport = () => {
 }
 
 const exportProject = async () => {
+  if (!canEdit.value) return
   const projectData = buildProjectData()
   const jsonString = JSON.stringify(projectData, null, 2)
 
@@ -1259,6 +1279,7 @@ const importProject = (event) => {
 }
 
 const clearProject = () => {
+  if (!canEdit.value) return
   if (items.value.length === 0) return
 
   const confirmed = confirm(
@@ -1326,6 +1347,8 @@ const loadAssemblyDevices = async () => {
 }
 
 onMounted(async () => {
+  // Без этого при прямом заходе на страницу user пустой и isAdmin=false даже у администратора
+  await authStore.fetchMe()
   await loadAssemblyDevices()
   await loadLayoutsList()
   fitZoomToScreen()
@@ -1358,6 +1381,7 @@ onUnmounted(() => {
               id="panel-select"
               v-model="selectedPanelId"
               @change="onPanelChange"
+              :disabled="!canEdit"
               class="form-select"
             >
               <option v-for="p in panels" :key="p.id" :value="p.id">{{ p.h }}x{{ p.w }}</option>
@@ -1374,6 +1398,7 @@ onUnmounted(() => {
               max="50"
               step="10"
               v-model.number="panelMarginMm"
+              :disabled="!canEdit"
               class="form-input"
             />
           </div>
@@ -1418,7 +1443,7 @@ onUnmounted(() => {
               <button
                 @click="saveToDatabase(false)"
                 class="icon-button icon-button--save"
-                :disabled="isSavingToDb"
+                :disabled="isSavingToDb || !canEdit"
                 :title="currentLayoutId ? 'Сохранить в БД' : 'Создать макет в БД'"
               >
                 {{ isSavingToDb ? '⏳' : '💾' }}
@@ -1426,7 +1451,7 @@ onUnmounted(() => {
               <button
                 @click="saveToDatabase(true)"
                 class="icon-button icon-button--save"
-                :disabled="isSavingToDb"
+                :disabled="isSavingToDb || !canEdit"
                 title="Сохранить как новый макет"
               >
                 📝
@@ -1441,6 +1466,7 @@ onUnmounted(() => {
               <button
                 @click="exportProject"
                 class="icon-button icon-button--save"
+                :disabled="!canEdit"
                 title="Скачать файл"
               >
                 ⬇️
@@ -1448,21 +1474,33 @@ onUnmounted(() => {
               <button
                 @click="triggerImport"
                 class="icon-button icon-button--load"
+                :disabled="!canEdit"
                 title="Загрузить из файла"
               >
                 📂
               </button>
-              <button @click="clearProject" class="icon-button icon-button--clear" title="Очистить">
+              <button
+                @click="clearProject"
+                class="icon-button icon-button--clear"
+                :disabled="!canEdit"
+                title="Очистить"
+              >
                 🧹
               </button>
             </div>
             <div class="tools-group">
-              <button @click="addBox" class="icon-button icon-button--add" title="Добавить короб">
+              <button
+                @click="addBox"
+                class="icon-button icon-button--add"
+                :disabled="!canEdit"
+                title="Добавить короб"
+              >
                 ▢
               </button>
               <button
                 @click="addDinRail"
                 class="icon-button icon-button--rail"
+                :disabled="!canEdit"
                 title="Добавить DIN-рейку"
               >
                 ═
@@ -1470,6 +1508,7 @@ onUnmounted(() => {
               <button
                 @click="openDeviceModal"
                 class="icon-button icon-button--device"
+                :disabled="!canEdit"
                 title="Добавить устройство"
               >
                 ⚡
@@ -1487,6 +1526,7 @@ onUnmounted(() => {
               <button
                 @click="toggleMeasureMode"
                 :class="['icon-button', { active: isMeasuring }]"
+                :disabled="!canEdit"
                 title="Измерить расстояние"
               >
                 📏
@@ -1501,6 +1541,9 @@ onUnmounted(() => {
               </button>
             </div>
           </div>
+          <p v-if="!canEdit" class="readonly-hint">
+            Режим просмотра: изменять панель может только администратор. Макет загрузить можно.
+          </p>
         </div>
 
         <div class="sidebar-section" v-if="pointA && pointB">
@@ -1534,7 +1577,7 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <div class="sidebar-section" v-if="selectedItems.length > 1">
+        <div class="sidebar-section" v-if="canEdit && selectedItems.length > 1">
           <h3 class="section-title">Выбрано: {{ selectedItems.length }}</h3>
           <button @click="deleteSelectedItems" class="action-button action-button--danger">
             <span class="button-icon">🗑</span>
@@ -1608,6 +1651,7 @@ onUnmounted(() => {
               'measure-mode': isMeasuring,
               'select-mode': isSelecting,
               'grid-enabled': isGridEnabled,
+              'read-only': !canEdit,
             }"
             :style="canvasStyle"
             @click="onCanvasClick"
@@ -1709,7 +1753,7 @@ onUnmounted(() => {
             </svg>
 
             <div
-              v-if="selectedItems.length === 1 && selectedItem"
+              v-if="canEdit && selectedItems.length === 1 && selectedItem"
               class="floating-actions"
               :style="floatingActionsStyle"
             >
@@ -1764,7 +1808,10 @@ onUnmounted(() => {
 
               <template
                 v-if="
-                  item.type === 'box' && selectedItems.length === 1 && selectedItems[0] === item
+                  canEdit &&
+                  item.type === 'box' &&
+                  selectedItems.length === 1 &&
+                  selectedItems[0] === item
                 "
               >
                 <div
@@ -1803,6 +1850,7 @@ onUnmounted(() => {
 
               <template
                 v-if="
+                  canEdit &&
                   item.type === 'din-rail' &&
                   selectedItems.length === 1 &&
                   selectedItems[0] === item
@@ -1960,7 +2008,11 @@ onUnmounted(() => {
                   <button @click="loadAndCloseModal(layout.id)" class="layout-btn layout-btn--load">
                     Загрузить
                   </button>
-                  <button @click="deleteLayout(layout.id)" class="layout-btn layout-btn--delete">
+                  <button
+                    v-if="canEdit"
+                    @click="deleteLayout(layout.id)"
+                    class="layout-btn layout-btn--delete"
+                  >
                     🗑️
                   </button>
                 </div>
@@ -2127,6 +2179,12 @@ a {
   gap: 8px;
 }
 
+.readonly-hint {
+  color: #718096;
+  font-size: 13px;
+  margin: 8px 0 0;
+}
+
 .tools-group {
   display: flex;
   gap: 4px;
@@ -2151,6 +2209,17 @@ a {
   box-shadow: 4px 4px 20px -10px rgba(34, 60, 80, 0.3);
   border-color: #cbd5e0;
   transform: translateY(-1px);
+}
+
+.icon-button:disabled,
+.icon-button:disabled:hover {
+  background-color: white;
+  border-color: rgb(230, 230, 230);
+  box-shadow: none;
+  color: inherit;
+  cursor: default;
+  opacity: 0.45;
+  transform: none;
 }
 
 .icon-button.active {
@@ -2596,6 +2665,10 @@ a {
   user-select: none;
   transition: all 0.2s;
   overflow: visible;
+}
+
+.canvas.read-only .panel-item {
+  cursor: default;
 }
 
 .panel-item.device {
