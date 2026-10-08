@@ -1,6 +1,5 @@
 <script setup>
 import { useToast } from '@/composables/useToast'
-import router from '@/router'
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { projectsApi } from '@/api/projects'
@@ -1538,13 +1537,10 @@ onUnmounted(() => {
       <!-- Боковая панель управления -->
       <aside class="editor-sidebar">
         <div class="sidebar-header">
-          <div class="sidebar-header__text">
-            <h2 class="sidebar-title">Монтажная панель</h2>
-            <p class="sidebar-subtitle">
-              Проект {{ route.params.projectId }} · Сборка {{ route.params.assemblyId }}
-            </p>
-          </div>
-          <button class="sidebar-back" @click="router.back()" title="Назад к сборке">←</button>
+          <h2 class="sidebar-title">Монтажная панель</h2>
+          <p class="sidebar-subtitle">
+            Проект {{ route.params.projectId }} · Сборка {{ route.params.assemblyId }}
+          </p>
         </div>
 
         <div class="status-chip" :class="allDevicesAdded ? 'status-chip--ok' : 'status-chip--warn'">
@@ -2294,13 +2290,8 @@ onUnmounted(() => {
 }
 
 .sidebar-header {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-}
-
-.sidebar-header__text {
-  min-width: 0;
+  display: grid;
+  gap: 4px;
 }
 
 .sidebar-title {
@@ -2311,33 +2302,9 @@ onUnmounted(() => {
 }
 
 .sidebar-subtitle {
-  margin: 4px 0 0;
+  margin: 0;
   font-size: 12px;
   color: #718096;
-}
-
-.sidebar-back {
-  margin-left: auto;
-  flex: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: 1px solid rgb(230, 230, 230);
-  border-radius: 8px;
-  background-color: white;
-  color: #4a5568;
-  font-size: 16px;
-  cursor: pointer;
-  transition:
-    background-color 0.2s,
-    border-color 0.2s;
-}
-
-.sidebar-back:hover {
-  border-color: #cbd5e0;
-  background-color: #f7fafc;
 }
 
 /* Проверка комплектности: все ли устройства сборки разложены на панели */
@@ -2792,7 +2759,6 @@ onUnmounted(() => {
 /* Двойной тап по кнопке не должен ещё и зумить страницу */
 .tool-btn,
 .zoom-btn,
-.sidebar-back,
 .mtool,
 .nudge__btn,
 .step-chip,
@@ -3799,13 +3765,8 @@ onUnmounted(() => {
 
   /* Под пальцем кнопки должны быть не меньше 44px */
   .tool-btn,
-  .zoom-btn,
-  .sidebar-back {
+  .zoom-btn {
     min-height: 44px;
-  }
-
-  .sidebar-back {
-    width: 44px;
   }
 
   .tool-btn {

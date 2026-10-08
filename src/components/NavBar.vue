@@ -1,5 +1,5 @@
 <template>
-  <div class="navbar">
+  <div class="navbar" :class="{ 'navbar--back': showBack }">
     <button v-if="showBack" class="navbar-back" aria-label="Назад" @click="goBack">←</button>
 
     <div class="navbar-pagename">{{ pageStore.title }}</div>
@@ -148,6 +148,19 @@ watch(() => route.fullPath, closeMenu)
   font-size: 20px;
   color: rgb(60, 60, 60);
   background-color: rgb(245, 245, 245);
+  transition: background-color 0.2s;
+}
+
+.navbar-back:focus-visible {
+  outline: 2px solid rgb(99, 102, 241);
+  outline-offset: 2px;
+}
+
+/* Наведение имеет смысл только там, где есть курсор */
+@media (hover: hover) {
+  .navbar-back:hover {
+    background-color: rgb(230, 230, 230);
+  }
 }
 
 .navbar-pagename {
@@ -237,7 +250,7 @@ watch(() => route.fullPath, closeMenu)
   color: rgb(173, 0, 0);
 }
 
-/* === ДЕСКТОП: название, ссылки и аккаунт в одну строку, меню не нужен === */
+/* === ДЕСКТОП: «назад», название, ссылки и аккаунт в одну строку, меню не нужен === */
 @media (min-width: 701px) {
   .navbar {
     grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
@@ -246,7 +259,13 @@ watch(() => route.fullPath, closeMenu)
     padding-inline: 24px;
   }
 
-  .navbar-back,
+  .navbar--back {
+    /* отдельная колонка под «назад» появляется только когда кнопка есть,
+       иначе на главной у названия лишний сдвиг */
+    grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr);
+    grid-template-areas: 'back title links account';
+  }
+
   .navbar-menu-btn,
   .navbar-menu,
   .navbar-backdrop {
