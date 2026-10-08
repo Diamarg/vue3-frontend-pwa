@@ -192,18 +192,36 @@ const panelHeightPx = computed(() => panelHeightMm.value * PIXELS_PER_MM)
 
 const scaledPanelWidthPx = computed(() => panelWidthPx.value * currentScale.value)
 
-// Масштаб, при котором панель целиком влезает в свободную ширину окна.
-// 420px — это сайдбар с зазором и отступами страницы, 64px — отступы на телефоне
-const fitZoomToWidth = () => {
-  const reserved = window.innerWidth > 768 ? 420 : 64
-  const fit = Math.round(((window.innerWidth - reserved) / panelWidthPx.value) * 50)
-  zoomPercent.value = Math.max(10, Math.min(50, fit))
+// Вписать панель целиком. Берём минимум из ширины и высоты: на широком экране
+// узким местом почти всегда высота, а не ширина. Ограничения считаем по
+// фактическим границам блока холста, а не по догадке о ширине сайдбара.
+const fitZoomToScreen = () => {
+  const el = canvasWrapper.value
+  if (!el) return
+
+  const pad = window.innerWidth <= 768 ? 12 : 24
+  const rect = el.getBoundingClientRect()
+  // на планшете блок холста не ограничен по высоте и растёт вместе с панелью,
+  // поэтому в расчёт идёт только то, что действительно видно на экране
+  const visibleTop = Math.max(rect.top, 0)
+  const visibleBottom = Math.min(rect.bottom, window.innerHeight)
+  const availW = rect.width - pad * 2
+  const availH = visibleBottom - visibleTop - pad * 2
+  if (availW <= 0 || availH <= 0) return
+
+  // размер контейнера = масштаб × (линейка + панель в px при масштабе 100%)
+  const spanX = RULER_SIZE + panelWidthPx.value
+  const spanY = RULER_SIZE + panelHeightPx.value
+  const scale = Math.min(availW / spanX, availH / spanY)
+
+  zoomPercent.value = Math.max(10, Math.min(50, Math.round(scale * 50)))
 }
 
-// На телефоне: подобрать масштаб, чтобы панель целиком влезала в ширину экрана
-const fitZoomToScreen = () => {
+// Автоподбор масштаба (открытие страницы, смена шкафа) — только на телефоне,
+// чтобы не перебивать сохранённый пользователем масштаб на десктопе
+const autoFitZoom = () => {
   if (window.innerWidth > 768) return
-  fitZoomToWidth()
+  fitZoomToScreen()
 }
 
 const zoomOut = () => {
@@ -848,7 +866,7 @@ const onPanelChange = () => {
   selectedItem.value = null
   selectedItems.value = []
   resetMeasure()
-  fitZoomToScreen()
+  autoFitZoom()
 }
 
 const addBox = () => {
@@ -1500,7 +1518,7 @@ onMounted(async () => {
   await authStore.fetchMe()
   await loadAssemblyDevices()
   await loadLayoutsList()
-  fitZoomToScreen()
+  autoFitZoom()
 })
 
 onUnmounted(() => {
@@ -1776,7 +1794,7 @@ onUnmounted(() => {
             <button class="zoom-btn" @click="zoomOut" title="Уменьшить">−</button>
             <span class="zoom-value">{{ zoomPercent * 2 }}%</span>
             <button class="zoom-btn" @click="zoomIn" title="Увеличить">+</button>
-            <button class="zoom-btn zoom-btn--fit" @click="fitZoomToWidth">По размеру</button>
+            <button class="zoom-btn zoom-btn--fit" @click="fitZoomToScreen">По размеру</button>
           </div>
           <input
             type="range"
