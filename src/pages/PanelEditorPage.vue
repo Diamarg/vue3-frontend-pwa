@@ -192,12 +192,26 @@ const panelHeightPx = computed(() => panelHeightMm.value * PIXELS_PER_MM)
 
 const scaledPanelWidthPx = computed(() => panelWidthPx.value * currentScale.value)
 
+// Масштаб, при котором панель целиком влезает в свободную ширину окна.
+// 420px — это сайдбар с зазором и отступами страницы, 64px — отступы на телефоне
+const fitZoomToWidth = () => {
+  const reserved = window.innerWidth > 768 ? 420 : 64
+  const fit = Math.round(((window.innerWidth - reserved) / panelWidthPx.value) * 50)
+  zoomPercent.value = Math.max(10, Math.min(50, fit))
+}
+
 // На телефоне: подобрать масштаб, чтобы панель целиком влезала в ширину экрана
 const fitZoomToScreen = () => {
   if (window.innerWidth > 768) return
-  const available = window.innerWidth - 64
-  const fit = Math.round((available / panelWidthPx.value) * 50)
-  zoomPercent.value = Math.max(10, Math.min(50, fit))
+  fitZoomToWidth()
+}
+
+const zoomOut = () => {
+  zoomPercent.value = Math.max(10, zoomPercent.value - 5)
+}
+
+const zoomIn = () => {
+  zoomPercent.value = Math.min(50, zoomPercent.value + 5)
 }
 const scaledPanelHeightPx = computed(() => panelHeightPx.value * currentScale.value)
 const scaledRulerSize = computed(() => RULER_SIZE * currentScale.value)
@@ -263,6 +277,11 @@ const getAvailableQuantity = (devId) => {
   if (!dev) return 0
   return Math.max(0, dev.quantity - getDeviceUsedCount(devId))
 }
+
+// Сколько устройств сборки ещё ждёт своего места на панели
+const devicesLeftToAdd = computed(() =>
+  devicePalette.value.reduce((sum, dev) => sum + getAvailableQuantity(dev.id), 0),
+)
 
 // ✅ ИСПРАВЛЕНИЕ: учитываем hasValidDimensions в проверке возможности добавления
 const canAddDevices = computed(() => {
@@ -1346,6 +1365,30 @@ const loadAssemblyDevices = async () => {
   }
 }
 
+// Быстрые инструменты внизу экрана для телефона — остальное есть в сайдбаре
+const mobileTools = computed(() => [
+  {
+    icon: isSavingToDb.value ? '⏳' : '💾',
+    label: 'Сохранить',
+    run: () => saveToDatabase(false),
+    disabled: () => isSavingToDb.value,
+  },
+  { icon: '⚡', label: 'Устройства', run: () => openDeviceModal() },
+  {
+    icon: '📏',
+    label: 'Измерить',
+    run: () => toggleMeasureMode(),
+    active: () => isMeasuring.value,
+  },
+  { icon: '▢', label: 'Короб', run: () => addBox() },
+  { icon: '═', label: 'Рейка', run: () => addDinRail() },
+  {
+    icon: '📋',
+    label: 'Макеты',
+    run: () => (showLayoutsModal.value = true),
+  },
+])
+
 onMounted(async () => {
   // Без этого при прямом заходе на страницу user пустой и isAdmin=false даже у администратора
   await authStore.fetchMe()
@@ -1367,224 +1410,28 @@ onUnmounted(() => {
     <div class="editor-layout">
       <!-- Боковая панель управления -->
       <aside class="editor-sidebar">
-        <a @click="router.back()">Назад</a>
-        <div class="sidebar-section">
-          <h2 class="sidebar-title">
-            Редактор панелей {{ route.params.projectId }} - {{ route.params.assemblyId }}
-          </h2>
-        </div>
-
-        <div class="sidebar-section">
-          <div class="form-group">
-            <label for="panel-select">Размер шкафа управления (В х Ш)</label>
-            <select
-              id="panel-select"
-              v-model="selectedPanelId"
-              @change="onPanelChange"
-              :disabled="!canEdit"
-              class="form-select"
-            >
-              <option v-for="p in panels" :key="p.id" :value="p.id">{{ p.h }}x{{ p.w }}</option>
-            </select>
+        <div class="sidebar-header">
+          <div class="sidebar-header__text">
+            <h2 class="sidebar-title">Монтажная панель</h2>
+            <p class="sidebar-subtitle">
+              Проект {{ route.params.projectId }} · Сборка {{ route.params.assemblyId }}
+            </p>
           </div>
-        </div>
-        <div class="sidebar-section">
-          <div class="form-group">
-            <label for="panel-margin">Зона пустоты (мм)</label>
-            <input
-              id="panel-margin"
-              type="number"
-              min="10"
-              max="50"
-              step="10"
-              v-model.number="panelMarginMm"
-              :disabled="!canEdit"
-              class="form-input"
-            />
-          </div>
-          <div class="grid-controls">
-            <label class="grid-toggle">
-              <input type="checkbox" v-model="isGridEnabled" class="grid-checkbox" />
-              <span class="grid-label">Сетка</span>
-            </label>
-            <select
-              v-if="isGridEnabled"
-              v-model.number="gridSizeMm"
-              class="form-select grid-size-select"
-            >
-              <option :value="1">1 мм</option>
-              <option :value="2">2 мм</option>
-              <option :value="4">4 мм</option>
-              <option :value="5">5 мм</option>
-              <option :value="10">10 мм</option>
-              <option :value="20">20 мм</option>
-            </select>
-          </div>
+          <button class="sidebar-back" @click="router.back()" title="Назад к сборке">←</button>
         </div>
 
-        <div class="sidebar-section">
-          <div class="form-group">
-            <label>Масштаб: {{ zoomPercent * 2 }}%</label>
-            <input
-              type="range"
-              min="10"
-              max="50"
-              step="1"
-              v-model.number="zoomPercent"
-              class="zoom-slider"
-            />
-          </div>
+        <div class="status-chip" :class="allDevicesAdded ? 'status-chip--ok' : 'status-chip--warn'">
+          <span class="status-chip__dot"></span>
+          <span>{{
+            allDevicesAdded ? 'Все устройства на панели' : 'Не все устройства добавлены'
+          }}</span>
         </div>
 
-        <div class="sidebar-section">
-          <h3 class="section-title">Инструменты</h3>
-          <div class="tools-grid">
-            <div class="tools-group">
-              <button
-                @click="saveToDatabase(false)"
-                class="icon-button icon-button--save"
-                :disabled="isSavingToDb || !canEdit"
-                :title="currentLayoutId ? 'Сохранить в БД' : 'Создать макет в БД'"
-              >
-                {{ isSavingToDb ? '⏳' : '💾' }}
-              </button>
-              <button
-                @click="saveToDatabase(true)"
-                class="icon-button icon-button--save"
-                :disabled="isSavingToDb || !canEdit"
-                title="Сохранить как новый макет"
-              >
-                📝
-              </button>
-              <button
-                @click="showLayoutsModal = true"
-                class="icon-button icon-button--load"
-                title="Список макетов"
-              >
-                📋
-              </button>
-              <button
-                @click="exportProject"
-                class="icon-button icon-button--save"
-                :disabled="!canEdit"
-                title="Скачать файл"
-              >
-                ⬇️
-              </button>
-              <button
-                @click="triggerImport"
-                class="icon-button icon-button--load"
-                :disabled="!canEdit"
-                title="Загрузить из файла"
-              >
-                📂
-              </button>
-              <button
-                @click="clearProject"
-                class="icon-button icon-button--clear"
-                :disabled="!canEdit"
-                title="Очистить"
-              >
-                🧹
-              </button>
-            </div>
-            <div class="tools-group">
-              <button
-                @click="addBox"
-                class="icon-button icon-button--add"
-                :disabled="!canEdit"
-                title="Добавить короб"
-              >
-                ▢
-              </button>
-              <button
-                @click="addDinRail"
-                class="icon-button icon-button--rail"
-                :disabled="!canEdit"
-                title="Добавить DIN-рейку"
-              >
-                ═
-              </button>
-              <button
-                @click="openDeviceModal"
-                class="icon-button icon-button--device"
-                :disabled="!canEdit"
-                title="Добавить устройство"
-              >
-                ⚡
-              </button>
-            </div>
+        <p v-if="!canEdit" class="readonly-hint">
+          Режим просмотра: изменять панель может только администратор. Макет загрузить можно.
+        </p>
 
-            <input
-              ref="fileInput"
-              type="file"
-              accept=".json"
-              style="display: none"
-              @change="importProject"
-            />
-            <div class="tools-group">
-              <button
-                @click="toggleMeasureMode"
-                :class="['icon-button', { active: isMeasuring }]"
-                :disabled="!canEdit"
-                title="Измерить расстояние"
-              >
-                📏
-              </button>
-              <button
-                v-if="isMeasuring"
-                @click="toggleOrthogonal"
-                :class="['icon-button', 'icon-button--ortho', { active: isOrthogonal }]"
-                title="Ортогональный режим"
-              >
-                ⊞
-              </button>
-            </div>
-          </div>
-          <p v-if="!canEdit" class="readonly-hint">
-            Режим просмотра: изменять панель может только администратор. Макет загрузить можно.
-          </p>
-        </div>
-
-        <div class="sidebar-section" v-if="pointA && pointB">
-          <h3 class="section-title">Измерение</h3>
-          <div class="measure-result">
-            <p v-if="isOrthogonal" class="mode-hint"><span class="hint-icon">📐</span> Орто</p>
-            <div class="result-grid">
-              <div class="result-item">
-                <span class="result-label">L:</span>
-                <span class="result-value">{{ measureResult.distance }} мм</span>
-              </div>
-              <div class="result-item">
-                <span class="result-label">ΔX:</span>
-                <span class="result-value">{{ measureResult.dx }} мм</span>
-              </div>
-              <div class="result-item">
-                <span class="result-label">ΔY:</span>
-                <span class="result-value">{{ measureResult.dy }} мм</span>
-              </div>
-            </div>
-            <div class="coords-grid">
-              <div class="coord-item">
-                <span class="coord-label">A:</span>
-                <span class="coord-value">({{ pointA.x }}, {{ pointA.y }})</span>
-              </div>
-              <div class="coord-item">
-                <span class="coord-label">B:</span>
-                <span class="coord-value">({{ pointB.x }}, {{ pointB.y }})</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="sidebar-section" v-if="canEdit && selectedItems.length > 1">
-          <h3 class="section-title">Выбрано: {{ selectedItems.length }}</h3>
-          <button @click="deleteSelectedItems" class="action-button action-button--danger">
-            <span class="button-icon">🗑</span>
-            <span>Удалить выбранные</span>
-          </button>
-        </div>
-
+        <!-- Свойства выбранного элемента -->
         <div class="sidebar-section" v-if="selectedItem && selectedItems.length === 1">
           <h3 class="section-title">Свойства</h3>
           <div class="properties-grid">
@@ -1612,12 +1459,220 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <div v-if="allDevicesAdded" class="modal-status modal-status--success">
-          <span>Все устройства добавлены на монтажную панель</span>
+        <!-- Множественный выбор -->
+        <div class="sidebar-section" v-if="canEdit && selectedItems.length > 1">
+          <h3 class="section-title">Выбрано элементов: {{ selectedItems.length }}</h3>
+          <button @click="deleteSelectedItems" class="action-button action-button--danger">
+            <span class="button-icon">🗑</span>
+            <span>Удалить выбранные</span>
+          </button>
         </div>
-        <div v-else class="modal-status modal-status--not-success">
-          <span>Не все устройства добавлены на монтажную панель!</span>
+
+        <!-- Добавление элементов -->
+        <div class="sidebar-section" v-if="canEdit">
+          <h3 class="section-title">Добавить</h3>
+          <div class="tool-grid">
+            <button @click="addBox" class="tool-btn tool-btn--add">
+              <span class="tool-btn__icon">▢</span>
+              <span>Короб</span>
+            </button>
+            <button @click="addDinRail" class="tool-btn tool-btn--rail">
+              <span class="tool-btn__icon">═</span>
+              <span>DIN-рейка</span>
+            </button>
+            <button
+              @click="openDeviceModal"
+              class="tool-btn tool-btn--device tool-btn--wide"
+              title="Устройства сборки, которые ещё не разложены на панели"
+            >
+              <span class="tool-btn__icon">⚡</span>
+              <span>Устройства</span>
+              <span class="tool-btn__count">{{ devicesLeftToAdd }}</span>
+            </button>
+          </div>
         </div>
+
+        <!-- Работа с макетом -->
+        <div class="sidebar-section">
+          <h3 class="section-title">Макет</h3>
+          <div class="tool-grid">
+            <button
+              @click="saveToDatabase(false)"
+              class="tool-btn tool-btn--save"
+              :disabled="isSavingToDb || !canEdit"
+              :title="currentLayoutId ? 'Обновить текущий макет' : 'Создать новый макет в базе'"
+            >
+              <span class="tool-btn__icon">{{ isSavingToDb ? '⏳' : '💾' }}</span>
+              <span>{{ currentLayoutId ? 'Сохранить' : 'Создать' }}</span>
+            </button>
+            <button
+              @click="saveToDatabase(true)"
+              class="tool-btn tool-btn--save"
+              :disabled="isSavingToDb || !canEdit"
+            >
+              <span class="tool-btn__icon">📝</span>
+              <span>Сохранить как</span>
+            </button>
+            <button @click="showLayoutsModal = true" class="tool-btn tool-btn--load tool-btn--wide">
+              <span class="tool-btn__icon">📋</span>
+              <span>Загрузить макет</span>
+              <span class="tool-btn__count">{{ layoutsList.length }}</span>
+            </button>
+            <button @click="exportProject" class="tool-btn" :disabled="!canEdit">
+              <span class="tool-btn__icon">⬇️</span>
+              <span>Скачать JSON</span>
+            </button>
+            <button @click="triggerImport" class="tool-btn" :disabled="!canEdit">
+              <span class="tool-btn__icon">📂</span>
+              <span>Загрузить из файла</span>
+            </button>
+            <button
+              @click="clearProject"
+              class="tool-btn tool-btn--danger tool-btn--wide"
+              :disabled="!canEdit"
+            >
+              <span class="tool-btn__icon">🧹</span>
+              <span>Очистить панель</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Измерение -->
+        <div class="sidebar-section" v-if="canEdit">
+          <h3 class="section-title">Измерение</h3>
+          <div class="tool-grid">
+            <button
+              @click="toggleMeasureMode"
+              :class="['tool-btn', 'tool-btn--measure', 'tool-btn--wide', { active: isMeasuring }]"
+            >
+              <span class="tool-btn__icon">📏</span>
+              <span>{{ isMeasuring ? 'Выход из измерения' : 'Измерить расстояние' }}</span>
+            </button>
+            <button
+              v-if="isMeasuring"
+              @click="toggleOrthogonal"
+              :class="['tool-btn', 'tool-btn--ortho', 'tool-btn--wide', { active: isOrthogonal }]"
+            >
+              <span class="tool-btn__icon">⊞</span>
+              <span>Ортогональный режим</span>
+            </button>
+          </div>
+
+          <div v-if="pointA && pointB" class="measure-result">
+            <p v-if="isOrthogonal" class="mode-hint"><span class="hint-icon">📐</span> Орто</p>
+            <div class="result-grid">
+              <div class="result-item">
+                <span class="result-label">L:</span>
+                <span class="result-value">{{ measureResult.distance }} мм</span>
+              </div>
+              <div class="result-item">
+                <span class="result-label">ΔX:</span>
+                <span class="result-value">{{ measureResult.dx }} мм</span>
+              </div>
+              <div class="result-item">
+                <span class="result-label">ΔY:</span>
+                <span class="result-value">{{ measureResult.dy }} мм</span>
+              </div>
+            </div>
+            <div class="coords-grid">
+              <div class="coord-item">
+                <span class="coord-label">A:</span>
+                <span class="coord-value">({{ pointA.x }}, {{ pointA.y }})</span>
+              </div>
+              <div class="coord-item">
+                <span class="coord-label">B:</span>
+                <span class="coord-value">({{ pointB.x }}, {{ pointB.y }})</span>
+              </div>
+            </div>
+          </div>
+          <p v-else class="measure-hint">
+            {{
+              isMeasuring
+                ? pointA
+                  ? 'Теперь кликните точку B'
+                  : 'Кликните на панели точку A'
+                : 'Расстояние между двумя точками панели'
+            }}
+          </p>
+        </div>
+
+        <!-- Параметры панели -->
+        <div class="sidebar-section">
+          <h3 class="section-title">Размер шкафа</h3>
+          <div class="form-group">
+            <label for="panel-select">В х Ш</label>
+            <select
+              id="panel-select"
+              v-model="selectedPanelId"
+              @change="onPanelChange"
+              :disabled="!canEdit"
+              class="form-select"
+            >
+              <option v-for="p in panels" :key="p.id" :value="p.id">
+                {{ p.h }} × {{ p.w }} мм
+              </option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="panel-margin">Зона пустоты, мм</label>
+            <input
+              id="panel-margin"
+              type="number"
+              min="10"
+              max="50"
+              step="10"
+              v-model.number="panelMarginMm"
+              :disabled="!canEdit"
+              class="form-input"
+            />
+          </div>
+        </div>
+
+        <!-- Вид: масштаб и сетка -->
+        <div class="sidebar-section">
+          <h3 class="section-title">Вид</h3>
+          <div class="zoom-row">
+            <button class="zoom-btn" @click="zoomOut" title="Уменьшить">−</button>
+            <span class="zoom-value">{{ zoomPercent * 2 }}%</span>
+            <button class="zoom-btn" @click="zoomIn" title="Увеличить">+</button>
+            <button class="zoom-btn zoom-btn--fit" @click="fitZoomToWidth">По размеру</button>
+          </div>
+          <input
+            type="range"
+            min="10"
+            max="50"
+            step="1"
+            v-model.number="zoomPercent"
+            class="zoom-slider"
+            aria-label="Масштаб"
+          />
+          <div class="grid-controls">
+            <label class="grid-toggle">
+              <input type="checkbox" v-model="isGridEnabled" class="grid-checkbox" />
+              <span class="grid-label">Сетка</span>
+            </label>
+            <select
+              v-if="isGridEnabled"
+              v-model.number="gridSizeMm"
+              class="form-select grid-size-select"
+            >
+              <option :value="1">1 мм</option>
+              <option :value="2">2 мм</option>
+              <option :value="4">4 мм</option>
+              <option :value="5">5 мм</option>
+              <option :value="10">10 мм</option>
+              <option :value="20">20 мм</option>
+            </select>
+          </div>
+        </div>
+
+        <input
+          ref="fileInput"
+          type="file"
+          accept=".json"
+          class="visually-hidden"
+          @change="importProject"
+        />
       </aside>
 
       <!-- Основная область (Холст) -->
@@ -1883,6 +1938,21 @@ onUnmounted(() => {
       </main>
     </div>
 
+    <!-- Быстрые инструменты внизу экрана: на телефоне холст сверху, до сайдбара далеко тянуться -->
+    <nav class="mobile-toolbar" v-if="canEdit">
+      <button
+        v-for="tool in mobileTools"
+        :key="tool.label"
+        class="mtool"
+        :class="{ 'mtool--active': tool.active && tool.active() }"
+        :disabled="tool.disabled && tool.disabled()"
+        @click="tool.run()"
+      >
+        <span class="mtool__icon">{{ tool.icon }}</span>
+        <span class="mtool__label">{{ tool.label }}</span>
+      </button>
+    </nav>
+
     <!-- Модальное окно добавления устройств -->
     <Teleport to="body">
       <div v-if="showDeviceModal" class="modal-overlay" @click.self="closeDeviceModal">
@@ -2026,10 +2096,6 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-a {
-  justify-self: start;
-}
-
 /* Глобальный контейнер */
 .global-container {
   min-height: 100vh;
@@ -2067,11 +2133,82 @@ a {
   align-content: start;
 }
 
+.sidebar-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.sidebar-header__text {
+  min-width: 0;
+}
+
 .sidebar-title {
   font-size: 18px;
   font-weight: 600;
   margin: 0;
   color: #2d3748;
+}
+
+.sidebar-subtitle {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #718096;
+}
+
+.sidebar-back {
+  margin-left: auto;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgb(230, 230, 230);
+  border-radius: 8px;
+  background-color: white;
+  color: #4a5568;
+  font-size: 16px;
+  cursor: pointer;
+  transition:
+    background-color 0.2s,
+    border-color 0.2s;
+}
+
+.sidebar-back:hover {
+  border-color: #cbd5e0;
+  background-color: #f7fafc;
+}
+
+/* Проверка комплектности: все ли устройства сборки разложены на панели */
+.status-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.status-chip--ok {
+  background-color: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+}
+
+.status-chip--warn {
+  background-color: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+}
+
+.status-chip__dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: currentColor;
 }
 
 .section-title {
@@ -2173,137 +2310,173 @@ a {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-/* Инструменты */
-.tools-grid {
+/* Быстрые инструменты */
+.readonly-hint {
+  background-color: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  color: #92400e;
+  font-size: 13px;
+  margin: 0;
+  padding: 10px 12px;
+}
+
+.tool-grid {
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
-.readonly-hint {
-  color: #718096;
-  font-size: 13px;
-  margin: 8px 0 0;
-}
-
-.tools-group {
-  display: flex;
-  gap: 4px;
-}
-
-.icon-button {
+.tool-btn {
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
+  gap: 8px;
+  min-height: 40px;
+  padding: 8px 10px;
   border: 1px solid rgb(230, 230, 230);
-  border-radius: 6px;
+  border-radius: 8px;
   background-color: white;
-  font-size: 18px;
+  color: #2d3748;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
   cursor: pointer;
-  transition: all 0.3s;
-  position: relative;
+  transition:
+    background-color 0.2s,
+    border-color 0.2s,
+    box-shadow 0.2s;
 }
 
-.icon-button:hover {
-  box-shadow: 4px 4px 20px -10px rgba(34, 60, 80, 0.3);
+.tool-btn:hover:not(:disabled) {
+  background-color: #f7fafc;
   border-color: #cbd5e0;
-  transform: translateY(-1px);
+  box-shadow: 4px 4px 20px -10px rgba(34, 60, 80, 0.3);
 }
 
-.icon-button:disabled,
-.icon-button:disabled:hover {
-  background-color: white;
+.tool-btn:disabled {
   border-color: rgb(230, 230, 230);
-  box-shadow: none;
-  color: inherit;
   cursor: default;
   opacity: 0.45;
-  transform: none;
 }
 
-.icon-button.active {
-  background-color: #6366f1;
+.tool-btn__icon {
+  flex: none;
+  width: 18px;
+  font-size: 16px;
+  text-align: center;
+}
+
+.tool-btn__count {
+  flex: none;
+  margin-left: auto;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background-color: #edf2f7;
+  color: #718096;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.tool-btn--wide {
+  grid-column: 1 / -1;
+}
+
+.tool-btn--add .tool-btn__icon {
+  color: #d97706;
+}
+
+.tool-btn--rail .tool-btn__icon {
+  color: #475569;
+}
+
+.tool-btn--device .tool-btn__icon {
+  color: #8b5cf6;
+}
+
+.tool-btn--save .tool-btn__icon {
+  color: #059669;
+}
+
+.tool-btn--load .tool-btn__icon {
+  color: #2563eb;
+}
+
+.tool-btn--measure .tool-btn__icon {
+  color: #6366f1;
+}
+
+.tool-btn--ortho .tool-btn__icon {
+  color: #10b981;
+}
+
+.tool-btn--danger {
+  color: #ef4444;
+}
+
+.tool-btn--danger:hover:not(:disabled) {
+  border-color: #ef4444;
+  background-color: #fef2f2;
+}
+
+.tool-btn.active {
   border-color: #6366f1;
+  background-color: #6366f1;
+  color: white;
   box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
 }
 
-.icon-button--ortho.active {
-  background-color: #10b981;
+.tool-btn.active .tool-btn__icon,
+.tool-btn.active .tool-btn__count {
+  color: white;
+}
+
+.tool-btn--ortho.active {
   border-color: #10b981;
+  background-color: #10b981;
   box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
 }
 
-.icon-button--add {
-  background-color: #ffffff;
-  color: rgb(12, 12, 12);
-  border-color: #e6e6e6;
+/* Масштаб */
+.zoom-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.icon-button--add:hover {
-  background-color: #d97706;
-  border-color: #d97706;
-  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+.zoom-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  min-width: 32px;
+  padding: 0 10px;
+  border: 1px solid rgb(230, 230, 230);
+  border-radius: 8px;
+  background-color: white;
+  color: #4a5568;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 0.2s,
+    border-color 0.2s;
 }
 
-.icon-button--rail {
-  background-color: #ffffff;
-  color: rgb(0, 0, 0);
-  border-color: #e6e6e6;
+.zoom-btn:hover {
+  border-color: #cbd5e0;
+  background-color: #f7fafc;
 }
 
-.icon-button--rail:hover {
-  background-color: #475569;
-  border-color: #475569;
-  box-shadow: 0 4px 12px rgba(100, 116, 139, 0.3);
+.zoom-btn--fit {
+  margin-left: auto;
 }
 
-.icon-button--device {
-  background-color: #ffffff;
-  color: rgb(0, 0, 0);
-  border-color: #e6e6e6;
-}
-
-.icon-button--device:hover {
-  background-color: #8b5cf6;
-  border-color: #8b5cf6;
-  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
-}
-
-.icon-button--save {
-  background-color: #ffffff;
-  color: white;
-  border-color: #e6e6e6;
-}
-
-.icon-button--save:hover {
-  background-color: #059669;
-  border-color: #059669;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
-}
-
-.icon-button--load {
-  background-color: #ffffff;
-  color: white;
-  border-color: #e6e6e6;
-}
-
-.icon-button--load:hover {
-  background-color: #2563eb;
-  border-color: #2563eb;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-}
-
-.icon-button--clear {
-  background-color: #ffffff;
-  color: white;
-  border-color: #e6e6e6;
-}
-
-.icon-button--clear:hover {
-  background-color: #dc2626;
-  border-color: #dc2626;
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+.zoom-value {
+  min-width: 48px;
+  color: #2d3748;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
 }
 
 /* Сетка */
@@ -2342,12 +2515,18 @@ a {
 }
 
 /* Результат измерения */
+.measure-hint {
+  margin: 0;
+  font-size: 12px;
+  color: #718096;
+}
+
 .measure-result {
   display: grid;
   gap: 8px;
   padding: 12px;
   background-color: #f7fafc;
-  border-radius: 6px;
+  border-radius: 8px;
   border: 1px solid rgb(230, 230, 230);
 }
 
@@ -2897,29 +3076,6 @@ a {
   flex: 1;
 }
 
-.modal-status {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  margin-bottom: 12px;
-}
-
-.modal-status--success {
-  background-color: #d1fae5;
-  color: #065f46;
-  border: 1px solid #86efac;
-}
-
-.modal-status--not-success {
-  background-color: #fad1d1;
-  color: #5f0606;
-  border: 1px solid #ef8686;
-}
-
 .modal-footer {
   display: flex;
   justify-content: flex-end;
@@ -3222,12 +3378,89 @@ a {
   background: #dc2626;
 }
 
+/* Импорт файла: input нужен только как ref, на экране его быть не должно */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Нижняя панель быстрых инструментов — видна только на телефоне */
+.mobile-toolbar {
+  display: none;
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 30;
+  gap: 4px;
+  padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+  background-color: rgb(255, 255, 255);
+  border-top: 1px solid rgb(230, 230, 230);
+  box-shadow: 0 -4px 20px -10px rgba(34, 60, 80, 0.3);
+}
+
+.mtool {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-height: 50px;
+  padding: 6px 2px;
+  border: none;
+  border-radius: 8px;
+  background-color: transparent;
+  color: #4a5568;
+  cursor: pointer;
+}
+
+.mtool:active:not(:disabled) {
+  background-color: #edf2f7;
+}
+
+.mtool--active {
+  background-color: #eef2ff;
+  color: #6366f1;
+}
+
+.mtool:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.mtool__icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.mtool__label {
+  font-size: 10px;
+  font-weight: 500;
+}
+
 /* ===================== МОБИЛЬНАЯ ВЕРСИЯ ===================== */
 @media (max-width: 768px) {
   .editor-layout {
     grid-template-columns: 1fr;
     gap: 12px;
     height: auto;
+  }
+
+  /* Компенсируем высоту нижней панели, чтобы последний блок сайдбара не залезал под неё */
+  .global-container {
+    padding-bottom: 84px;
+  }
+
+  .mobile-toolbar {
+    display: flex;
   }
 
   /* Холст наверху и фиксированной высотой — инструменты под ним */
@@ -3254,6 +3487,21 @@ a {
   .form-select,
   .zoom-slider {
     min-height: 40px;
+  }
+
+  /* Под пальцем кнопки должны быть не меньше 44px */
+  .tool-btn,
+  .zoom-btn,
+  .sidebar-back {
+    min-height: 44px;
+  }
+
+  .sidebar-back {
+    width: 44px;
+  }
+
+  .tool-btn {
+    font-size: 14px;
   }
 
   .floating-btn {
