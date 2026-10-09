@@ -98,7 +98,6 @@ const sections = {
   },
   devices: {
     label: 'Устройства',
-    showValues: true,
     searchKeys: ['article', 'description'],
     columns: [
       { key: 'article', label: 'Артикул', type: 'text', required: true },
@@ -546,55 +545,6 @@ watch(
     await loadPropertiesForForm(newTypeId, null)
   },
 )
-
-// ===================== МОДАЛКА ЗНАЧЕНИЙ СВОЙСТВ =====================
-const showValuesModal = ref(false)
-const valuesDevice = ref(null)
-const valuesLoading = ref(false)
-const propertyRows = ref([])
-
-const openValues = async (device) => {
-  valuesDevice.value = device
-  propertyRows.value = []
-  showValuesModal.value = true
-  valuesLoading.value = true
-  try {
-    if (unitsCache.value.length === 0) unitsCache.value = await referenceApi.getUnits()
-    const [props, values] = await Promise.all([
-      referenceApi.getPropertiesByTypeId(device.deviceTypeId ?? device.DeviceTypeId),
-      devicesApi.getDeviceValues(device.id ?? device.Id),
-    ])
-    propertyRows.value = (props || []).map((p) => {
-      const existing = (values || []).find((v) => v.id === (p.id ?? p.Id))
-      const unit = unitsCache.value.find((u) => u.id === (p.unitId ?? p.UnitId))
-      return {
-        propertyId: p.id ?? p.Id,
-        name: p.name ?? p.Name,
-        unitSymbol: unit ? (unit.symbol ?? unit.Symbol ?? unit.name ?? unit.Name) : '',
-        value: existing ? (existing.value ?? existing.Value ?? '') : '',
-      }
-    })
-  } catch (e) {
-    toast.error('Не удалось загрузить свойства устройства')
-  } finally {
-    valuesLoading.value = false
-  }
-}
-
-const saveValues = async () => {
-  try {
-    const payload = propertyRows.value.map((row) => ({
-      id: row.propertyId,
-      value: row.value === '' ? null : String(row.value),
-      unit: row.unitSymbol ?? '',
-    }))
-    await devicesApi.updateDeviceValues(valuesDevice.value.id ?? valuesDevice.value.Id, payload)
-    toast.success('Значения свойств сохранены')
-    showValuesModal.value = false
-  } catch (e) {
-    toast.error('Ошибка при сохранении значений')
-  }
-}
 
 // ===================== СОРТИРОВКА И ПАГИНАЦИЯ =====================
 const sortKey = ref('id')
@@ -1211,14 +1161,6 @@ watch(selectedAssemblyId, () => {
                     ⚙️
                   </button>
                   <button
-                    v-if="cfg.showValues"
-                    class="admin-table__btn"
-                    @click="openValues(item)"
-                    title="Значения свойств"
-                  >
-                    📋
-                  </button>
-                  <button
                     v-if="cfg.showRoles"
                     class="admin-table__btn"
                     @click="openRoles(item)"
@@ -1524,40 +1466,6 @@ watch(selectedAssemblyId, () => {
         <div class="admin-form__actions" style="margin-top: 24px">
           <a class="admin-form__cancel" @click="showTypePropsModal = false">Закрыть</a>
         </div>
-      </AModal>
-
-      <!-- МОДАЛКА: Значения свойств устройства -->
-      <AModal
-        @close-emit="showValuesModal = false"
-        :title="
-          valuesDevice
-            ? `Свойства: ${valuesDevice.article ?? valuesDevice.description ?? valuesDevice.id ?? valuesDevice.Id}`
-            : 'Значения свойств'
-        "
-        :opened="showValuesModal"
-      >
-        <div v-if="valuesLoading" class="admin-empty">Загрузка...</div>
-        <div v-else-if="propertyRows.length === 0" class="admin-empty">
-          Для типа этого устройства не настроены свойства
-        </div>
-        <form v-else class="values-form" @submit.prevent="saveValues">
-          <div v-for="row in propertyRows" :key="row.propertyId" class="values-row">
-            <label class="values-row__label" :for="`prop-${row.propertyId}`">
-              {{ row.name
-              }}<span v-if="row.unitSymbol" class="values-row__unit">, {{ row.unitSymbol }}</span>
-            </label>
-            <input
-              :id="`prop-${row.propertyId}`"
-              class="values-input"
-              v-model="row.value"
-              :placeholder="row.unitSymbol ? `Значение (${row.unitSymbol})` : 'Значение'"
-            />
-          </div>
-          <div class="admin-form__actions">
-            <Abutton type="submit">Сохранить</Abutton>
-            <a class="admin-form__cancel" @click="showValuesModal = false">Отмена</a>
-          </div>
-        </form>
       </AModal>
     </div>
   </div>
