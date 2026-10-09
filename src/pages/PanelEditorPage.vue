@@ -1525,6 +1525,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   document.documentElement.classList.remove('panel-editor-page')
+  printPageStyle?.remove()
   endTouchGesture()
   window.removeEventListener('pointermove', onPointerMove)
   window.removeEventListener('pointerup', onPointerUp)
@@ -1532,10 +1533,52 @@ onUnmounted(() => {
   window.removeEventListener('mousemove', onWindowMouseMove)
   window.removeEventListener('mouseup', onWindowMouseUp)
 })
+
+// ===================== ПЕЧАТЬ A4 =====================
+// Холст уходит на печать как DOM, а не как картинка: браузер рисует чертёж
+// вектором, поэтому разрешение равно разрешению принтера
+const PRINT_MARGIN_MM = 10
+const A4_MM = { portrait: { w: 210, h: 297 }, landscape: { w: 297, h: 210 } }
+const CSS_PX_PER_MM = 96 / 25.4
+
+// широкая панель — на альбомный лист, узкая — на книжный
+const printLandscape = computed(() => panelWidthMm.value > panelHeightMm.value)
+
+// во сколько раз раздуть холст, чтобы панель заняла всю печатную область;
+// на экране он уже умножен на currentScale, поэтому масштаба экрана не касается
+const printZoom = computed(() => {
+  const page = printLandscape.value ? A4_MM.landscape : A4_MM.portrait
+  const fitWidth =
+    ((page.w - 2 * PRINT_MARGIN_MM) * CSS_PX_PER_MM) / (panelWidthPx.value * currentScale.value)
+  const fitHeight =
+    ((page.h - 2 * PRINT_MARGIN_MM) * CSS_PX_PER_MM) / (panelHeightPx.value * currentScale.value)
+  return Math.min(fitWidth, fitHeight)
+})
+
+// @page не опишешь в scoped-стилях страницы (он действовал бы на всё приложение)
+// и он не знает про размеры панели, поэтому правило живёт в отдельном теге в head
+let printPageStyle = null
+
+const syncPrintPageRule = () => {
+  if (!printPageStyle) {
+    printPageStyle = document.createElement('style')
+    document.head.appendChild(printPageStyle)
+  }
+  const orientation = printLandscape.value ? 'landscape' : 'portrait'
+  printPageStyle.textContent = `@page { size: A4 ${orientation}; margin: ${PRINT_MARGIN_MM}mm }`
+}
+
+// immediate: чтобы Ctrl+P без нажатия кнопки тоже попал на правильный лист
+watch(printLandscape, syncPrintPageRule, { immediate: true })
+
+const printPanel = () => {
+  syncPrintPageRule()
+  window.print()
+}
 </script>
 
 <template>
-  <div class="global-container">
+  <div class="global-container" :style="{ '--print-zoom': printZoom }">
     <div class="editor-layout">
       <!-- Боковая панель управления -->
       <aside class="editor-sidebar">
@@ -1683,6 +1726,14 @@ onUnmounted(() => {
             <button @click="triggerImport" class="tool-btn" :disabled="!canEdit">
               <span class="tool-btn__icon">📂</span>
               <span>Загрузить из файла</span>
+            </button>
+            <button
+              @click="printPanel"
+              class="tool-btn tool-btn--wide"
+              :title="`Панель целиком на одном листе A4 (${printLandscape ? 'альбом' : 'книжная'})`"
+            >
+              <span class="tool-btn__icon">🖨</span>
+              <span>Печать A4</span>
             </button>
             <button
               @click="clearProject"
@@ -3790,6 +3841,60 @@ onUnmounted(() => {
   .panel-item {
     -webkit-user-select: none;
     user-select: none;
+  }
+}
+
+/* ===================== ПЕЧАТЬ ===================== */
+/* На лист отправляется только холст: линейки, сетка, красная зона отступа и весь
+   интерфейс редактора нужны на экране, а не на монтажной схеме */
+@media print {
+  .editor-sidebar,
+  .ruler,
+  .measure-svg,
+  .floating-actions,
+  .size-tooltip {
+    display: none !important;
+  }
+
+  .global-container,
+  .editor-layout,
+  .editor-canvas-wrapper,
+  .canvas-container {
+    display: block;
+    position: static;
+    width: auto;
+    max-width: none;
+    height: auto;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    overflow: visible;
+    box-shadow: none;
+    background: none;
+  }
+
+  .canvas {
+    position: static;
+    left: auto;
+    top: auto;
+    background-color: #fff;
+    border: 1px solid #cbd5e0;
+    box-shadow: none;
+    /* zoom, а не transform: он пересчитывает поток, и холст не вылезает за лист */
+    zoom: var(--print-zoom);
+    /* цвета рейок и приборов помогают читать чертёж */
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .canvas.grid-enabled {
+    background-image: none;
+  }
+
+  .panel-item.selected {
+    outline: 0;
+    box-shadow: none;
   }
 }
 </style>

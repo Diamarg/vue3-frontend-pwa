@@ -64,3 +64,12 @@ label {
   white-space: normal; /* Убирает nowrap, если он где-то задан */
   max-width: 100%; /* Ограничивает ширину родителем */
 }
+
+/* Навбар живёт в App.vue и в scoped-стилях страницы его не скрыть. Класс
+   html.panel-editor-page ставит редактор панелей, поэтому с печатью
+   монтажного листа он не мешает, а другие страницы не затронуты */
+@media print {
+  html.panel-editor-page .navbar {
+    display: none;
+  }
+}
