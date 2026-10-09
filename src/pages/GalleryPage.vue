@@ -372,7 +372,7 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="gallery__upload-btn-wrapper">
-          <a-button @click="showModal = true">Загрузить фото</a-button>
+          <a-button v-if="authStore.isAdmin" @click="showModal = true">Загрузить фото</a-button>
         </div>
       </div>
 

@@ -52,7 +52,7 @@ const props = defineProps({
         }}</span></a
       >
       <a class="project-card__link project-card__link--outline" @click="$emit('toCableJournal')"
-        >Кабельный журнал -
+        >Кабельные линии -
         <span class="project-card__link-count">{{
           cableLinesCount ? cableLinesCount + ' шт.' : 'пусто'
         }}</span></a

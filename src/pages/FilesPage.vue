@@ -337,7 +337,7 @@ onMounted(async () => {
           </div>
         </div>
 
-        <div class="files__upload-btn-wrapper">
+        <div v-if="authStore.isAdmin" class="files__upload-btn-wrapper">
           <a-button @click="showModal = true">Загрузить файл</a-button>
         </div>
       </div>
