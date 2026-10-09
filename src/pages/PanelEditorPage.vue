@@ -1571,6 +1571,21 @@ const syncPrintPageRule = () => {
 // immediate: чтобы Ctrl+P без нажатия кнопки тоже попал на правильный лист
 watch(printLandscape, syncPrintPageRule, { immediate: true })
 
+// Подпись на холсте в 11 px, а холст при печати сжимается в printZoom раз: у
+// панели в 1200 мм буквы выходят ~1.3 мм и не читаются. Здесь задаём кегль
+// именно на листе: 7 pt — это ~2.5 мм, заглавная буква получается около 1.8 мм.
+// Чем крупнее ставим, тем сильнее подписи залезают за пределы узких приборов
+const PRINT_LABEL_PT = 7
+const PRINT_LABEL_BASE_PX = 11
+// в CSS 1 pt = 1/72 дюйма, а дюйм — 96 px: значит в 1 pt ровно 96/72 px
+const PX_PER_PT = 96 / 72
+
+const printLabelPx = computed(() => {
+  const neededPx = (PRINT_LABEL_PT * PX_PER_PT) / printZoom.value
+  // подписи только растём: уменьшать то, что и так читается, незачем
+  return Math.max(PRINT_LABEL_BASE_PX, neededPx)
+})
+
 const printPanel = () => {
   syncPrintPageRule()
   window.print()
@@ -1578,7 +1593,10 @@ const printPanel = () => {
 </script>
 
 <template>
-  <div class="global-container" :style="{ '--print-zoom': printZoom }">
+  <div
+    class="global-container"
+    :style="{ '--print-zoom': printZoom, '--print-label-px': `${printLabelPx}px` }"
+  >
     <div class="editor-layout">
       <!-- Боковая панель управления -->
       <aside class="editor-sidebar">
@@ -3849,10 +3867,12 @@ const printPanel = () => {
    интерфейс редактора нужны на экране, а не на монтажной схеме */
 @media print {
   .editor-sidebar,
+  .mobile-toolbar,
   .ruler,
   .measure-svg,
   .floating-actions,
-  .size-tooltip {
+  .size-tooltip,
+  .resize-handle {
     display: none !important;
   }
 
@@ -3890,6 +3910,14 @@ const printPanel = () => {
 
   .canvas.grid-enabled {
     background-image: none;
+  }
+
+  /* Холст сжимается в printZoom раз, и 11 px подписей сжимаются вместе с ним:
+     на широкой панели остаются долями миллиметра. Здесь кегль задан от размера
+     буквы на бумаге, а не от экранного размера шрифта */
+  .item-label,
+  .panel-item.din-rail .item-label {
+    font-size: var(--print-label-px);
   }
 
   .panel-item.selected {
