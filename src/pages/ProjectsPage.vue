@@ -184,6 +184,7 @@ onMounted(async () => {
           :photos-count="project.photosCount"
           :files-count="project.filesCount"
           :assemblies-count="project.assembliesCount"
+          :cable-lines-count="project.cableLinesCount"
           @to-gallery="goToGallery(project)"
           @to-assemblies="goToAssemblies(project)"
           @to-files="goToFiles(project)"

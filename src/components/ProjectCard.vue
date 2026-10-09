@@ -10,6 +10,7 @@ const props = defineProps({
   photosCount: { type: Number, default: 0 },
   filesCount: { type: Number, default: 0 },
   assembliesCount: { type: Number, default: 0 },
+  cableLinesCount: { type: Number, default: 0 },
 })
 </script>
 
@@ -51,7 +52,10 @@ const props = defineProps({
         }}</span></a
       >
       <a class="project-card__link project-card__link--outline" @click="$emit('toCableJournal')"
-        >Кабельный журнал</a
+        >Кабельный журнал -
+        <span class="project-card__link-count">{{
+          cableLinesCount ? cableLinesCount + ' шт.' : 'пусто'
+        }}</span></a
       >
     </div>
   </div>
