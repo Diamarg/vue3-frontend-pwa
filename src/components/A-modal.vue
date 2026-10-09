@@ -1,21 +1,22 @@
 <script setup>
-import { Transition } from 'vue'
+import { computed, useAttrs, Transition } from 'vue'
 
 const props = defineProps({
   title: { type: String, default: 'Заголовок' },
   opened: { type: Boolean, default: false },
 })
+
+// Класс страницы-владельца включает режим просмотра фото: там кнопка закрытия своя
+const attrs = useAttrs()
+const isPhotoView = computed(() => String(attrs.class ?? '').includes('photo-view-modal'))
 </script>
 
 <template>
   <transition name="modal-fade">
     <div v-if="opened" class="modal__overlay">
       <!-- Добавляем класс-модификатор, если это модалка просмотра фото -->
-      <div
-        class="modal__wrapper"
-        :class="{ 'modal--photo-view': $attrs.class?.includes('photo-view-modal') }"
-      >
-        <div class="modal__header">
+      <div class="modal__wrapper" :class="{ 'modal--photo-view': isPhotoView }">
+        <div v-if="!isPhotoView" class="modal__header">
           <h2 class="modal__title">{{ title }}</h2>
           <button class="modal__close" @click="$emit('closeEmit')">&times;</button>
         </div>
@@ -85,23 +86,6 @@ const props = defineProps({
   max-height: none;
 }
 
-/* Заголовок в режиме фото */
-.modal--photo-view .modal__header {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 20;
-  background: rgba(0, 0, 0, 0.4); /* Полупрозрачная подложка для читаемости */
-  border-radius: 20px;
-  padding: 4px 8px;
-  display: flex;
-  align-items: center;
-}
-
-.modal--photo-view .modal__title {
-  display: none; /* Скрываем текст заголовка */
-}
-
 /* Кнопка закрытия (общая) */
 .modal__close {
   background: none;
@@ -118,20 +102,8 @@ const props = defineProps({
   justify-content: center;
 }
 
-/* Кнопка закрытия в режиме фото */
-.modal--photo-view .modal__close {
-  color: white;
-  font-size: 24px;
-  width: 32px;
-  height: 32px;
-}
-
 .modal__close:hover {
   color: #333;
-}
-.modal--photo-view .modal__close:hover {
-  color: #fff;
-  opacity: 0.8;
 }
 
 .modal__header {
