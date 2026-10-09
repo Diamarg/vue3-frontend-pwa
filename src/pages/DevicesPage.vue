@@ -10,6 +10,7 @@ import { referenceApi } from '@/api/reference'
 import { useAuthStore } from '@/stores/auth'
 import { usePageStore } from '@/stores/pages'
 import { useToast } from '@/composables/useToast'
+import { downloadTxt, formatFileNameStamp, reportHeader, safeFileNamePart } from '@/utils/txtReport'
 
 const route = useRoute()
 const router = useRouter()
@@ -170,6 +171,62 @@ const sortedDevices = computed(() => {
   })
   return arr
 })
+
+// Номер привязан к строке, а не к её месту на экране: считаем по порядку
+// добавления (id), поэтому при обратной сортировке номера разворачиваются вместе со строками
+const numsById = computed(() => {
+  const ordered = [...filteredDevices.value].sort((a, b) => a.id - b.id)
+  return new Map(ordered.map((d, i) => [d.id, i + 1]))
+})
+
+// ===================== СВОДКА И ЭКСПОРТ В TXT =====================
+// Таблица сводки и текст отчёта строятся из одного снимка, поэтому строки
+// и их номера на экране и в файле не разъезжаются. Снимок делаем при открытии
+const showSummaryModal = ref(false)
+const summaryReport = ref(null)
+
+// Отчёт, в отличие от сводки, печатает шапку: проект с заказчиком, сборку и
+// дату формирования. Нумерует файл сам по себе (1…N сверху вниз), а не колонкой
+// № — в печатном отчёте номера должны идти подряд
+const buildDevicesReport = () => {
+  // одна метка времени на файл и на заголовок, чтобы они не разъехались на границе минуты
+  const now = new Date()
+
+  const rows = sortedDevices.value.map((d, i) => {
+    // описание в скобках: без разделителей тип, бренд и артикул слипаются в одно слово
+    const described = d.description && d.description !== '—' ? ` (${d.description})` : ''
+    return {
+      num: i + 1,
+      deviceType: d.deviceType,
+      brand: d.brand,
+      article: d.article,
+      description: d.description,
+      quantity: d.quantity,
+      name: `${[d.deviceType, d.brand, d.article].filter(Boolean).join(' ')}${described}`,
+    }
+  })
+
+  return {
+    fileName:
+      `Устройства_${safeFileNamePart(project.value?.codeName)}_${safeFileNamePart(assembly.value?.codeName)}` +
+      `_${formatFileNameStamp(now)}.txt`,
+    rows,
+    lines: [
+      ...reportHeader(project.value, now, `Сборка: ${assembly.value?.codeName || '—'}`),
+      ...rows.map((r) => `${r.num}. ${r.name || '—'} - ${r.quantity} шт.`),
+    ],
+  }
+}
+
+const openSummary = () => {
+  summaryReport.value = buildDevicesReport()
+  showSummaryModal.value = true
+}
+
+const exportDevicesToTxt = () => {
+  downloadTxt(summaryReport.value.fileName, summaryReport.value.lines)
+  toast.success('Скачивание файла')
+}
 
 // ===================== УПРАВЛЕНИЕ КОЛИЧЕСТВОМ =====================
 const changeQuantity = async (assemblyDeviceId, currentQty, delta) => {
@@ -349,9 +406,11 @@ onMounted(async () => {
       </div>
 
       <div class="assembly-header__actions">
-        <a class="admin-headbar__back-btn" @click="router.back()">← Назад</a>
-        <Abutton @click="showAddModal = true" class="add-device-btn">
-          + Добавить устройство
+        <Abutton v-if="sortedDevices.length" @click="openSummary" class="summary-btn">
+          📊 Сводка
+        </Abutton>
+        <Abutton v-if="authStore.isAdmin" @click="showAddModal = true" class="add-device-btn">
+          + Добавить
         </Abutton>
       </div>
     </div>
@@ -370,13 +429,13 @@ onMounted(async () => {
         <thead>
           <tr>
             <th
-              class="admin-table__th admin-table__th--id admin-table__th--sortable"
+              class="admin-table__th admin-table__th--num admin-table__th--sortable"
               :class="{ 'admin-table__th--sorted': sortKey === 'id' }"
               @click="toggleSort('id')"
-              title="Сортировать по ID"
+              title="Сортировать по порядку добавления"
             >
               <span class="admin-table__th-inner">
-                <span class="admin-table__th-text">ID связи</span>
+                <span class="admin-table__th-text">№</span>
                 <span
                   class="admin-table__th-arrow"
                   :class="{ 'admin-table__th-arrow--active': sortKey === 'id' }"
@@ -408,7 +467,7 @@ onMounted(async () => {
         </thead>
         <tbody>
           <tr v-for="device in sortedDevices" :key="device.id" class="admin-table__row">
-            <td class="admin-table__td admin-table__td--id">{{ device.id }}</td>
+            <td class="admin-table__td admin-table__td--num">{{ numsById.get(device.id) }}</td>
             <td class="admin-table__td">{{ device.article }}</td>
             <td class="admin-table__td">{{ device.description }}</td>
             <td class="admin-table__td">{{ device.brand }}</td>
@@ -417,6 +476,7 @@ onMounted(async () => {
             <td class="admin-table__td admin-table__td--quantity">
               <div class="qty-control">
                 <button
+                  v-if="authStore.isAdmin"
                   class="qty-btn"
                   :disabled="device.quantity <= 1 || isUpdatingQty"
                   @click="changeQuantity(device.id, device.quantity, -1)"
@@ -426,6 +486,7 @@ onMounted(async () => {
                 </button>
                 <span class="qty-value">{{ device.quantity }}</span>
                 <button
+                  v-if="authStore.isAdmin"
                   class="qty-btn"
                   :disabled="device.quantity >= 200 || isUpdatingQty"
                   @click="changeQuantity(device.id, device.quantity, 1)"
@@ -581,6 +642,7 @@ onMounted(async () => {
       "
       :opened="showPropertiesModal"
     >
+      <div class="properties-device-type">{{ currentDevice.deviceType }}</div>
       <div v-if="deviceProperties.length === 0" class="admin-empty">
         Для этого устройства не заданы свойства
       </div>
@@ -595,6 +657,40 @@ onMounted(async () => {
       </div>
       <div class="admin-form__actions" style="margin-top: 24px">
         <a class="admin-form__cancel" @click="showPropertiesModal = false">Закрыть</a>
+      </div>
+    </AModal>
+
+    <!-- ===================== МОДАЛКА: СВОДКА ===================== -->
+    <AModal
+      @close-emit="showSummaryModal = false"
+      :title="`Сводка по устройствам ${assembly?.codeName || ''}`"
+      :opened="showSummaryModal"
+    >
+      <div v-if="summaryReport" class="summary-view">
+        <table class="admin-table summary-table">
+          <thead>
+            <tr>
+              <th class="admin-table__th">Тип устройства</th>
+              <th class="admin-table__th">Бренд</th>
+              <th class="admin-table__th">Артикул</th>
+              <th class="admin-table__th">Описание</th>
+              <th class="admin-table__th">Количество</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in summaryReport.rows" :key="row.num" class="admin-table__row">
+              <td class="admin-table__td">{{ row.deviceType }}</td>
+              <td class="admin-table__td">{{ row.brand }}</td>
+              <td class="admin-table__td">{{ row.article }}</td>
+              <td class="admin-table__td">{{ row.description }}</td>
+              <td class="admin-table__td">{{ row.quantity }} шт.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="admin-form__actions" style="margin-top: 24px">
+        <Abutton @click="exportDevicesToTxt" class="export-btn">⬇ Экспорт</Abutton>
+        <a class="admin-form__cancel" @click="showSummaryModal = false">Закрыть</a>
       </div>
     </AModal>
   </div>
@@ -672,6 +768,27 @@ onMounted(async () => {
   white-space: nowrap;
 }
 
+/* Серая второстепенная кнопка — как в кабельном журнале */
+.summary-btn,
+.export-btn {
+  white-space: nowrap;
+  background-color: #f3f4f6 !important;
+  color: #374151 !important;
+  border: 1px solid #d1d5db !important;
+}
+.summary-btn:hover,
+.export-btn:hover {
+  background-color: #e5e7eb !important;
+}
+
+/* Таблица сводки — как в кабельном журнале */
+.summary-view {
+  overflow-x: auto;
+}
+.summary-table {
+  min-width: 600px;
+}
+
 /* === ТАБЛИЦА (Оригинальные стили сохранены) === */
 .admin-card {
   box-shadow: 4px 4px 30px -10px rgba(34, 60, 80, 0.2);
@@ -686,6 +803,14 @@ onMounted(async () => {
   overflow: auto;
   margin-top: 16px;
 }
+
+.properties-device-type {
+  font-weight: 400;
+  color: #718096;
+  font-size: 12px;
+  margin-bottom: 16px;
+}
+
 .admin-empty {
   padding: 40px;
   text-align: center;
@@ -710,8 +835,10 @@ onMounted(async () => {
   text-transform: uppercase;
   letter-spacing: 0.3px;
 }
-.admin-table__th--id {
-  width: 90px;
+.admin-table__th--num {
+  width: 58px;
+  text-align: center;
+  padding-inline: 6px;
 }
 .admin-table__th--actions {
   width: 140px;
@@ -764,9 +891,12 @@ onMounted(async () => {
   border-bottom: 1px solid rgb(240, 240, 240);
   color: #2d3748;
 }
-.admin-table__td--id {
+.admin-table__td--num {
   color: #a0aec0;
   font-size: 12px;
+  text-align: center;
+  padding-inline: 6px;
+  font-variant-numeric: tabular-nums;
 }
 
 .admin-table__td--quantity {

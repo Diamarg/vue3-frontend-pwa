@@ -23,12 +23,4 @@ export const cableLinesApi = {
   // Получить статистику по типам и сечениям
   getCableSummary: (projectId) =>
     api.get(`/projects/${projectId}/cable-lines/summary`).then((res) => res.data),
-
-  // ЭКСПОРТ В TXT
-  exportToTxt: (projectId) =>
-    api
-      .get(`/projects/${projectId}/cable-lines/export/txt`, {
-        responseType: 'blob',
-      })
-      .then((res) => res.data),
 }

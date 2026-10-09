@@ -10,6 +10,7 @@ import { referenceApi } from '@/api/reference'
 import { useAuthStore } from '@/stores/auth'
 import { usePageStore } from '@/stores/pages'
 import { useToast } from '@/composables/useToast'
+import { downloadTxt, formatFileNameStamp, reportHeader, safeFileNamePart } from '@/utils/txtReport'
 
 const route = useRoute()
 const router = useRouter()
@@ -147,6 +148,13 @@ const sortedLines = computed(() => {
   return arr
 })
 
+// Номер привязан к строке журнала, а не к её месту на экране: считаем по порядку
+// добавления (id), поэтому при обратной сортировке номера разворачиваются вместе со строками
+const numsById = computed(() => {
+  const ordered = [...filteredLines.value].sort((a, b) => a.id - b.id)
+  return new Map(ordered.map((line, i) => [line.id, i + 1]))
+})
+
 // ===================== МОДАЛКА ДОБАВЛЕНИЯ/РЕДАКТИРОВАНИЯ =====================
 const showLineModal = ref(false)
 const editingLine = ref(null)
@@ -263,22 +271,44 @@ const deleteLine = async (line) => {
 }
 
 // ===================== ЭКСПОРТ В TXT =====================
-const exportToTxt = async () => {
-  try {
-    const blob = await cableLinesApi.exportToTxt(route.params.projectId)
-    const url = window.URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `Кабельный_журнал_${project.value?.codeName || 'project'}.txt`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    window.URL.revokeObjectURL(url)
-    toast.success('Скачивание файла')
-  } catch (error) {
-    console.error('Ошибка экспорта:', error)
-    toast.error('Не удалось экспортировать ведомость')
+// Ведомость кабеля: линии свёрнуты по марке, числу жил и сечению, метры суммируются.
+// Считаем по всему журналу, а не по строке поиска — в отчёте нужны общие метражи
+const exportToTxt = () => {
+  const now = new Date()
+
+  const groups = new Map()
+  for (const line of cableLines.value) {
+    const key = `${line.cableTypeId}|${line.coreCount}|${line.crossSectionId}`
+    const group = groups.get(key)
+    if (group) {
+      group.length += Number(line.length) || 0
+      continue
+    }
+    groups.set(key, {
+      cableTypeName: line.cableTypeName || '',
+      coreCount: Number(line.coreCount) || 0,
+      crossSectionValue: Number(line.crossSectionValue) || 0,
+      length: Number(line.length) || 0,
+    })
   }
+
+  const rows = [...groups.values()]
+    .sort(
+      (a, b) =>
+        a.cableTypeName.localeCompare(b.cableTypeName, 'ru') ||
+        a.coreCount - b.coreCount ||
+        a.crossSectionValue - b.crossSectionValue,
+    )
+    .map((g, i) => {
+      const mark = `${g.coreCount || ''}x${g.crossSectionValue}`
+      const name = [g.cableTypeName, mark].filter(Boolean).join(' ')
+      return `${i + 1}. ${name || '—'} - ${Math.trunc(g.length)} м.`
+    })
+
+  const fileName = `Кабельный_журнал_${safeFileNamePart(project.value?.codeName)}_${formatFileNameStamp(now)}.txt`
+
+  downloadTxt(fileName, [...reportHeader(project.value, now), ...rows])
+  toast.success('Скачивание файла')
 }
 
 // ===================== СВОДКА =====================
@@ -332,9 +362,7 @@ onMounted(async () => {
       </div>
 
       <div class="assembly-header__actions">
-        <a class="admin-headbar__back-btn" @click="router.back()">← Назад</a>
         <Abutton v-if="hasLines" @click="openSummary" class="summary-btn">📊 Сводка</Abutton>
-        <Abutton v-if="hasLines" @click="exportToTxt" class="export-btn">⬇ Экспорт</Abutton>
         <Abutton v-if="authStore.isAdmin" @click="openCreateModal" class="add-line-btn">
           + Добавить линию
         </Abutton>
@@ -357,13 +385,13 @@ onMounted(async () => {
         <thead>
           <tr>
             <th
-              class="admin-table__th admin-table__th--id admin-table__th--sortable"
+              class="admin-table__th admin-table__th--num admin-table__th--sortable"
               :class="{ 'admin-table__th--sorted': sortKey === 'id' }"
               @click="toggleSort('id')"
-              title="Сортировать по ID"
+              title="Сортировать по порядку добавления"
             >
               <span class="admin-table__th-inner">
-                <span class="admin-table__th-text">ID</span>
+                <span class="admin-table__th-text">№</span>
                 <span
                   class="admin-table__th-arrow"
                   :class="{ 'admin-table__th-arrow--active': sortKey === 'id' }"
@@ -397,7 +425,7 @@ onMounted(async () => {
         </thead>
         <tbody>
           <tr v-for="line in sortedLines" :key="line.id" class="admin-table__row">
-            <td class="admin-table__td admin-table__td--id">{{ line.id }}</td>
+            <td class="admin-table__td admin-table__td--num">{{ numsById.get(line.id) }}</td>
             <td class="admin-table__td">{{ line.linePurpose || '—' }}</td>
             <td class="admin-table__td">{{ line.startPoint || '—' }}</td>
             <td class="admin-table__td">{{ line.endPoint || '—' }}</td>
@@ -570,6 +598,7 @@ onMounted(async () => {
         </table>
       </div>
       <div class="admin-form__actions" style="margin-top: 24px">
+        <Abutton @click="exportToTxt" class="export-btn">⬇ Экспорт</Abutton>
         <a class="admin-form__cancel" @click="showSummaryModal = false">Закрыть</a>
       </div>
     </AModal>
@@ -702,8 +731,10 @@ onMounted(async () => {
   text-transform: uppercase;
   letter-spacing: 0.3px;
 }
-.admin-table__th--id {
-  width: 70px;
+.admin-table__th--num {
+  width: 58px;
+  text-align: center;
+  padding-inline: 6px;
 }
 .admin-table__th--actions {
   width: 120px;
@@ -756,9 +787,12 @@ onMounted(async () => {
   border-bottom: 1px solid rgb(240, 240, 240);
   color: #2d3748;
 }
-.admin-table__td--id {
+.admin-table__td--num {
   color: #a0aec0;
   font-size: 12px;
+  text-align: center;
+  padding-inline: 6px;
+  font-variant-numeric: tabular-nums;
 }
 
 .admin-table__td--length {
