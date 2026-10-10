@@ -43,6 +43,13 @@ const openedImage = ref({ photo: null, date: '' })
 const uploadForm = ref({ files: [] })
 const compressOnUpload = ref(true)
 
+// Вся пачка одним запросом падала при любой заминке связи: чем больше тело, тем
+// вероятнее обрыв посередине, а терялись при этом все файлы сразу. Шлём по три.
+const UPLOAD_BATCH_SIZE = 3
+const UPLOAD_ATTEMPTS = 3
+const isUploading = ref(false)
+const uploadStage = ref('')
+
 // --- Утилиты ---
 const formatFileSize = (bytes) => {
   if (!bytes || bytes === 0) return '0 Б'
@@ -274,34 +281,118 @@ const compressImage = async (file) => {
   }
 }
 
+// Promise.all по всему списку — это столько воркеров одновременно, сколько фото
+// выбрано: на телефоне тридцать снимков уже не влезают в память. Жмём по три.
+const compressAll = async (files) => {
+  const result = []
+  for (let i = 0; i < files.length; i += UPLOAD_BATCH_SIZE) {
+    const chunk = await Promise.all(files.slice(i, i + UPLOAD_BATCH_SIZE).map(compressImage))
+    result.push(...chunk)
+    uploadStage.value = `Сжатие ${result.length} из ${files.length}`
+  }
+  return result
+}
+
+const describeUploadError = (error) => {
+  const response = error.response
+  if (!response) return 'связь оборвалась, пакет не дошёл'
+  if (response.status === 413) return 'пакет больше лимита сервера'
+  if (response.status === 401) return 'сессия истекла, войди заново'
+  return response.data?.message || `сервер ответил ${response.status}`
+}
+
+// Повтор имеет смысл только при обрыве связи и 5xx: 413 и 401 от повтора не меняются
+const isRetryable = (error) => !error.response || error.response.status >= 500
+
+const sendBatch = async (batch, projectId) => {
+  for (let attempt = 1; attempt <= UPLOAD_ATTEMPTS; attempt++) {
+    // FormData читается один раз, поэтому на каждой попытке собираем заново
+    const formData = new FormData()
+    batch.forEach((file) => formData.append('files', file))
+    try {
+      const result = await galleryApi.uploadPhoto(projectId, formData)
+      // 201 — принят весь пакет, это массив. Частичный успех бэкенд отдаёт объектом
+      // с data (что легло) и errors (почему остальное отвергли), и это не ошибка.
+      return Array.isArray(result)
+        ? { accepted: batch.length, rejects: [] }
+        : { accepted: result?.data?.length ?? 0, rejects: result?.errors ?? [] }
+    } catch (error) {
+      const fatal = error.response?.status === 401
+      if (!fatal && isRetryable(error) && attempt < UPLOAD_ATTEMPTS) {
+        await new Promise((resolve) => setTimeout(resolve, attempt * 1500))
+        continue
+      }
+      return { text: describeUploadError(error), fatal }
+    }
+  }
+  return null
+}
+
 const submitUpload = async () => {
-  if (!uploadForm.value.files.length) return
-  showModal.value = false
-  const formData = new FormData()
+  if (isUploading.value) return
+  const files = [...uploadForm.value.files]
+  if (!files.length) return
+
+  isUploading.value = true
+  const failed = []
+  const rejects = []
+  let uploaded = 0
+
   try {
-    toast.info(compressOnUpload.value ? 'Сжатие изображений...' : 'Подготовка файлов...')
-    const filesToUpload = compressOnUpload.value
-      ? await Promise.all(uploadForm.value.files.map(compressImage))
-      : uploadForm.value.files
+    const prepared = compressOnUpload.value ? await compressAll(files) : files
+    const batches = []
+    for (let i = 0; i < prepared.length; i += UPLOAD_BATCH_SIZE) {
+      batches.push(prepared.slice(i, i + UPLOAD_BATCH_SIZE))
+    }
 
-    filesToUpload.forEach((file) => formData.append('files', file))
-    await galleryApi.uploadPhoto(project.value.id, formData)
+    for (const batch of batches) {
+      uploadStage.value = `Отправка ${uploaded + batch.length} из ${prepared.length}`
+      const result = await sendBatch(batch, project.value.id)
+      if (result?.text) {
+        batch.forEach((file) => failed.push({ file, reason: result.text }))
+        // После 401 остальные пакеты уйдут уже в никуда: страница редиректится на логин
+        if (result.fatal) break
+        continue
+      }
+      uploaded += result?.accepted ?? 0
+      rejects.push(...(result?.rejects ?? []))
+    }
 
-    uploadForm.value.files = []
-    toast.success('Фотографии успешно загружены')
-    resetDateFilter()
+    // Часть файлов уже легла на диск, поэтому список перечитываем при любом итоге
     await loadPhotos()
-  } catch (error) {
-    toast.error('Ошибка загрузки: ' + error.message)
+    resetDateFilter()
+
+    if (failed.length || rejects.length) {
+      const reasons = [...new Set(failed.map((f) => f.reason))]
+      toast.error(
+        `Загружено ${uploaded} из ${prepared.length}: ${[...reasons, ...rejects].join('; ')}`,
+      )
+      // на повтор оставляем только то, что вообще не дошло до сервера
+      uploadForm.value.files = failed.map((f) => f.file)
+    } else {
+      toast.success(`Загружено ${prepared.length} фото`)
+      uploadForm.value.files = []
+      showModal.value = false
+    }
+  } finally {
+    isUploading.value = false
+    uploadStage.value = ''
   }
 }
 
+const closeUploadModal = () => {
+  if (isUploading.value) return
+  showModal.value = false
+}
+
 const handleFileChange = (event) => {
+  if (isUploading.value) return
   uploadForm.value.files = [...uploadForm.value.files, ...Array.from(event.target.files)]
   event.target.value = ''
 }
 
 const deleteFileString = (index) => {
+  if (isUploading.value) return
   uploadForm.value.files.splice(index, 1)
 }
 
@@ -429,7 +520,7 @@ onBeforeUnmount(() => {
   </div>
 
   <!-- === МОДАЛКА ЗАГРУЗКИ === -->
-  <a-modal title="Загрузка фотографий" :opened="showModal" @close-emit="showModal = false">
+  <a-modal title="Загрузка фотографий" :opened="showModal" @close-emit="closeUploadModal">
     <form enctype="multipart/form-data" @submit.prevent="submitUpload">
       <label>Выберите фото с устройства</label>
       <a-input
@@ -437,6 +528,7 @@ onBeforeUnmount(() => {
         class="form-input"
         type="file"
         multiple
+        :disabled="isUploading"
         @change="handleFileChange"
       />
 
@@ -451,10 +543,15 @@ onBeforeUnmount(() => {
       <div class="file-names">
         <div v-for="(file, index) in uploadForm.files" :key="index" class="file-string">
           <div class="file-name">{{ file.name }}</div>
-          <div class="file-delete" @click="deleteFileString(index)">&times;</div>
+          <div v-if="!isUploading" class="file-delete" @click="deleteFileString(index)">
+            &times;
+          </div>
         </div>
       </div>
-      <a-button class="full-width-btn">Загрузить</a-button>
+      <p v-if="uploadStage" class="upload-stage">{{ uploadStage }}</p>
+      <a-button class="full-width-btn" :disabled="isUploading">
+        {{ isUploading ? 'Загрузка…' : 'Загрузить' }}
+      </a-button>
     </form>
   </a-modal>
 
@@ -776,6 +873,12 @@ onBeforeUnmount(() => {
   margin-left: 26px;
   font-size: 12px;
   color: #6b7280;
+}
+/* Строка прогресса пакетной загрузки: «Сжатие 4 из 20» / «Отправка 7 из 20» */
+.upload-stage {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: #6366f1;
 }
 
 .file-names {
