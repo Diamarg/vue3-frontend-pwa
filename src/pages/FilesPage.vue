@@ -237,6 +237,7 @@ const deleteSelectedFiles = async () => {
 }
 
 const downloadFile = async (file) => {
+  if (!confirm(`Скачать файл "${file.fileName}"?`)) return
   try {
     const blob = await filesApi.downloadFile(route.params.projectId, file.id)
     const url = window.URL.createObjectURL(blob)
