@@ -26,6 +26,10 @@ const layoutsList = ref([]) // Список всех макетов сборки
 const isSavingToDb = ref(false)
 const showLayoutsModal = ref(false)
 
+// В шапке полезнее имя проекта и сборки, а не их id: номера ничего заказчику не говорят
+const projectName = ref('')
+const assemblyName = ref('')
+
 // Макет правят только администраторы: остальные могут открыть панель и загрузить сохранённый макет
 const canEdit = computed(() => authStore.isAdmin)
 
@@ -55,9 +59,11 @@ const saveToDatabase = async (asNew = false) => {
     const jsonString = JSON.stringify(projectData)
 
     if (currentLayoutId.value && !asNew) {
-      // Обновляем существующий макет
+      // Обновляем существующий макет. isDefault обязательно шлём и тут: PUT принимает
+      // bool, поэтому без поля бэкенд снимал бы флаг «по умолчанию» с сохранённого макета
       await panelLayoutsApi.update(currentLayoutId.value, {
         layoutData: jsonString,
+        isDefault: true,
       })
       toast.success('Макет сохранён')
     } else {
@@ -70,6 +76,10 @@ const saveToDatabase = async (asNew = false) => {
       currentLayoutId.value = created.id
       toast.success('Новый макет создан')
     }
+
+    // Бэкенд при isDefault=true сбрасывает флаг у остальных макетов сборки,
+    // поэтому список здесь просто перечитываем — значок «По умолчанию» обновится сразу
+    await refreshLayoutsList()
   } catch (error) {
     console.error('Ошибка сохранения в БД:', error)
     toast.error('Не удалось сохранить макет')
@@ -108,18 +118,37 @@ const loadLayoutFromDb = async (layoutId) => {
   }
 }
 
-// Загрузить список макетов при открытии страницы
-const loadLayoutsList = async () => {
+const loadNames = async () => {
+  try {
+    const [project, assembly] = await Promise.all([
+      projectsApi.getProjectById(route.params.projectId),
+      projectsApi.getAssemblyById(route.params.assemblyId),
+    ])
+    projectName.value = project?.codeName || ''
+    assemblyName.value = assembly?.codeName || ''
+  } catch (error) {
+    console.error('Ошибка загрузки названия проекта и сборки:', error)
+  }
+}
+
+// Список макетов нужен и для модалки, и для автозагрузки; ошибки тут не показываем —
+// это только список, сама раскладка уже лежит в БД
+const refreshLayoutsList = async () => {
   try {
     layoutsList.value = await panelLayoutsApi.getByAssembly(route.params.assemblyId)
-
-    // Автоматически загружаем макет по умолчанию, если он есть
-    const defaultLayout = layoutsList.value.find((l) => l.isDefault)
-    if (defaultLayout) {
-      await loadLayoutFromDb(defaultLayout.id)
-    }
   } catch (error) {
     console.error('Ошибка загрузки списка макетов:', error)
+  }
+}
+
+// Загрузить список макетов при открытии страницы
+const loadLayoutsList = async () => {
+  await refreshLayoutsList()
+
+  // Автоматически загружаем макет по умолчанию, если он есть
+  const defaultLayout = layoutsList.value.find((l) => l.isDefault)
+  if (defaultLayout) {
+    await loadLayoutFromDb(defaultLayout.id)
   }
 }
 
@@ -1464,13 +1493,17 @@ const loadAssemblyDevices = async () => {
       properties: item.properties || [],
     }))
 
-    devicePalette.value = (rawDevices || []).map((device) => ({
-      id: device.id,
-      name: device.description || `Устройство ${device.id}`,
-      w: device.width || 0,
-      h: device.height || 0,
-      quantity: device.quantity ?? 1,
-    }))
+    // В раскладку попадают только устройства с флагом «для монтажной панели»:
+    // в сборку обычно входит и то, что на рейку не ставится
+    devicePalette.value = (rawDevices || [])
+      .filter((device) => device.showOnPanel)
+      .map((device) => ({
+        id: device.id,
+        name: device.description || `Устройство ${device.id}`,
+        w: device.width || 0,
+        h: device.height || 0,
+        quantity: device.quantity ?? 1,
+      }))
 
     // Инициализация состояний
     const newSelected = {}
@@ -1518,6 +1551,7 @@ onMounted(async () => {
 
   // Без этого при прямом заходе на страницу user пустой и isAdmin=false даже у администратора
   await authStore.fetchMe()
+  await loadNames()
   await loadAssemblyDevices()
   await loadLayoutsList()
   autoFitZoom()
@@ -1603,7 +1637,8 @@ const printPanel = () => {
         <div class="sidebar-header">
           <h2 class="sidebar-title">Монтажная панель</h2>
           <p class="sidebar-subtitle">
-            Проект {{ route.params.projectId }} · Сборка {{ route.params.assemblyId }}
+            Проект {{ projectName || route.params.projectId }} · Сборка
+            {{ assemblyName || route.params.assemblyId }}
           </p>
         </div>
 
@@ -1719,7 +1754,11 @@ const printPanel = () => {
               @click="saveToDatabase(false)"
               class="tool-btn tool-btn--save"
               :disabled="isSavingToDb || !canEdit"
-              :title="currentLayoutId ? 'Обновить текущий макет' : 'Создать новый макет в базе'"
+              :title="
+                currentLayoutId
+                  ? 'Обновить текущий макет и открыть его при следующем заходе'
+                  : 'Создать новый макет в базе'
+              "
             >
               <span class="tool-btn__icon">{{ isSavingToDb ? '⏳' : '💾' }}</span>
               <span>{{ currentLayoutId ? 'Сохранить' : 'Создать' }}</span>

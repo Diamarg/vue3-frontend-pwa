@@ -113,6 +113,13 @@ const sections = {
       { key: 'width', label: 'Ширина (мм)', type: 'number' },
       { key: 'height', label: 'Высота (мм)', type: 'number' },
       { key: 'depth', label: 'Глубина (мм)', type: 'number' },
+      // без флага устройство не попадёт в список добавления в монтажную панель
+      {
+        key: 'showOnPanel',
+        label: 'Для монтажной панели',
+        type: 'checkbox',
+        formatFn: (v) => (v ? 'Да' : 'Нет'),
+      },
     ],
     loadOptions: async () => {
       const [brands, deviceTypes] = await Promise.all([
@@ -726,11 +733,9 @@ const resetForm = (item = null) => {
   Object.keys(form).forEach((k) => delete form[k])
   Object.keys(touched).forEach((k) => delete touched[k])
   cfg.value.columns.forEach((col) => {
-    form[col.key] = item
-      ? (item[col.key] ?? (col.type === 'number' ? null : ''))
-      : col.type === 'number'
-        ? null
-        : ''
+    // чекбокс не может быть пустым: бэкенд ждёт bool, а не ''
+    const empty = col.type === 'number' ? null : col.type === 'checkbox' ? false : ''
+    form[col.key] = item ? (item[col.key] ?? empty) : empty
   })
   formProperties.value = []
 }
@@ -1280,6 +1285,13 @@ watch(selectedAssemblyId, () => {
                 {{ opt.label }}
               </option>
             </select>
+            <input
+              v-else-if="col.type === 'checkbox'"
+              :id="col.key"
+              type="checkbox"
+              class="admin-form__checkbox"
+              v-model="form[col.key]"
+            />
             <Ainput
               v-else
               :id="col.key"
@@ -1870,6 +1882,13 @@ watch(selectedAssemblyId, () => {
   cursor: pointer;
   height: 16px;
   width: 16px;
+}
+/* Галочка «Для монтажной панели» — подпись поля выше, сама кнопка слева под ней */
+.admin-form__checkbox {
+  accent-color: #6366f1;
+  cursor: pointer;
+  height: 18px;
+  width: 18px;
 }
 .admin-form__error {
   font-size: 12px;
