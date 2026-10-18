@@ -642,7 +642,9 @@ onMounted(async () => {
       "
       :opened="showPropertiesModal"
     >
-      <div class="properties-device-type">{{ currentDevice.deviceType }}</div>
+      <div class="properties-device-type">
+        {{ currentDevice.deviceType }} {{ currentDevice.brand }}
+      </div>
       <div v-if="deviceProperties.length === 0" class="admin-empty">
         Для этого устройства не заданы свойства
       </div>
