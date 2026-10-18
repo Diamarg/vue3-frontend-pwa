@@ -200,6 +200,10 @@ const panels = [
   { id: 7, name: 'Большая', w: 600, h: 800 },
   { id: 8, name: 'Макси', w: 800, h: 1000 },
   { id: 9, name: 'Мега', w: 1000, h: 1200 },
+  { id: 10, name: 'Стойка', w: 600, h: 1800 },
+  { id: 11, name: 'Стойка2', w: 600, h: 2000 },
+  { id: 12, name: 'Стойка3', w: 800, h: 1800 },
+  { id: 13, name: 'Стойка4', w: 800, h: 2000 },
 ]
 
 // ИСПРАВЛЕНИЕ: используем ref для реактивности
@@ -555,6 +559,13 @@ const getItemTypeName = (type) => {
   }
   return names[type] || type
 }
+
+// Справа полезнее данные из справочника устройств, а не только геометрия элемента на холсте
+const selectedDevice = computed(() => {
+  const item = selectedItem.value
+  if (!item || item.type !== 'device') return null
+  return devicePalette.value.find((dev) => dev.id === item.deviceId) ?? null
+})
 
 // --- РАЗМЕТКА (ЛИНЕЙКИ) ---
 const xMarks = computed(() => {
@@ -1503,6 +1514,9 @@ const loadAssemblyDevices = async () => {
         w: device.width || 0,
         h: device.height || 0,
         quantity: device.quantity ?? 1,
+        article: device.article || '',
+        brand: device.brand || '',
+        deviceType: device.deviceType || '',
       }))
 
     // Инициализация состояний
@@ -1664,6 +1678,18 @@ const printPanel = () => {
             <div class="property-item">
               <span class="property-label">Тип:</span>
               <span class="property-value">{{ getItemTypeName(selectedItem.type) }}</span>
+            </div>
+            <div class="property-item" v-if="selectedDevice">
+              <span class="property-label">Артикул:</span>
+              <span class="property-value">{{ selectedDevice.article || '—' }}</span>
+            </div>
+            <div class="property-item" v-if="selectedDevice">
+              <span class="property-label">Бренд:</span>
+              <span class="property-value">{{ selectedDevice.brand || '—' }}</span>
+            </div>
+            <div class="property-item" v-if="selectedDevice">
+              <span class="property-label">Тип устройства:</span>
+              <span class="property-value">{{ selectedDevice.deviceType || '—' }}</span>
             </div>
             <div class="property-item">
               <span class="property-label">Размер:</span>
