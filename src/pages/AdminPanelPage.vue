@@ -934,6 +934,73 @@ const saveRoles = async () => {
   }
 }
 
+// ===================== НОВЫЙ ПОЛЬЗОВАТЕЛЬ =====================
+const blankNewUser = () => ({
+  userName: '',
+  email: '',
+  fullName: '',
+  password: '',
+  confirmPassword: '',
+  // User по умолчанию: администратора включают вручную, чтобы не плодить лишние доступы
+  roles: ['User'],
+})
+
+const showCreateUserModal = ref(false)
+const createUserSaving = ref(false)
+const newUser = ref(blankNewUser())
+// Пока форму не тронули, подсвечивать «Укажите логин» на пустых полях незачем
+const newUserDirty = ref(false)
+
+watch(newUser, () => (newUserDirty.value = true), { deep: true })
+
+const newUserError = computed(() => {
+  const u = newUser.value
+  if (!u.userName.trim()) return 'Укажите логин'
+  if (!u.email.trim()) return 'Укажите email'
+  if (u.password.length < 6) return 'Пароль минимум 6 символов'
+  if (u.password !== u.confirmPassword) return 'Пароли не совпадают'
+  if (u.roles.length === 0) return 'Нужна хотя бы одна роль'
+  return ''
+})
+
+const openCreateUser = () => {
+  newUser.value = blankNewUser()
+  newUserDirty.value = false
+  showCreateUserModal.value = true
+}
+
+const toggleNewUserRole = (role) => {
+  const idx = newUser.value.roles.indexOf(role)
+  if (idx === -1) newUser.value.roles.push(role)
+  else newUser.value.roles.splice(idx, 1)
+}
+
+const createNewUser = async () => {
+  if (newUserError.value) return
+  createUserSaving.value = true
+  try {
+    const u = newUser.value
+    const created = await adminUsersApi.createUser({
+      userName: u.userName.trim(),
+      email: u.email.trim(),
+      fullName: u.fullName.trim() || null,
+      password: u.password,
+      roles: u.roles,
+    })
+    toast.success(`Пользователь ${created.userName} создан`)
+    showCreateUserModal.value = false
+    await fetchItems()
+  } catch (e) {
+    const data = e.response?.data
+    const errors = data?.errors
+    toast.error(
+      errors?.length ? errors.join('; ') : data?.message || 'Не удалось создать пользователя',
+    )
+  } finally {
+    createUserSaving.value = false
+  }
+}
+
 // ===================== ОТОБРАЖЕНИЕ =====================
 const displayValue = (item, col) => {
   if (currentSection.value === 'assemblyDevices' && col.key === 'deviceId') {
@@ -1067,6 +1134,9 @@ watch(selectedAssemblyId, () => {
             "
           >
             + Добавить
+          </Abutton>
+          <Abutton v-if="currentSection === 'users'" @click="openCreateUser">
+            + Новый пользователь
           </Abutton>
           <div class="admin-mobile-sort">
             <select v-model="sortKey" class="admin-select admin-mobile-sort__field">
@@ -1407,6 +1477,79 @@ watch(selectedAssemblyId, () => {
               {{ passwordSaving ? 'Сохранение...' : 'Изменить пароль' }}
             </Abutton>
             <a class="admin-form__cancel" @click="showPasswordModal = false">Отмена</a>
+          </div>
+        </form>
+      </AModal>
+
+      <!-- МОДАЛКА: Новый пользователь -->
+      <AModal
+        @close-emit="showCreateUserModal = false"
+        title="Новый пользователь"
+        :opened="showCreateUserModal"
+      >
+        <form class="admin-form" @submit.prevent="createNewUser">
+          <div class="admin-form__group">
+            <label for="newUserName">Логин*</label>
+            <Ainput id="newUserName" v-model="newUser.userName" placeholder="ivanov" />
+          </div>
+          <div class="admin-form__group">
+            <label for="newUserEmail">Email*</label>
+            <Ainput
+              id="newUserEmail"
+              type="email"
+              v-model="newUser.email"
+              placeholder="ivanov@example.ru"
+            />
+          </div>
+          <div class="admin-form__group">
+            <label for="newUserFullName">ФИО</label>
+            <Ainput
+              id="newUserFullName"
+              v-model="newUser.fullName"
+              placeholder="Иванов Иван Иванович"
+            />
+          </div>
+          <div class="admin-form__group">
+            <label for="newUserPassword">Пароль*</label>
+            <Ainput
+              id="newUserPassword"
+              type="password"
+              v-model="newUser.password"
+              placeholder="Минимум 6 символов"
+            />
+          </div>
+          <div class="admin-form__group">
+            <label for="newUserConfirmPassword">Повторите пароль*</label>
+            <Ainput
+              id="newUserConfirmPassword"
+              type="password"
+              v-model="newUser.confirmPassword"
+              placeholder="Ещё раз"
+            />
+          </div>
+          <div class="admin-form__group">
+            <label>Роли*</label>
+            <div class="admin-form__roles">
+              <label v-for="role in roleOptions" :key="role" class="admin-form__role">
+                <input
+                  type="checkbox"
+                  :checked="newUser.roles.includes(role)"
+                  @change="toggleNewUserRole(role)"
+                />
+                <span>{{ role }}</span>
+              </label>
+            </div>
+          </div>
+          <p v-if="newUserDirty && newUserError" class="admin-form__error">{{ newUserError }}</p>
+          <div class="admin-form__hint">
+            Пароль нужно передать пользователю лично: восстановление по почте не настроено. Admin
+            даёт доступ и к этой панели.
+          </div>
+          <div class="admin-form__actions">
+            <Abutton type="submit" :disabled="!!newUserError || createUserSaving">
+              {{ createUserSaving ? 'Создание...' : 'Создать' }}
+            </Abutton>
+            <a class="admin-form__cancel" @click="showCreateUserModal = false">Отмена</a>
           </div>
         </form>
       </AModal>
