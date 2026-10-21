@@ -47,7 +47,9 @@ label {
 }
 
 .global-container {
-  height: 100vh;
+  /* min-height, а не height: при фиксированной высоте контент вылезает за
+     границы #app, и прилипающий sticky-навбар уезжает вместе с ними */
+  min-height: 100vh;
   max-width: 1400px;
   margin-inline: auto;
   padding-inline: 20px;
