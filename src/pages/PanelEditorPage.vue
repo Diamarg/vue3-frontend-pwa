@@ -26,8 +26,9 @@ const currentLayoutId = ref(null) // ID текущего загруженног�
 const layoutsList = ref([]) // Список всех макетов сборки
 const isSavingToDb = ref(false)
 const showLayoutsModal = ref(false)
-// Пока подтягивается сохранённый макет по умолчанию, холст закрывает заглушка
-const loadingLayout = ref(false)
+// Пока подтягивается сохранённый макет по умолчанию, холст закрывает заглушка.
+// Стартует с true: пустой холст мелькает хуже, чем честный спиннер
+const loadingLayout = ref(true)
 const layoutLoadError = ref(false)
 
 // В шапке полезнее имя проекта и сборки, а не их id: номера ничего заказчику не говорят
@@ -150,12 +151,11 @@ const refreshLayoutsList = async () => {
 
 // Автоматически загружаем макет по умолчанию, если он есть
 const loadDefaultLayout = async () => {
-  const defaultLayout = layoutsList.value.find((l) => l.isDefault)
-  if (!defaultLayout) return
-
   loadingLayout.value = true
   layoutLoadError.value = false
   try {
+    const defaultLayout = layoutsList.value.find((l) => l.isDefault)
+    if (!defaultLayout) return
     const ok = await loadLayoutFromDb(defaultLayout.id)
     layoutLoadError.value = !ok
   } finally {
