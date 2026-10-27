@@ -4,6 +4,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { projectsApi } from '@/api/projects'
 import { panelLayoutsApi } from '@/api/panelLayouts'
+import AButton from '@/components/A-button.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const toast = useToast()
@@ -25,6 +26,9 @@ const currentLayoutId = ref(null) // ID текущего загруженног�
 const layoutsList = ref([]) // Список всех макетов сборки
 const isSavingToDb = ref(false)
 const showLayoutsModal = ref(false)
+// Пока подтягивается сохранённый макет по умолчанию, холст закрывает заглушка
+const loadingLayout = ref(false)
+const layoutLoadError = ref(false)
 
 // В шапке полезнее имя проекта и сборки, а не их id: номера ничего заказчику не говорят
 const projectName = ref('')
@@ -112,9 +116,12 @@ const loadLayoutFromDb = async (layoutId) => {
     resetMeasure()
 
     toast.success('Макет загружен')
+    layoutLoadError.value = false
+    return true
   } catch (error) {
     console.error('Ошибка загрузки макета:', error)
     toast.error('Не удалось загрузить макет')
+    return false
   }
 }
 
@@ -141,15 +148,25 @@ const refreshLayoutsList = async () => {
   }
 }
 
+// Автоматически загружаем макет по умолчанию, если он есть
+const loadDefaultLayout = async () => {
+  const defaultLayout = layoutsList.value.find((l) => l.isDefault)
+  if (!defaultLayout) return
+
+  loadingLayout.value = true
+  layoutLoadError.value = false
+  try {
+    const ok = await loadLayoutFromDb(defaultLayout.id)
+    layoutLoadError.value = !ok
+  } finally {
+    loadingLayout.value = false
+  }
+}
+
 // Загрузить список макетов при открытии страницы
 const loadLayoutsList = async () => {
   await refreshLayoutsList()
-
-  // Автоматически загружаем макет по умолчанию, если он есть
-  const defaultLayout = layoutsList.value.find((l) => l.isDefault)
-  if (defaultLayout) {
-    await loadLayoutFromDb(defaultLayout.id)
-  }
+  await loadDefaultLayout()
 }
 
 // Удалить макет из БД
@@ -1481,7 +1498,12 @@ const clearProject = () => {
 const assemblyDevices = ref(null)
 
 const loadAndCloseModal = async (layoutId) => {
-  await loadLayoutFromDb(layoutId)
+  loadingLayout.value = true
+  try {
+    await loadLayoutFromDb(layoutId)
+  } finally {
+    loadingLayout.value = false
+  }
   showLayoutsModal.value = false
 }
 
@@ -1969,6 +1991,15 @@ const printPanel = () => {
 
       <!-- Основная область (Холст) -->
       <main class="editor-canvas-wrapper" ref="canvasWrapper">
+        <div v-if="loadingLayout" class="layout-loading">
+          <span class="layout-loading__spinner"></span>
+          <p>Загрузка сохранённого макета...</p>
+        </div>
+
+        <div v-else-if="layoutLoadError" class="layout-loading">
+          <p>Не удалось загрузить сохранённый макет</p>
+          <AButton @click="loadDefaultLayout">Повторить</AButton>
+        </div>
         <div class="canvas-container" :style="containerStyle">
           <div class="ruler ruler-y" :style="rulerYStyle">
             <div
@@ -3022,6 +3053,7 @@ const printPanel = () => {
 
 /* Холст */
 .editor-canvas-wrapper {
+  position: relative;
   background-color: rgb(255, 255, 255);
   border-radius: 8px;
   border: 1px solid rgb(230, 230, 230);
@@ -3031,6 +3063,34 @@ const printPanel = () => {
   /* упёрся холст в край — прокрутка не должна уезжать в страницу */
   overscroll-behavior: contain;
   touch-action: pan-x pan-y;
+}
+
+.layout-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background-color: rgba(255, 255, 255, 0.85);
+  border-radius: 8px;
+  color: #718096;
+  font-size: 15px;
+}
+.layout-loading__spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid rgb(230, 230, 230);
+  border-top-color: #4f4e7c;
+  border-radius: 50%;
+  animation: layout-loading-spin 0.8s linear infinite;
+}
+@keyframes layout-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .canvas-container {
