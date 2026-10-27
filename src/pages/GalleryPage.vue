@@ -651,7 +651,7 @@ onBeforeUnmount(() => {
 }
 
 .file-input {
-  margin-bottom: 8px;
+  margin-bottom: 12px;
 }
 
 .gallery__header {
