@@ -13,6 +13,7 @@ import { cableLinesApi } from '@/api/cableLines'
 import { referenceApi } from '@/api/reference'
 import { filesApi } from '@/api/files'
 import { adminUsersApi } from '@/api/adminUsers'
+import { storageApi } from '@/api/storage'
 
 const router = useRouter()
 const toast = useToast()
@@ -431,6 +432,36 @@ const items = ref([])
 const loading = ref(false)
 const loadError = ref(false)
 const searchBar = ref('')
+
+// Свободное место на диске сервера: загрузки файлов и фото лежат на том же томе,
+// поэтому заканчивается место всегда неожиданно для всех
+const storage = ref(null)
+const storageLoading = ref(false)
+
+const loadStorage = async () => {
+  storageLoading.value = true
+  try {
+    storage.value = await storageApi.getStorageInfo()
+  } catch (error) {
+    console.error('Ошибка получения информации о диске:', error)
+    toast.error('Не удалось получить данные о диске')
+  } finally {
+    storageLoading.value = false
+  }
+}
+
+const storageUsedPercent = computed(() => {
+  if (!storage.value) return 0
+  const { totalBytes, freeBytes } = storage.value
+  if (!totalBytes) return 0
+  return Math.round(((totalBytes - freeBytes) / totalBytes) * 100)
+})
+
+// Места осталось мало — предупреждаем цветом: гигабайтный файл уже не влезит
+const storageIsLow = computed(() => {
+  if (!storage.value) return false
+  return storage.value.freeBytes < 2 * 1024 * 1024 * 1024
+})
 
 const showModal = ref(false)
 const editing = ref(null)
@@ -1024,6 +1055,7 @@ const handleLogout = () => {
 
 // ===================== СТАРТ =====================
 onMounted(async () => {
+  loadStorage()
   try {
     projectsList.value = await projectsApi.getProjects()
     if (projectsList.value.length) selectedProjectId.value = projectsList.value[0].id
@@ -1087,6 +1119,47 @@ watch(selectedAssemblyId, () => {
             </button>
           </div>
         </nav>
+
+        <div class="admin-storage">
+          <div class="admin-storage__head">
+            <span class="admin-storage__title">Диск сервера</span>
+            <button
+              class="admin-storage__refresh"
+              type="button"
+              :disabled="storageLoading"
+              @click="loadStorage"
+              title="Обновить"
+            >
+              ⟳
+            </button>
+          </div>
+
+          <div v-if="!storage" class="admin-storage__empty">
+            {{ storageLoading ? 'Проверка…' : 'Нет данных' }}
+          </div>
+
+          <template v-else>
+            <div class="admin-storage__bar">
+              <div
+                class="admin-storage__fill"
+                :class="{ 'admin-storage__fill--low': storageIsLow }"
+                :style="{ width: storageUsedPercent + '%' }"
+              ></div>
+            </div>
+            <div class="admin-storage__line">
+              <span>
+                Свободно
+                <strong>{{ formatFileSize(storage.freeBytes) }}</strong>
+                из {{ formatFileSize(storage.totalBytes) }}
+              </span>
+              <span class="admin-storage__percent">занято {{ storageUsedPercent }}%</span>
+            </div>
+            <p v-if="storageIsLow" class="admin-storage__warning">
+              Места меньше 2 ГБ — крупный файл не загрузится
+            </p>
+            <p class="admin-storage__path" :title="storage.path">{{ storage.mountPoint }}</p>
+          </template>
+        </div>
       </aside>
 
       <main class="admin-content">
@@ -1725,6 +1798,85 @@ watch(selectedAssemblyId, () => {
   color: #4f46e5;
   border-left-color: #6366f1;
   font-weight: 500;
+}
+.admin-storage {
+  /* auto прижимает блок к низу сайдбара, когда места в избытке,
+     и превращается в обычный отступ, когда список разделов переполняет колонку */
+  margin: auto 16px 16px;
+  padding: 12px 16px;
+  background-color: #f8fafc;
+  border: 1px solid rgb(230, 230, 230);
+  border-radius: 8px;
+}
+.admin-storage__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.admin-storage__title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #718096;
+  text-transform: uppercase;
+}
+.admin-storage__refresh {
+  padding: 2px 8px;
+  font-size: 14px;
+  line-height: 1;
+  color: #4f46e5;
+  cursor: pointer;
+  background: none;
+  border: 1px solid #c7d2fe;
+  border-radius: 6px;
+}
+.admin-storage__refresh:disabled {
+  color: #a0aec0;
+  cursor: default;
+}
+.admin-storage__empty {
+  font-size: 13px;
+  color: #a0aec0;
+}
+.admin-storage__bar {
+  height: 6px;
+  overflow: hidden;
+  background-color: #e2e8f0;
+  border-radius: 999px;
+}
+.admin-storage__fill {
+  height: 100%;
+  background-color: #4f46e5;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+.admin-storage__fill--low {
+  background-color: #e53e3e;
+}
+.admin-storage__line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 12px;
+  color: #4a5568;
+}
+.admin-storage__percent {
+  color: #718096;
+}
+.admin-storage__warning {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: #c53030;
+}
+.admin-storage__path {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: #a0aec0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .admin-content {
   padding: 24px;
