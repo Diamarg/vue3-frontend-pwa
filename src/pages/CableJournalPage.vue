@@ -220,6 +220,25 @@ const isFormValid = computed(() => {
   )
 })
 
+// Точно такая же линия: совпадают все поля (пустые строки = null, регистр и
+// пробелы по краям не важны). excludeId — чтобы при редактировании не
+// сравнивать линию саму с собой
+const normStr = (s) => (s ?? '').toString().trim() || null
+
+const findIdenticalLine = (data, excludeId = null) =>
+  cableLines.value.find(
+    (l) =>
+      l.id !== excludeId &&
+      normStr(l.linePurpose) === normStr(data.LinePurpose) &&
+      normStr(l.startPoint) === normStr(data.StartPoint) &&
+      normStr(l.endPoint) === normStr(data.EndPoint) &&
+      Number(l.length) === Number(data.Length) &&
+      l.cableTypeId === data.CableTypeId &&
+      (l.coreCount ?? null) === data.CoreCount &&
+      l.crossSectionId === data.CrossSectionId &&
+      normStr(l.notes) === normStr(data.Notes),
+  )
+
 const saveLine = async () => {
   if (!isFormValid.value) {
     toast.error('Заполните обязательные поля')
@@ -237,6 +256,12 @@ const saveLine = async () => {
       CoreCount: lineForm.value.coreCount ? Number(lineForm.value.coreCount) : null,
       CrossSectionId: Number(lineForm.value.crossSectionId),
       Notes: lineForm.value.notes.trim(),
+    }
+
+    const clash = findIdenticalLine(data, editingLine.value?.id ?? null)
+    if (clash) {
+      toast.error('Такая кабельная линия уже существует')
+      return
     }
 
     if (editingLine.value) {
@@ -282,6 +307,10 @@ const dublicateCableLine = async (line) => {
     Notes: lineForm.value.notes.trim(),
   }
   try {
+    if (findIdenticalLine(data)) {
+      toast.error('Такая кабельная линия уже существует: измените хотя бы одно поле')
+      return
+    }
     await cableLinesApi.createLine(route.params.projectId, data)
     toast.success('Линия добавлена')
     showLineModal.value = false
@@ -467,22 +496,24 @@ onMounted(async () => {
             </td>
             <td class="admin-table__td admin-table__td--notes">{{ line.notes || '—' }}</td>
             <td v-if="authStore.isAdmin" class="admin-table__td admin-table__td--actions">
-              <button
-                v-if="authStore.isAdmin"
-                class="admin-table__btn"
-                @click="openEditModal(line)"
-                title="Редактировать"
-              >
-                ✏️
-              </button>
-              <button
-                v-if="authStore.isAdmin"
-                class="admin-table__btn admin-table__btn--del"
-                @click="deleteLine(line)"
-                title="Удалить"
-              >
-                🗑️
-              </button>
+              <div class="admin-table__actions">
+                <button
+                  v-if="authStore.isAdmin"
+                  class="admin-table__btn"
+                  @click="openEditModal(line)"
+                  title="Редактировать"
+                >
+                  ✏️
+                </button>
+                <button
+                  v-if="authStore.isAdmin"
+                  class="admin-table__btn admin-table__btn--del"
+                  @click="deleteLine(line)"
+                  title="Удалить"
+                >
+                  🗑️
+                </button>
+              </div>
             </td>
           </tr>
         </tbody>
@@ -571,14 +602,20 @@ onMounted(async () => {
 
         <div class="admin-form__actions" style="margin-top: 24px">
           <Abutton
+            @click="saveLine"
+            :title="'Сохранить кабельную линию'"
+            :disabled="!isFormValid || isSaving"
+          >
+            {{ isSaving ? 'Сохранение...' : editingLine ? 'Сохранить' : 'Добавить' }}
+          </Abutton>
+          <Abutton
+            :title="'Сохранить новую кабельную линию'"
+            :variant="'succeed'"
             v-if="editingLine"
             @click="dublicateCableLine"
             :disabled="!isFormValid || isSaving"
           >
             {{ isSaving ? 'Сохранение...' : 'Дубликат' }}
-          </Abutton>
-          <Abutton @click="saveLine" :disabled="!isFormValid || isSaving">
-            {{ isSaving ? 'Сохранение...' : editingLine ? 'Сохранить' : 'Добавить' }}
           </Abutton>
           <a class="admin-form__cancel" @click="showLineModal = false">Отмена</a>
         </div>
@@ -848,8 +885,13 @@ onMounted(async () => {
 .admin-table__td--actions {
   text-align: center;
   white-space: nowrap;
-  display: flex;
+}
+/* Flex живёт внутри td: display:flex на самой ячейке ломает раскладку
+   таблицы, и колонка «Действия» съезжает при переносе других ячеек */
+.admin-table__actions {
+  display: inline-flex;
   justify-content: center;
+  flex-wrap: wrap;
   gap: 8px;
 }
 .admin-table__btn {
@@ -931,7 +973,7 @@ onMounted(async () => {
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  gap: 16px;
+  gap: 8px;
   padding-top: 8px;
 }
 .admin-form__cancel {
@@ -939,6 +981,7 @@ onMounted(async () => {
   color: #718096;
   cursor: pointer;
   text-decoration: none;
+  padding: 8px;
 }
 .admin-form__cancel:hover {
   color: #4a5568;
