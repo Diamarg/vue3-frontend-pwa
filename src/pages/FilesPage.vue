@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import { usePageStore } from '@/stores/pages'
 import { useAuthStore } from '@/stores/auth'
 import AInput from '@/components/A-input.vue'
+import FileInput from '@/components/FileInput.vue'
 import AButton from '@/components/A-button.vue'
 import AModal from '@/components/A-modal.vue'
 import { filesApi } from '@/api/files'
@@ -227,13 +228,10 @@ const submitUpload = async () => {
   }
 }
 
-const handleFileChange = (event) => {
+const handleFileSelect = ([file]) => {
   if (isUploading.value) return
-  const file = event.target.files[0] || null
-  if (file && file.size > MAX_FILE_SIZE_BYTES) {
+  if (file.size > MAX_FILE_SIZE_BYTES) {
     toast.error(`Файл ${formatFileSize(file.size)} — максимум ${MAX_FILE_SIZE_LABEL}`)
-    event.target.value = ''
-    uploadForm.value.file = null
     return
   }
   uploadForm.value.file = file
@@ -503,12 +501,22 @@ onMounted(async () => {
             </button>
           </div>
 
-          <a-input type="file" @change="handleFileChange" class="form-input" />
+          <FileInput :disabled="isUploading" @select="handleFileSelect" />
           <p class="upload-form__limit">
             Максимальный размер одного файла — {{ MAX_FILE_SIZE_LABEL }}
           </p>
           <div v-if="uploadForm.file" class="selected-file">
-            {{ uploadForm.file.name }} ({{ formatFileSize(uploadForm.file.size) }})
+            <span class="selected-file__name">
+              {{ uploadForm.file.name }} ({{ formatFileSize(uploadForm.file.size) }})
+            </span>
+            <button
+              v-if="!isUploading"
+              type="button"
+              class="selected-file__clear"
+              @click="uploadForm.file = null"
+            >
+              Убрать
+            </button>
           </div>
         </div>
 
@@ -922,9 +930,30 @@ label {
 }
 
 .selected-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 13px;
   color: #059669;
   font-weight: 500;
+}
+
+.selected-file__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selected-file__clear {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  font-size: 12px;
+  color: #6b7280;
+  cursor: pointer;
+  background: none;
+  border: 1px solid #d1d5db;
+  border-radius: 999px;
 }
 
 .upload-form__limit {

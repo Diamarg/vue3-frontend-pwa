@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import { usePageStore } from '@/stores/pages'
 import { useAuthStore } from '@/stores/auth'
 import AInput from '@/components/A-input.vue'
+import FileInput from '@/components/FileInput.vue'
 import AButton from '@/components/A-button.vue'
 import AModal from '@/components/A-modal.vue'
 import { galleryApi } from '@/api/gallery'
@@ -385,10 +386,9 @@ const closeUploadModal = () => {
   showModal.value = false
 }
 
-const handleFileChange = (event) => {
+const handleFilesSelect = (files) => {
   if (isUploading.value) return
-  uploadForm.value.files = [...uploadForm.value.files, ...Array.from(event.target.files)]
-  event.target.value = ''
+  uploadForm.value.files = [...uploadForm.value.files, ...files]
 }
 
 const deleteFileString = (index) => {
@@ -523,13 +523,12 @@ onBeforeUnmount(() => {
   <a-modal title="Загрузка фотографий" :opened="showModal" @close-emit="closeUploadModal">
     <form enctype="multipart/form-data" @submit.prevent="submitUpload">
       <label>Выберите фото с устройства</label>
-      <a-input
+      <FileInput
         accept="image/*"
-        class="form-input"
-        type="file"
         multiple
         :disabled="isUploading"
-        @change="handleFileChange"
+        hint="Перетащите фотографии сюда или нажмите, чтобы открыть галерею устройства"
+        @select="handleFilesSelect"
       />
 
       <div class="compress-option">
