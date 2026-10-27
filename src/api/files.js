@@ -41,11 +41,8 @@ export const filesApi = {
   deleteFile: (projectId, fileId) =>
     api.delete(`/projects/${projectId}/files/${fileId}`).then((res) => res.data),
 
-  // Скачать файл
-  downloadFile: (projectId, fileId) =>
-    api
-      .get(`/projects/${projectId}/files/${fileId}/download`, {
-        responseType: 'blob',
-      })
-      .then((res) => res.data),
+  // Ссылка на скачивание: отдаётся браузеру как обычная ссылка, а не через blob,
+  // чтобы гигабайт не лежал в памяти страницы и работал Range (пауза и докачка)
+  getDownloadUrl: (projectId, fileId) =>
+    `${api.defaults.baseURL}/projects/${projectId}/files/${fileId}/download`,
 }

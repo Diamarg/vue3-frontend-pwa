@@ -45,7 +45,12 @@ export default defineConfig({
             urlPattern: ({ url, sameOrigin }) =>
               sameOrigin &&
               url.pathname.startsWith('/api/') &&
-              !url.pathname.startsWith('/api/auth'),
+              !url.pathname.startsWith('/api/auth') &&
+              // Скачивание файлов и выдача фотографий исключены: это blob-ответы,
+              // а Workbox клонирует каждый ответ и кладёт в Cache Storage — на больших
+              // файлах запрос падает уже после того, как nginx отдал 200 и всё тело
+              !url.pathname.endsWith('/download') &&
+              !url.pathname.endsWith('/file'),
             method: 'GET',
             handler: 'NetworkFirst',
             options: {

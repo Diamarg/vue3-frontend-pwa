@@ -268,21 +268,17 @@ const deleteSelectedFiles = async () => {
   }
 }
 
-const downloadFile = async (file) => {
+const downloadFile = (file) => {
   if (!confirm(`Скачать файл "${file.fileName}"?`)) return
-  try {
-    const blob = await filesApi.downloadFile(route.params.projectId, file.id)
-    const url = window.URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = file.fileName
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    window.URL.revokeObjectURL(url)
-  } catch (error) {
-    toast.error('Ошибка скачивания файла')
-  }
+  // Обычная ссылка вместо запроса через axios: браузер пишет файл на диск потоком,
+  // поэтому в памяти страницы не лежит гигабайт, а Range даёт паузу и докачку.
+  // Авторизация идёт по cookie auth_token — API читает его, если нет заголовка Authorization
+  const link = document.createElement('a')
+  link.href = filesApi.getDownloadUrl(route.params.projectId, file.id)
+  link.download = file.fileName
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
 }
 
 const createCategory = async () => {
