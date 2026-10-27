@@ -2,12 +2,14 @@
 const props = defineProps({
   variant: { type: String, default: 'primary' },
   type: { type: String },
+  title: { type: String },
   disabled: { type: Boolean, default: false },
 })
 </script>
 
 <template>
   <button
+    :title="props.title"
     :disabled="props.disabled"
     :type="props.type"
     :class="['btn', `btn-${props.variant}`, `btn-disabled-${disabled}`]"
@@ -50,7 +52,13 @@ const props = defineProps({
 }
 
 .btn-succeed {
+  background-color: rgb(0, 104, 5);
   color: var(--md-sys-color-on-tertiary);
+}
+
+.btn-succeed:hover {
+  color: rgb(31, 31, 31);
+  background-color: var(--md-sys-color-on-tertiary);
 }
 
 .btn-danger {
