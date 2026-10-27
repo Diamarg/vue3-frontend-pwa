@@ -1,6 +1,24 @@
 <template>
   <div class="navbar" :class="{ 'navbar--back': showBack }">
-    <button v-if="showBack" class="navbar-back" aria-label="Назад" @click="goBack">←</button>
+    <button v-if="showBack" class="navbar-back" aria-label="Назад" @click="goBack">
+      <!-- SVG вместо символа «←»: глиф привязан к базовой линии шрифта,
+           поэтому визуально гуляет от центра кнопки в зависимости от шрифта -->
+      <svg
+        class="navbar-back__icon"
+        viewBox="0 0 24 24"
+        width="20"
+        height="20"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <line x1="19" y1="12" x2="5" y2="12" />
+        <polyline points="12 19 5 12 12 5" />
+      </svg>
+    </button>
 
     <div class="navbar-pagename">{{ pageStore.title }}</div>
 
@@ -149,11 +167,17 @@ watch(() => route.fullPath, closeMenu)
   justify-content: center;
   width: 40px;
   height: 40px;
+  padding: 0;
+  border: none;
   border-radius: 8px;
   font-size: 20px;
   color: rgb(60, 60, 60);
   background-color: rgb(245, 245, 245);
   transition: background-color 0.2s;
+}
+
+.navbar-back__icon {
+  display: block;
 }
 
 .navbar-back:focus-visible {
