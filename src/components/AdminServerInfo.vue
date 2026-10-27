@@ -106,6 +106,12 @@ const usedPercent = (totalBytes, freeBytes) => {
 const disk = computed(() => info.value?.disk ?? null)
 const memory = computed(() => info.value?.memory ?? null)
 const server = computed(() => info.value?.server ?? null)
+const app = computed(() => info.value?.process ?? null)
+// Тяжёлые метрики (база, обход каталогов, сертификат) сервер считает раз в минуту
+const heavy = computed(() => info.value?.heavy ?? null)
+const database = computed(() => heavy.value?.database ?? null)
+const storage = computed(() => heavy.value?.storage ?? null)
+const tls = computed(() => heavy.value?.tls ?? null)
 const diskIsLow = computed(() => {
   if (!disk.value) return false
   return disk.value.freeBytes < 2 * 1024 * 1024 * 1024
@@ -128,44 +134,91 @@ const cpuPercent = computed(() => {
   return value === null || value === undefined ? null : Math.round(value)
 })
 const cpuIsHigh = computed(() => (cpuPercent.value ?? 0) >= 85)
+// На одном ядре нагрузка 1.0 — это уже очередь: следующий запрос ждёт своего кванта
+const loadIsHigh = computed(() => {
+  const load = server.value?.loadAverage
+  if (!load?.one) return false
+  return load.one > server.value.cpuCount
+})
+// Очередь тредпула выше нескольких задач = ответы API задерживаются до нехватки памяти
+const queueIsBacked = computed(() => Number(app.value?.pendingWorkItems) > 5)
+// Let's Encrypt выдаёт сертификат на неделю, поэтому тревога только когда остаётся
+// меньше трёх дней — значит certbot не справляется, а не что срок просто подошёл
+const tlsIsExpiring = computed(() => {
+  const days = tls.value?.daysLeft
+  return days !== null && days !== undefined && days < 3
+})
 
 // Параметры сервера выводим парами «что — значение», порядок — от общего к частному
 const serverRows = computed(() => {
   const s = server.value
   if (!s) return []
+  const load = s.loadAverage
   return [
     ['Имя хоста', s.machineName],
     ['Операционная система', s.os],
     ['Ядро', s.osVersion],
     ['Архитектура', s.architecture],
     ['Среда исполнения', s.framework],
+    ['Средняя нагрузка (1/5/15 мин)', load ? `${load.one} / ${load.five} / ${load.fifteen}` : null],
     ['Аптайм сервера', formatUptime(s.systemUptimeSeconds)],
     ['Местное время', `${s.serverTimeLocal} (${s.serverTimeZone})`],
+    ['TLS-сертификат', tls.value?.error ? tls.value.error : `истекает ${tls.value?.notAfterLocal}`],
   ]
 })
 
 const appRows = computed(() => {
-  const a = info.value?.application
+  const a = app.value
   if (!a) return []
   return [
     ['Окружение', a.environmentName],
     ['Версия приложения', a.applicationVersion],
     ['Корень приложения', a.contentRootPath],
-    ['Записей проектов', a.projectsCount],
     ['PID процесса', a.processId],
     ['Аптайм API', formatUptime(a.processUptimeSeconds)],
+    ['Память процесса', formatBytes(a.workingSetBytes)],
+    ['Вне подкачки (private)', formatBytes(a.privateMemoryBytes)],
+    ['Куча .NET', formatBytes(a.managedHeapBytes)],
+    ['Потоков', a.threadCount],
+    ['Задач в очереди', a.pendingWorkItems],
+    [
+      'Сборок мусора (Gen0/1/2)',
+      `${a.gen0Collections} / ${a.gen1Collections} / ${a.gen2Collections}`,
+    ],
+  ]
+})
+
+const databaseRows = computed(() => {
+  const db = database.value
+  if (!db) return []
+  if (db.error) return [['База недоступна', db.error]]
+  return [
+    ['Размер базы', formatBytes(db.sizeBytes)],
+    ['Активных соединений', db.activeConnections],
+    ['Версия PostgreSQL', db.serverVersion],
+    ['Записей проектов', db.projectsCount],
   ]
 })
 
 const storageRows = computed(() => {
-  const st = info.value?.storage
+  const st = storage.value
   if (!st) return []
   return [
-    ['Файлы проектов', `${st.filesCount} шт · ${formatBytes(st.filesBytes)}`],
-    ['Фотографии', `${st.photosCount} шт · ${formatBytes(st.photosBytes)}`],
+    ['Файлы проектов (в базе)', `${st.filesCount} шт · ${formatBytes(st.filesBytes)}`],
+    ['Фотографии (в базе)', `${st.photosCount} шт · ${formatBytes(st.photosBytes)}`],
+    [
+      'На диске (обход каталога)',
+      `${st.disk.fileCount} файлов · ${formatBytes(st.disk.totalBytes)}`,
+    ],
+    [
+      'Огрызки без записей в базе',
+      `${st.disk.orphanCount} файлов · ${formatBytes(st.disk.orphanBytes)}`,
+    ],
     ['Каталог загрузок', info.value?.disk?.storagePath],
   ]
 })
+
+const topProjects = computed(() => storage.value?.disk?.topProjects ?? [])
 </script>
 
 <template>
@@ -324,12 +377,33 @@ const storageRows = computed(() => {
               <dd>{{ value ?? '—' }}</dd>
             </div>
           </dl>
+          <p v-if="loadIsHigh" class="sysinfo__warning">
+            Нагрузка выше числа ядер: часть задач стоит в очереди, а не исполняется
+          </p>
+          <p v-if="tlsIsExpiring" class="sysinfo__warning">
+            Сертификат истекает через {{ tls.daysLeft }} дн. — certbot не обновил его, после этого
+            сайт станет недоступен
+          </p>
         </div>
 
         <div class="sysinfo__card">
           <h4 class="sysinfo__card-title">Приложение</h4>
           <dl class="sysinfo__list">
             <div v-for="[label, value] in appRows" :key="label" class="sysinfo__row">
+              <dt>{{ label }}</dt>
+              <dd class="sysinfo__value-break">{{ value ?? '—' }}</dd>
+            </div>
+          </dl>
+          <p v-if="queueIsBacked" class="sysinfo__warning">
+            Задачи ждут свободного потока: обычно это начинается во время крупного качания или
+            загрузки файлов
+          </p>
+        </div>
+
+        <div class="sysinfo__card">
+          <h4 class="sysinfo__card-title">База данных</h4>
+          <dl class="sysinfo__list">
+            <div v-for="[label, value] in databaseRows" :key="label" class="sysinfo__row">
               <dt>{{ label }}</dt>
               <dd class="sysinfo__value-break">{{ value ?? '—' }}</dd>
             </div>
@@ -344,8 +418,22 @@ const storageRows = computed(() => {
               <dd class="sysinfo__value-break">{{ value ?? '—' }}</dd>
             </div>
           </dl>
+
+          <div v-if="topProjects.length" class="sysinfo__top">
+            <div class="sysinfo__top-title">Больше всех занимают</div>
+            <div v-for="folder in topProjects" :key="folder.projectId" class="sysinfo__row">
+              <dt>{{ folder.codeName }}</dt>
+              <dd>{{ formatBytes(folder.bytes) }}</dd>
+            </div>
+          </div>
+
+          <p v-if="storage.disk.orphanCount" class="sysinfo__warning">
+            {{ storage.disk.orphanCount }} файлов лежат на диске без записей в базе — их можно
+            удалить только руками
+          </p>
           <p class="sysinfo__muted">
-            Размеры взяты из базы данных, поэтому не учитывают огрызки от прерванных загрузок.
+            Обход каталогов, метрики базы и срок сертификата считаются раз в
+            {{ heavy.ttlSeconds }} с, обновлены в {{ heavy.stampedAt }}
           </p>
         </div>
       </div>
@@ -502,6 +590,17 @@ const storageRows = computed(() => {
   margin: 10px 0 0;
   font-size: 12px;
   color: #c53030;
+}
+
+.sysinfo__top {
+  margin-top: 14px;
+  display: grid;
+  gap: 6px;
+}
+
+.sysinfo__top-title {
+  font-size: 12px;
+  color: #718096;
 }
 
 .sysinfo__list {
