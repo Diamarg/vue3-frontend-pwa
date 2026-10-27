@@ -22,6 +22,7 @@ const project = ref(null)
 const assembly = ref(null)
 
 const assemblyDevices = ref([])
+const loadingDevices = ref(true)
 const allDevices = ref([])
 const deviceTypes = ref([])
 const brands = ref([])
@@ -83,6 +84,7 @@ const loadAssembly = async () => {
 }
 
 const loadAssemblyDevices = async () => {
+  loadingDevices.value = true
   try {
     // ✅ Используем новый эндпоинт, который сразу возвращает все детали
     const rawDevices = await projectsApi.getAssemblyDevicesWithDetails(route.params.assemblyId)
@@ -102,6 +104,8 @@ const loadAssemblyDevices = async () => {
   } catch (error) {
     toast.error('Не удалось загрузить устройства сборки')
     console.error('Не удалось загрузить устройства сборки', error)
+  } finally {
+    loadingDevices.value = false
   }
 }
 
@@ -417,7 +421,9 @@ onMounted(async () => {
 
     <!-- === ТАБЛИЦА === -->
     <div class="admin-card admin-table-wrap">
-      <div v-if="sortedDevices.length === 0" class="admin-empty">
+      <div v-if="loadingDevices" class="admin-empty">Загрузка устройств...</div>
+
+      <div v-else-if="sortedDevices.length === 0" class="admin-empty">
         {{
           searchBar
             ? `По запросу «${searchBar}» ничего не найдено`
@@ -462,11 +468,18 @@ onMounted(async () => {
                 </span>
               </span>
             </th>
-            <th class="admin-table__th admin-table__th--actions">Действия</th>
+            <th v-if="authStore.isAdmin" class="admin-table__th admin-table__th--actions">
+              Действия
+            </th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="device in sortedDevices" :key="device.id" class="admin-table__row">
+          <tr
+            v-for="device in sortedDevices"
+            :key="device.id"
+            class="admin-table__row admin-table__row--clickable"
+            @click="openProperties(device)"
+          >
             <td class="admin-table__td admin-table__td--num">{{ numsById.get(device.id) }}</td>
             <td class="admin-table__td">{{ device.article }}</td>
             <td class="admin-table__td">{{ device.description }}</td>
@@ -474,7 +487,7 @@ onMounted(async () => {
             <td class="admin-table__td">{{ device.deviceType }}</td>
 
             <td class="admin-table__td admin-table__td--quantity">
-              <div class="qty-control">
+              <div class="qty-control" @click.stop>
                 <button
                   v-if="authStore.isAdmin"
                   class="qty-btn"
@@ -497,22 +510,16 @@ onMounted(async () => {
               </div>
             </td>
 
-            <td class="admin-table__td admin-table__td--actions">
-              <button
-                class="admin-table__btn"
-                @click="openProperties(device)"
-                title="Просмотр свойств"
-              >
-                Свойства
-              </button>
-              <button
-                v-if="authStore.isAdmin"
-                class="admin-table__btn admin-table__btn--del"
-                @click="removeDevice(device.id, device.article)"
-                title="Удалить из сборки"
-              >
-                Удалить
-              </button>
+            <td v-if="authStore.isAdmin" class="admin-table__td admin-table__td--actions">
+              <div class="admin-table__actions" @click.stop>
+                <button
+                  class="admin-table__btn admin-table__btn--del"
+                  @click="removeDevice(device.id, device.article)"
+                  title="Удалить из сборки"
+                >
+                  Удалить
+                </button>
+              </div>
             </td>
           </tr>
         </tbody>
@@ -884,6 +891,9 @@ onMounted(async () => {
 .admin-table__row {
   transition: background-color 0.15s;
 }
+.admin-table__row--clickable {
+  cursor: pointer;
+}
 .admin-table__row:hover {
   background-color: #f7fafc;
 }
@@ -949,8 +959,13 @@ onMounted(async () => {
 .admin-table__td--actions {
   text-align: center;
   white-space: nowrap;
-  display: flex;
+}
+/* Flex живёт внутри td: display:flex на самой ячейке ломает раскладку
+   таблицы, и колонка «Действия» съезжает */
+.admin-table__actions {
+  display: inline-flex;
   justify-content: center;
+  flex-wrap: wrap;
   gap: 8px;
 }
 .admin-table__btn {
