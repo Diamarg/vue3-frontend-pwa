@@ -524,6 +524,7 @@ onBeforeUnmount(() => {
     <form enctype="multipart/form-data" @submit.prevent="submitUpload">
       <label>Выберите фото с устройства</label>
       <FileInput
+        class="file-input"
         accept="image/*"
         multiple
         :disabled="isUploading"
@@ -647,6 +648,10 @@ onBeforeUnmount(() => {
   font-size: 48px;
   margin-bottom: 16px;
   opacity: 0.5;
+}
+
+.file-input {
+  margin-bottom: 8px;
 }
 
 .gallery__header {

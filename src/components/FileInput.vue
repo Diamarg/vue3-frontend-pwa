@@ -52,54 +52,64 @@ const onDrop = (event) => {
 </script>
 
 <template>
-  <button
-    type="button"
-    class="file-input"
-    :class="{ 'file-input--dragging': isDragging, 'file-input--disabled': disabled }"
-    :disabled="disabled"
-    @click="pick"
-    @dragover.prevent="!disabled && (isDragging = true)"
-    @dragleave="isDragging = false"
-    @drop.prevent="onDrop"
-  >
-    <span class="file-input__icon" aria-hidden="true">
-      <svg
-        viewBox="0 0 24 24"
-        width="22"
-        height="22"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="1.8"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      >
-        <path d="M12 16V4" />
-        <polyline points="6 10 12 4 18 10" />
-        <path d="M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2" />
-      </svg>
-    </span>
-    <span class="file-input__text">
-      <span class="file-input__label">{{ isDragging ? 'Отпустите файлы' : 'Выбрать файлы' }}</span>
-      <span class="file-input__hint">
-        {{ hint || 'Перетащите файл сюда или нажмите, чтобы открыть проводник' }}
+  <!-- Один корень: при двух Vue не пробрасывает class родителя на компонент -->
+  <div class="file-input-wrap">
+    <button
+      type="button"
+      class="file-input"
+      :class="{ 'file-input--dragging': isDragging, 'file-input--disabled': disabled }"
+      :disabled="disabled"
+      @click="pick"
+      @dragover.prevent="!disabled && (isDragging = true)"
+      @dragleave="isDragging = false"
+      @drop.prevent="onDrop"
+    >
+      <span class="file-input__icon" aria-hidden="true">
+        <svg
+          viewBox="0 0 24 24"
+          width="22"
+          height="22"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M12 16V4" />
+          <polyline points="6 10 12 4 18 10" />
+          <path d="M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2" />
+        </svg>
       </span>
-    </span>
-  </button>
+      <span class="file-input__text">
+        <span class="file-input__label">
+          {{ isDragging ? 'Отпустите файлы' : 'Выбрать файлы' }}
+        </span>
+        <span class="file-input__hint">
+          {{ hint || 'Перетащите файл сюда или нажмите, чтобы открыть проводник' }}
+        </span>
+      </span>
+    </button>
 
-  <input
-    ref="inputEl"
-    class="file-input__native"
-    type="file"
-    :accept="accept"
-    :multiple="multiple"
-    :disabled="disabled"
-    tabindex="-1"
-    aria-hidden="true"
-    @change="onNativeChange"
-  />
+    <input
+      ref="inputEl"
+      class="file-input__native"
+      type="file"
+      :accept="accept"
+      :multiple="multiple"
+      :disabled="disabled"
+      tabindex="-1"
+      aria-hidden="true"
+      @change="onNativeChange"
+    />
+  </div>
 </template>
 
 <style scoped>
+.file-input-wrap {
+  position: relative;
+  display: block;
+}
+
 .file-input {
   display: flex;
   align-items: center;
