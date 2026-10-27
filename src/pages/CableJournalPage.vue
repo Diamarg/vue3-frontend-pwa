@@ -270,6 +270,30 @@ const deleteLine = async (line) => {
   }
 }
 
+const dublicateCableLine = async (line) => {
+  const data = {
+    LinePurpose: lineForm.value.linePurpose.trim(),
+    StartPoint: lineForm.value.startPoint.trim(),
+    EndPoint: lineForm.value.endPoint.trim(),
+    Length: Number(lineForm.value.length),
+    CableTypeId: Number(lineForm.value.cableTypeId),
+    CoreCount: lineForm.value.coreCount ? Number(lineForm.value.coreCount) : null,
+    CrossSectionId: Number(lineForm.value.crossSectionId),
+    Notes: lineForm.value.notes.trim(),
+  }
+  try {
+    await cableLinesApi.createLine(route.params.projectId, data)
+    toast.success('Линия добавлена')
+    showLineModal.value = false
+    await loadCableLines()
+  } catch (error) {
+    console.error('Ошибка сохранения линии:', error)
+    toast.error(error.response?.data || 'Не удалось сохранить линию')
+  } finally {
+    isSaving.value = false
+  }
+}
+
 // ===================== ЭКСПОРТ В TXT =====================
 // Ведомость кабеля: линии свёрнуты по марке, числу жил и сечению, метры суммируются.
 // Считаем по всему журналу, а не по строке поиска — в отчёте нужны общие метражи
@@ -546,6 +570,13 @@ onMounted(async () => {
         </div>
 
         <div class="admin-form__actions" style="margin-top: 24px">
+          <Abutton
+            v-if="editingLine"
+            @click="dublicateCableLine"
+            :disabled="!isFormValid || isSaving"
+          >
+            {{ isSaving ? 'Сохранение...' : 'Дубликат' }}
+          </Abutton>
           <Abutton @click="saveLine" :disabled="!isFormValid || isSaving">
             {{ isSaving ? 'Сохранение...' : editingLine ? 'Сохранить' : 'Добавить' }}
           </Abutton>
