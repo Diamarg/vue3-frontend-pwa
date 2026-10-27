@@ -37,11 +37,20 @@ const selectedCategoryId = ref(null) // <-- НОВЫЙ ФИЛЬТР ПО КАТ�
 const sortBy = ref('date') // 'date' | 'name'
 const selectedFileIds = ref(new Set())
 
+// Загрузка файла: прогресс в процентах и флаг, пока запрос в полёте
+const isUploading = ref(false)
+const uploadProgress = ref(0)
+
 const uploadForm = ref({
   file: null,
   fileCategoryId: null,
   description: '',
 })
+
+// Те же 1 ГБ, что в nginx (client_max_body_size) и на бэкенде (MaxFileSizeBytes):
+// проверка здесь отлавливает слишком большой файл до того, как он поползёт по сети
+const MAX_FILE_SIZE_BYTES = 1024 * 1024 * 1024
+const MAX_FILE_SIZE_LABEL = '1 ГБ'
 
 // --- Утилиты ---
 const formatFileSize = (bytes) => {
@@ -173,8 +182,13 @@ const loadCategories = async () => {
 }
 
 const submitUpload = async () => {
+  if (isUploading.value) return
   if (!uploadForm.value.file) {
     toast.error('Выберите файл')
+    return
+  }
+  if (uploadForm.value.file.size > MAX_FILE_SIZE_BYTES) {
+    toast.error(`Максимальный размер файла — ${MAX_FILE_SIZE_LABEL}`)
     return
   }
   if (!uploadForm.value.fileCategoryId) {
@@ -189,20 +203,40 @@ const submitUpload = async () => {
     formData.append('description', uploadForm.value.description)
   }
 
+  // Модалка дождя окончания держится: прогресс имеет смысл только пока виден,
+  // а гигабайт по мобильному каналу идёт минутами
+  isUploading.value = true
+  uploadProgress.value = 0
   try {
-    showModal.value = false
-    await filesApi.uploadFile(route.params.projectId, formData)
+    await filesApi.uploadFile(route.params.projectId, formData, (percent) => {
+      uploadProgress.value = percent
+    })
 
     toast.success('Файл успешно загружен')
     uploadForm.value = { file: null, fileCategoryId: null, description: '' }
+    showModal.value = false
     await loadFiles()
   } catch (error) {
-    toast.error('Ошибка загрузки: ' + (error.response?.data?.message || error.message))
+    // Бэкенд отдаёт текст ошибки голой строкой, а не объектом с полем message
+    const data = error.response?.data
+    const reason = typeof data === 'string' ? data : data?.message
+    toast.error('Ошибка загрузки: ' + (reason || error.message))
+  } finally {
+    isUploading.value = false
+    uploadProgress.value = 0
   }
 }
 
 const handleFileChange = (event) => {
-  uploadForm.value.file = event.target.files[0] || null
+  if (isUploading.value) return
+  const file = event.target.files[0] || null
+  if (file && file.size > MAX_FILE_SIZE_BYTES) {
+    toast.error(`Файл ${formatFileSize(file.size)} — максимум ${MAX_FILE_SIZE_LABEL}`)
+    event.target.value = ''
+    uploadForm.value.file = null
+    return
+  }
+  uploadForm.value.file = file
 }
 
 const deleteFile = async (file) => {
@@ -272,6 +306,9 @@ const createCategory = async () => {
 }
 
 const closeFileModal = () => {
+  // Закрывать окно посреди загрузки нельзя: файл уйдёт на сервер всё равно,
+  // а пользователь потеряет и прогресс, и возможность дозаполнить форму
+  if (isUploading.value) return
   showModal.value = false
 }
 
@@ -339,7 +376,9 @@ onMounted(async () => {
         </div>
 
         <div v-if="authStore.isAdmin" class="files__upload-btn-wrapper">
-          <a-button @click="showModal = true">Загрузить файл</a-button>
+          <a-button @click="showModal = true" :disabled="isUploading">
+            {{ isUploading ? 'Идёт загрузка…' : 'Загрузить файл' }}
+          </a-button>
         </div>
       </div>
 
@@ -449,7 +488,7 @@ onMounted(async () => {
     </div>
 
     <!-- Модалка загрузки -->
-    <a-modal title="Загрузка файла" :opened="showModal" @close-emit="showModal = false">
+    <a-modal title="Загрузка файла" :opened="showModal" @close-emit="closeFileModal">
       <form @submit.prevent="submitUpload" class="upload-form">
         <div class="form-group">
           <div class="form-title-group">
@@ -465,6 +504,9 @@ onMounted(async () => {
           </div>
 
           <a-input type="file" @change="handleFileChange" class="form-input" />
+          <p class="upload-form__limit">
+            Максимальный размер одного файла — {{ MAX_FILE_SIZE_LABEL }}
+          </p>
           <div v-if="uploadForm.file" class="selected-file">
             {{ uploadForm.file.name }} ({{ formatFileSize(uploadForm.file.size) }})
           </div>
@@ -507,7 +549,21 @@ onMounted(async () => {
           />
         </div>
 
-        <a-button type="submit" class="full-width-btn">Загрузить</a-button>
+        <div v-if="isUploading" class="upload-progress">
+          <div class="upload-progress__track">
+            <div class="upload-progress__fill" :style="{ width: uploadProgress + '%' }"></div>
+          </div>
+          <div class="upload-progress__label">
+            <span
+              >Отправлено {{ uploadProgress }}% из {{ formatFileSize(uploadForm.file?.size) }}</span
+            >
+            <span class="upload-progress__hint">Не закрывайте окно до конца загрузки</span>
+          </div>
+        </div>
+
+        <a-button type="submit" class="full-width-btn" :disabled="isUploading">
+          {{ isUploading ? 'Загрузка…' : 'Загрузить' }}
+        </a-button>
       </form>
     </a-modal>
   </div>
@@ -869,6 +925,47 @@ label {
   font-size: 13px;
   color: #059669;
   font-weight: 500;
+}
+
+.upload-form__limit {
+  margin: 0;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* === ПРОГРЕСС ЗАГРУЗКИ === */
+.upload-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.upload-progress__track {
+  height: 8px;
+  border-radius: 999px;
+  background-color: #e5e7eb;
+  overflow: hidden;
+}
+
+.upload-progress__fill {
+  height: 100%;
+  border-radius: 999px;
+  background-color: #4f46e5;
+  /* Резких скачков нет: прогресс приходит часто, поэтому плавный переход уместен */
+  transition: width 0.2s ease;
+}
+
+.upload-progress__label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+  color: #374151;
+}
+
+.upload-progress__hint {
+  font-size: 12px;
+  color: #6b7280;
 }
 
 .create-category-link {

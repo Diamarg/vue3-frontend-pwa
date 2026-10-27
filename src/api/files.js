@@ -21,10 +21,15 @@ export const filesApi = {
   getFiles: (projectId) => api.get(`/projects/${projectId}/files`).then((res) => res.data),
 
   // Загрузить файл
-  uploadFile: (projectId, formData) =>
+  uploadFile: (projectId, formData, onProgress) =>
     api
       .post(`/projects/${projectId}/files`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: (event) => {
+          if (!onProgress) return
+          const total = event.total || event.loaded
+          onProgress(Math.min(100, Math.round((event.loaded / total) * 100)))
+        },
       })
       .then((res) => res.data),
 
