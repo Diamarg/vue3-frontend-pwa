@@ -1,10 +1,19 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import AButton from '@/components/A-button.vue'
 import { systemApi } from '@/api/system'
 
-// Опрос раз в 2 секунды: метрики диска/памяти должны «дышать» без тыканья кнопки
-const POLL_INTERVAL_MS = 2000
+// Период выбирает администратор: каждый опрос — два агрегатных запроса к БД, поэтому
+// по умолчанию 5 с, а 1 с остаётся для тех случаев, когда нужно поймать пик
+const INTERVAL_OPTIONS = [1, 2, 5, 10, 30, 60]
+const DEFAULT_INTERVAL_SEC = 5
+const INTERVAL_STORAGE_KEY = 'admin-server-info-interval-sec'
+
+// Сохранённое значение могло остаться от старой версии списка — проверяем по опциям
+const storedInterval = Number(localStorage.getItem(INTERVAL_STORAGE_KEY))
+const intervalSec = ref(
+  INTERVAL_OPTIONS.includes(storedInterval) ? storedInterval : DEFAULT_INTERVAL_SEC,
+)
 
 const info = ref(null)
 const isLoading = ref(true)
@@ -33,24 +42,38 @@ const loadInfo = async () => {
 }
 
 // Пока вкладка не видна, сервер дёргать незачем
-const onVisibilityChange = () => {
-  if (document.hidden) {
-    clearInterval(timer)
-    timer = null
-  } else if (!timer) {
-    loadInfo()
-    timer = setInterval(loadInfo, POLL_INTERVAL_MS)
-  }
+const stopPolling = () => {
+  clearInterval(timer)
+  timer = null
 }
 
-onMounted(() => {
+const startPolling = () => {
+  if (timer) return
+  // Первый запрос сразу, иначе после смены вкладки висит пустая карточка до первого тика
   loadInfo()
-  timer = setInterval(loadInfo, POLL_INTERVAL_MS)
+  timer = setInterval(loadInfo, intervalSec.value * 1000)
+}
+
+const onVisibilityChange = () => {
+  if (document.hidden) stopPolling()
+  else startPolling()
+}
+
+watch(intervalSec, (sec) => {
+  localStorage.setItem(INTERVAL_STORAGE_KEY, String(sec))
+  // На скрытой вкладке таймер и так стоит — он подхватит новый период при возврате
+  if (document.hidden) return
+  stopPolling()
+  startPolling()
+})
+
+onMounted(() => {
+  startPolling()
   document.addEventListener('visibilitychange', onVisibilityChange)
 })
 
 onBeforeUnmount(() => {
-  clearInterval(timer)
+  stopPolling()
   document.removeEventListener('visibilitychange', onVisibilityChange)
 })
 
@@ -82,6 +105,7 @@ const usedPercent = (totalBytes, freeBytes) => {
 
 const disk = computed(() => info.value?.disk ?? null)
 const memory = computed(() => info.value?.memory ?? null)
+const server = computed(() => info.value?.server ?? null)
 const diskIsLow = computed(() => {
   if (!disk.value) return false
   return disk.value.freeBytes < 2 * 1024 * 1024 * 1024
@@ -91,10 +115,23 @@ const memoryIsLow = computed(() => {
   if (!mem?.totalBytes) return false
   return mem.availableBytes / mem.totalBytes < 0.15
 })
+// SwapTotal = 0 — своп на сервере не настроен, показывать «занято 0 из 0» бессмысленно
+const swapConfigured = computed(() => Number(memory.value?.swapTotalBytes) > 0)
+const swapIsHigh = computed(() => {
+  const mem = memory.value
+  if (!swapConfigured.value) return false
+  return mem.swapFreeBytes / mem.swapTotalBytes < 0.2
+})
+// Бэкенд считает процент по приросту тиков, поэтому до первого замера значения нет
+const cpuPercent = computed(() => {
+  const value = server.value?.cpuLoadPercent
+  return value === null || value === undefined ? null : Math.round(value)
+})
+const cpuIsHigh = computed(() => (cpuPercent.value ?? 0) >= 85)
 
 // Параметры сервера выводим парами «что — значение», порядок — от общего к частному
 const serverRows = computed(() => {
-  const s = info.value?.server
+  const s = server.value
   if (!s) return []
   return [
     ['Имя хоста', s.machineName],
@@ -102,7 +139,6 @@ const serverRows = computed(() => {
     ['Ядро', s.osVersion],
     ['Архитектура', s.architecture],
     ['Среда исполнения', s.framework],
-    ['Ядра процессора', s.cpuCount],
     ['Аптайм сервера', formatUptime(s.systemUptimeSeconds)],
     ['Местное время', `${s.serverTimeLocal} (${s.serverTimeZone})`],
   ]
@@ -138,13 +174,23 @@ const storageRows = computed(() => {
       <div>
         <h3 class="sysinfo__title">Сведения о сервере</h3>
         <p class="sysinfo__note">
-          Обновляется автоматически каждые {{ POLL_INTERVAL_MS / 1000 }} с
+          Обновляется автоматически каждые {{ intervalSec }} с
           <template v-if="updatedAt"> · последние данные в {{ updatedAt }}</template>
         </p>
       </div>
-      <span v-if="hasError && info" class="sysinfo__stale">
-        Нет связи, показаны последние полученные данные
-      </span>
+      <div class="sysinfo__head-side">
+        <label class="sysinfo__period" for="sysinfo-period">
+          Период обновления
+          <select id="sysinfo-period" v-model.number="intervalSec" class="sysinfo__period-select">
+            <option v-for="seconds in INTERVAL_OPTIONS" :key="seconds" :value="seconds">
+              {{ seconds }} с
+            </option>
+          </select>
+        </label>
+        <span v-if="hasError && info" class="sysinfo__stale">
+          Нет связи, показаны последние полученные данные
+        </span>
+      </div>
     </div>
 
     <div v-if="isLoading && !info" class="sysinfo__state">Загрузка сведений…</div>
@@ -162,7 +208,7 @@ const storageRows = computed(() => {
             <div class="sysinfo__meter-track">
               <div
                 class="sysinfo__meter-fill"
-                :class="{ 'sysinfo__meter-fill--low': diskIsLow }"
+                :class="{ 'sysinfo__meter-fill--danger': diskIsLow }"
                 :style="{ width: usedPercent(disk.totalBytes, disk.freeBytes) + '%' }"
               ></div>
             </div>
@@ -193,7 +239,7 @@ const storageRows = computed(() => {
             <div class="sysinfo__meter-track">
               <div
                 class="sysinfo__meter-fill"
-                :class="{ 'sysinfo__meter-fill--low': memoryIsLow }"
+                :class="{ 'sysinfo__meter-fill--danger': memoryIsLow }"
                 :style="{
                   width: usedPercent(memory.totalBytes, memory.availableBytes) + '%',
                 }"
@@ -211,6 +257,60 @@ const storageRows = computed(() => {
           </div>
           <p v-if="memoryIsLow" class="sysinfo__warning">
             Доступно меньше 15%: тяжёлые выгрузки и качание файлов упрутся в память
+          </p>
+
+          <div v-if="swapConfigured" class="sysinfo__meter sysinfo__meter--secondary">
+            <div class="sysinfo__meter-caption">Виртуальная память (swap)</div>
+            <div class="sysinfo__meter-track">
+              <div
+                class="sysinfo__meter-fill"
+                :class="{ 'sysinfo__meter-fill--danger': swapIsHigh }"
+                :style="{
+                  width: usedPercent(memory.swapTotalBytes, memory.swapFreeBytes) + '%',
+                }"
+              ></div>
+            </div>
+            <div class="sysinfo__meter-line">
+              <span
+                >Свободно <strong>{{ formatBytes(memory.swapFreeBytes) }}</strong> из
+                {{ formatBytes(memory.swapTotalBytes) }}</span
+              >
+              <span class="sysinfo__muted">
+                занято {{ usedPercent(memory.swapTotalBytes, memory.swapFreeBytes) }}%
+              </span>
+            </div>
+          </div>
+          <p v-if="swapIsHigh" class="sysinfo__warning">
+            Свопа осталось меньше 20%: память уже активно выгружается на диск, отсюда резкие тормоза
+          </p>
+          <p v-else-if="!swapConfigured" class="sysinfo__muted">
+            Виртуальная память не настроена: при нехватке RAM процесс завершится сразу
+          </p>
+        </div>
+
+        <div class="sysinfo__card">
+          <h4 class="sysinfo__card-title">Процессор</h4>
+          <div class="sysinfo__meter">
+            <div class="sysinfo__meter-track">
+              <div
+                class="sysinfo__meter-fill"
+                :class="{ 'sysinfo__meter-fill--danger': cpuIsHigh }"
+                :style="{ width: (cpuPercent ?? 0) + '%' }"
+              ></div>
+            </div>
+            <div class="sysinfo__meter-line">
+              <span>
+                Загрузка
+                <strong>{{ cpuPercent === null ? '—' : cpuPercent + '%' }}</strong>
+              </span>
+              <span class="sysinfo__muted">{{ server.cpuCount }} ядер</span>
+            </div>
+          </div>
+          <p v-if="cpuIsHigh" class="sysinfo__warning">
+            Выше 85%: ответы API и загрузка файлов будут тормозить
+          </p>
+          <p v-else class="sysinfo__muted">
+            Среднее за последние {{ intervalSec }} с: на большом периоде короткие пики размываются
           </p>
         </div>
       </div>
@@ -302,6 +402,39 @@ const storageRows = computed(() => {
   color: #718096;
 }
 
+.sysinfo__head-side {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Оформление селекта повторяет .admin-select из страницы, но стили там scoped
+   и сюда не доходят */
+.sysinfo__period {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #718096;
+}
+
+.sysinfo__period-select {
+  padding: 6px 10px;
+  border: 1px solid rgb(230, 230, 230);
+  border-radius: 6px;
+  background-color: #fff;
+  font-size: 13px;
+  color: #2d3748;
+  cursor: pointer;
+}
+
+.sysinfo__period-select:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
 .sysinfo__stale {
   font-size: 12px;
   color: #c53030;
@@ -326,6 +459,17 @@ const storageRows = computed(() => {
   letter-spacing: 0.5px;
 }
 
+.sysinfo__meter--secondary {
+  /* Вторая шкала в той же карточке (swap) — отделяем, иначе сливается с RAM */
+  margin-top: 16px;
+}
+
+.sysinfo__meter-caption {
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: #718096;
+}
+
 .sysinfo__meter-track {
   height: 8px;
   overflow: hidden;
@@ -340,7 +484,7 @@ const storageRows = computed(() => {
   transition: width 0.3s ease;
 }
 
-.sysinfo__meter-fill--low {
+.sysinfo__meter-fill--danger {
   background-color: #e53e3e;
 }
 
