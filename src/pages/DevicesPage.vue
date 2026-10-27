@@ -1,6 +1,6 @@
 <script setup>
 import { useRoute, useRouter } from 'vue-router'
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import Ainput from '@/components/A-input.vue'
 import AModal from '@/components/A-modal.vue'
 import Abutton from '@/components/A-button.vue'
@@ -88,7 +88,6 @@ const loadAssemblyDevices = async () => {
   try {
     // ✅ Используем новый эндпоинт, который сразу возвращает все детали
     const rawDevices = await projectsApi.getAssemblyDevicesWithDetails(route.params.assemblyId)
-    console.log(rawDevices)
 
     assemblyDevices.value = (rawDevices || []).map((item) => ({
       id: item.id,
@@ -233,10 +232,7 @@ const exportDevicesToTxt = () => {
 }
 
 // ===================== УПРАВЛЕНИЕ КОЛИЧЕСТВОМ =====================
-const changeQuantity = async (assemblyDeviceId, currentQty, delta) => {
-  const newQty = currentQty + delta
-  if (newQty < 1 || newQty > 200) return
-
+const updateQuantity = async (assemblyDeviceId, newQty) => {
   try {
     isUpdatingQty.value = true
     await projectsApi.updateAssemblyDeviceQuantity(assemblyDeviceId, newQty)
@@ -247,6 +243,49 @@ const changeQuantity = async (assemblyDeviceId, currentQty, delta) => {
   } finally {
     isUpdatingQty.value = false
   }
+}
+
+const changeQuantity = async (assemblyDeviceId, currentQty, delta) => {
+  const newQty = currentQty + delta
+  if (newQty < 1 || newQty > 200) return
+  if (!confirm(`Изменить количество на ${newQty}?`)) return
+  await updateQuantity(assemblyDeviceId, newQty)
+}
+
+// ===================== РУЧНОЙ ВВОД КОЛИЧЕСТВА =====================
+const editingQtyId = ref(null)
+const editingQtyValue = ref(1)
+const qtyInput = ref(null)
+
+const startQtyEdit = (device) => {
+  if (!authStore.isAdmin) return
+  editingQtyId.value = device.id
+  editingQtyValue.value = device.quantity
+  nextTick(() => {
+    const el = Array.isArray(qtyInput.value) ? qtyInput.value[0] : qtyInput.value
+    el?.focus()
+    el?.select()
+  })
+}
+
+// fromEnter=true — остаёмся в режиме ввода при неверном значении,
+// blur (false) — просто отменяем правку
+const finishQtyEdit = async (device, fromEnter = false) => {
+  if (editingQtyId.value !== device.id) return
+
+  const parsed = Number(editingQtyValue.value)
+  const qty = Math.trunc(parsed)
+  if (!Number.isFinite(parsed) || qty < 1 || qty > 200) {
+    if (fromEnter) toast.error('Количество должно быть целым от 1 до 200')
+    else editingQtyId.value = null
+    return
+  }
+
+  editingQtyId.value = null
+  if (qty === device.quantity) return
+  if (!confirm(`Изменить количество «${device.article}» с ${device.quantity} на ${qty}?`)) return
+
+  await updateQuantity(device.id, qty)
 }
 
 // ===================== ДОБАВЛЕНИЕ УСТРОЙСТВА =====================
@@ -354,8 +393,13 @@ const addDeviceToAssembly = async () => {
 }
 
 // ===================== УДАЛЕНИЕ УСТРОЙСТВА =====================
-const removeDevice = async (assemblyDeviceId, article) => {
-  if (!confirm(`Удалить "${article || 'устройство'}" из этой сборки?`)) return
+const removeDevice = async (assemblyDeviceId, device) => {
+  if (
+    !confirm(
+      `Удалить "${device.deviceType + ' ' + device.brand + ' ' + device.article || 'устройство'}" из этой сборки?`,
+    )
+  )
+    return
   try {
     await projectsApi.removeDeviceFromAssembly(assemblyDeviceId)
     toast.success('Устройство удалено из сборки')
@@ -497,7 +541,27 @@ onMounted(async () => {
                 >
                   −
                 </button>
-                <span class="qty-value">{{ device.quantity }}</span>
+                <span
+                  v-if="editingQtyId !== device.id"
+                  class="qty-value"
+                  :class="{ 'qty-value--editable': authStore.isAdmin }"
+                  :title="authStore.isAdmin ? 'Нажмите, чтобы ввести количество' : ''"
+                  @click="startQtyEdit(device)"
+                  >{{ device.quantity }}</span
+                >
+                <input
+                  v-else
+                  ref="qtyInput"
+                  class="qty-value qty-input"
+                  type="number"
+                  min="1"
+                  max="200"
+                  step="1"
+                  v-model="editingQtyValue"
+                  @keyup.enter="finishQtyEdit(device, true)"
+                  @keyup.esc="editingQtyId = null"
+                  @focusout="finishQtyEdit(device, false)"
+                />
                 <button
                   v-if="authStore.isAdmin"
                   class="qty-btn"
@@ -514,10 +578,10 @@ onMounted(async () => {
               <div class="admin-table__actions" @click.stop>
                 <button
                   class="admin-table__btn admin-table__btn--del"
-                  @click="removeDevice(device.id, device.article)"
+                  @click="removeDevice(device.id, device)"
                   title="Удалить из сборки"
                 >
-                  Удалить
+                  🗑️
                 </button>
               </div>
             </td>
@@ -955,6 +1019,32 @@ onMounted(async () => {
   font-size: 14px;
   color: #2d3748;
 }
+.qty-value--editable {
+  cursor: pointer;
+  border-radius: 4px;
+}
+@media (hover: hover) {
+  .qty-value--editable:hover {
+    background-color: #eef2ff;
+    color: #4f46e5;
+  }
+}
+.qty-input {
+  width: 58px;
+  text-align: center;
+  background-color: #fff;
+  border: 1px solid #6366f1;
+  border-radius: 4px;
+  padding: 2px 4px;
+  color: #2d3748;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.qty-input::-webkit-inner-spin-button,
+.qty-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
 
 .admin-table__td--actions {
   text-align: center;
@@ -965,7 +1055,7 @@ onMounted(async () => {
 .admin-table__actions {
   display: inline-flex;
   justify-content: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 8px;
 }
 .admin-table__btn {

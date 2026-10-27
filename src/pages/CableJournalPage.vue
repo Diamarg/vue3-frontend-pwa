@@ -887,11 +887,12 @@ onMounted(async () => {
   white-space: nowrap;
 }
 /* Flex живёт внутри td: display:flex на самой ячейке ломает раскладку
-   таблицы, и колонка «Действия» съезжает при переносе других ячеек */
+   таблицы, и колонка «Действия» съезжает при переносе других ячеек.
+   nowrap — иначе на мобильных кнопки встают столбиком и строка растягивается */
 .admin-table__actions {
   display: inline-flex;
   justify-content: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 8px;
 }
 .admin-table__btn {
