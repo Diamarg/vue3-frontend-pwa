@@ -768,6 +768,7 @@ onMounted(async () => {
         <table class="admin-table summary-table">
           <thead>
             <tr>
+              <th class="admin-table__th summary-table__num">№</th>
               <th class="admin-table__th">Тип устройства</th>
               <th class="admin-table__th">Бренд</th>
               <th class="admin-table__th">Артикул</th>
@@ -777,6 +778,7 @@ onMounted(async () => {
           </thead>
           <tbody>
             <tr v-for="row in summaryReport.rows" :key="row.num" class="admin-table__row">
+              <td class="admin-table__td summary-table__num">{{ row.num }}</td>
               <td class="admin-table__td">{{ row.deviceType }}</td>
               <td class="admin-table__td">{{ row.brand }}</td>
               <td class="admin-table__td">{{ row.article }}</td>
@@ -898,6 +900,11 @@ onMounted(async () => {
 }
 .summary-table {
   min-width: 600px;
+}
+.summary-table__num {
+  width: 48px;
+  text-align: center;
+  white-space: nowrap;
 }
 .summary-actions {
   flex-wrap: wrap;
