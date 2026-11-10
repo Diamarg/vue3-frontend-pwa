@@ -15,12 +15,12 @@ const BLACK = { argb: 'FF000000' }
 const THIN = { style: 'thin', color: BLACK }
 const MEDIUM = { style: 'medium', color: BLACK }
 
-const bodyFont = { name: 'Arial', size: 12 }
+const bodyFont = { name: 'Arial', size: 11 }
 const positionFont = { ...bodyFont, bold: true }
 const headerFont = { ...bodyFont, bold: true, italic: true }
 
 const MAX_COLUMN_PX = 600
-const COLUMN_PADDING_PX = 10
+const COLUMN_PADDING_PX = 20
 
 const canvasFont = (font) =>
   `${font.italic ? 'italic ' : ''}${font.bold ? 'bold ' : ''}${Math.round((font.size * 96) / 72)}px ${font.name}`
