@@ -11,7 +11,7 @@ const HEADERS = [
   'Обозначение на схеме',
 ]
 
-const COLUMN_WIDTHS = [9.29, 58.43, 22.43, 19.86, 20.29, 9.29, 9, 27.86]
+const COLUMN_WIDTHS = [9.29, 58.43, 60, 19.86, 20.29, 9.29, 9, 27.86]
 
 const BLACK = { argb: 'FF000000' }
 const THIN = { style: 'thin', color: BLACK }
