@@ -11,15 +11,59 @@ const HEADERS = [
   'Обозначение на схеме',
 ]
 
-const COLUMN_WIDTHS = [9.29, 58.43, 60, 19.86, 20.29, 9.29, 9, 27.86]
-
 const BLACK = { argb: 'FF000000' }
 const THIN = { style: 'thin', color: BLACK }
 const MEDIUM = { style: 'medium', color: BLACK }
 
-const bodyFont = { name: 'Arial', size: 10 }
+const bodyFont = { name: 'Arial', size: 12 }
 const positionFont = { ...bodyFont, bold: true }
 const headerFont = { ...bodyFont, bold: true, italic: true }
+
+const MAX_COLUMN_PX = 600
+const COLUMN_PADDING_PX = 10
+
+const canvasFont = (font) =>
+  `${font.italic ? 'italic ' : ''}${font.bold ? 'bold ' : ''}${Math.round((font.size * 96) / 72)}px ${font.name}`
+
+let measureContext
+const measureTextPx = (value, font) => {
+  const text = String(value ?? '')
+  if (typeof document !== 'undefined') {
+    measureContext ??= document.createElement('canvas').getContext('2d')
+    if (measureContext) {
+      measureContext.font = canvasFont(font)
+      return measureContext.measureText(text).width
+    }
+  }
+  return text.length * ((font.size * 96) / 72) * 0.6
+}
+
+const pxToColumnWidth = (px) => Math.round(((Math.min(px, MAX_COLUMN_PX) - 5) / 7) * 100) / 100
+
+const autoColumnWidths = (rows) => {
+  const table = [
+    HEADERS,
+    ...rows.map((item) => [
+      item.num,
+      item.deviceType,
+      item.description,
+      item.article,
+      item.brand,
+      'шт.',
+      item.quantity,
+      '',
+    ]),
+  ]
+
+  return HEADERS.map((_, columnIndex) => {
+    let maxPx = 0
+    table.forEach((row, rowIndex) => {
+      const font = rowIndex === 0 ? headerFont : columnIndex === 0 ? positionFont : bodyFont
+      maxPx = Math.max(maxPx, measureTextPx(row[columnIndex], font))
+    })
+    return pxToColumnWidth(maxPx + COLUMN_PADDING_PX)
+  })
+}
 
 const cellBorder = (rowNumber, columnNumber, lastRow) => ({
   top: rowNumber === 1 ? MEDIUM : rowNumber === 2 ? undefined : THIN,
@@ -37,16 +81,16 @@ export const buildDevicesXlsxBuffer = async (rows) => {
   workbook.creator = 'А-Сервис'
 
   const sheet = workbook.addWorksheet('Устройства')
-  COLUMN_WIDTHS.forEach((width, index) => {
+  autoColumnWidths(rows).forEach((width, index) => {
     sheet.getColumn(index + 1).width = width
   })
 
   const lastRow = rows.length + 1
   const header = sheet.addRow(HEADERS)
-  header.height = 22.35
+  header.height = 26
 
   rows.forEach((item) => {
-    sheet.addRow([
+    const row = sheet.addRow([
       item.num,
       item.deviceType,
       item.description,
@@ -56,6 +100,7 @@ export const buildDevicesXlsxBuffer = async (rows) => {
       item.quantity,
       null,
     ])
+    row.height = 18
   })
 
   sheet.eachRow({ includeEmpty: true }, (row, rowNumber) => {
