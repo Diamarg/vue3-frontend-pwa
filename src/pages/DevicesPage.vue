@@ -11,6 +11,7 @@ import { useAuthStore } from '@/stores/auth'
 import { usePageStore } from '@/stores/pages'
 import { useToast } from '@/composables/useToast'
 import { downloadTxt, formatFileNameStamp, reportHeader, safeFileNamePart } from '@/utils/txtReport'
+import { buildDevicesXlsxBuffer, downloadXlsx } from '@/utils/xlsxReport'
 
 const route = useRoute()
 const router = useRouter()
@@ -182,11 +183,13 @@ const numsById = computed(() => {
   return new Map(ordered.map((d, i) => [d.id, i + 1]))
 })
 
-// ===================== СВОДКА И ЭКСПОРТ В TXT =====================
+// ===================== СВОДКА И ЭКСПОРТ =====================
 // Таблица сводки и текст отчёта строятся из одного снимка, поэтому строки
 // и их номера на экране и в файле не разъезжаются. Снимок делаем при открытии
 const showSummaryModal = ref(false)
 const summaryReport = ref(null)
+const exportFormat = ref('txt')
+const exportingSummary = ref(false)
 
 // Отчёт, в отличие от сводки, печатает шапку: проект с заказчиком, сборку и
 // дату формирования. Нумерует файл сам по себе (1…N сверху вниз), а не колонкой
@@ -229,6 +232,28 @@ const openSummary = () => {
 const exportDevicesToTxt = () => {
   downloadTxt(summaryReport.value.fileName, summaryReport.value.lines)
   toast.success('Скачивание файла')
+}
+
+const exportDevicesSummary = async () => {
+  const report = summaryReport.value
+  if (!report || exportingSummary.value) return
+
+  if (exportFormat.value === 'txt') {
+    exportDevicesToTxt()
+    return
+  }
+
+  exportingSummary.value = true
+  try {
+    const buffer = await buildDevicesXlsxBuffer(report.rows)
+    downloadXlsx(report.fileName.replace(/\.txt$/, '.xlsx'), buffer)
+    toast.success('Скачивание файла')
+  } catch (error) {
+    console.error('Не удалось сформировать XLSX', error)
+    toast.error('Не удалось сформировать XLSX')
+  } finally {
+    exportingSummary.value = false
+  }
 }
 
 // ===================== УПРАВЛЕНИЕ КОЛИЧЕСТВОМ =====================
@@ -761,8 +786,21 @@ onMounted(async () => {
           </tbody>
         </table>
       </div>
-      <div class="admin-form__actions" style="margin-top: 24px">
-        <Abutton @click="exportDevicesToTxt" class="export-btn">⬇ Экспорт</Abutton>
+      <div class="admin-form__actions summary-actions" style="margin-top: 24px">
+        <label class="summary-format">
+          <span class="summary-format__label">Формат</span>
+          <select
+            v-model="exportFormat"
+            class="admin-select summary-format__select"
+            :disabled="exportingSummary"
+          >
+            <option value="txt">TXT</option>
+            <option value="xlsx">XLSX</option>
+          </select>
+        </label>
+        <Abutton @click="exportDevicesSummary" :disabled="exportingSummary" class="export-btn">
+          {{ exportingSummary ? 'Формирование…' : '⬇ Экспорт' }}
+        </Abutton>
         <a class="admin-form__cancel" @click="showSummaryModal = false">Закрыть</a>
       </div>
     </AModal>
@@ -860,6 +898,25 @@ onMounted(async () => {
 }
 .summary-table {
   min-width: 600px;
+}
+.summary-actions {
+  flex-wrap: wrap;
+}
+.summary-format {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: auto;
+}
+.summary-format__label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #4a5568;
+  white-space: nowrap;
+}
+.summary-format__select {
+  width: auto;
+  min-width: 96px;
 }
 
 /* === ТАБЛИЦА (Оригинальные стили сохранены) === */
