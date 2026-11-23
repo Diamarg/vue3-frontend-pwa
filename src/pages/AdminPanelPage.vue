@@ -14,6 +14,7 @@ import { referenceApi } from '@/api/reference'
 import { filesApi } from '@/api/files'
 import { adminUsersApi } from '@/api/adminUsers'
 import AdminServerInfo from '@/components/AdminServerInfo.vue'
+import AdminBackups from '@/components/AdminBackups.vue'
 
 const router = useRouter()
 const toast = useToast()
@@ -400,6 +401,10 @@ const sections = {
     label: 'Информация',
     custom: true,
   },
+  backups: {
+    label: 'Резервные копии',
+    custom: true,
+  },
 }
 
 const navGroups = [
@@ -425,7 +430,7 @@ const navGroups = [
   },
   {
     title: 'Сервер',
-    keys: ['serverInfo'],
+    keys: ['serverInfo', 'backups'],
   },
 ]
 
@@ -1108,7 +1113,8 @@ watch(selectedAssemblyId, () => {
       </aside>
 
       <main class="admin-content">
-        <AdminServerInfo v-if="cfg.custom" />
+        <AdminServerInfo v-if="currentSection === 'serverInfo'" />
+        <AdminBackups v-else-if="currentSection === 'backups'" />
 
         <template v-else>
           <div v-if="cfg.needsProject || cfg.needsAssembly" class="admin-card admin-card--row">
