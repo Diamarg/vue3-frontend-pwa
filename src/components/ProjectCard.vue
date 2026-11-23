@@ -17,18 +17,21 @@ const props = defineProps({
 <template>
   <div class="project-card">
     <div class="project-card__header">
-      <div class="project-card__codename" :title="'Описание проекта: ' + props.description">
+      <div class="project-card__codename">
         {{ props.codename }}
+      </div>
+      <div class="project-card__description">
+        {{ props.description }}
       </div>
     </div>
     <hr class="customer-separator" />
     <div class="project-card__line-customer">
-      <span class="project-card__line-label">Заказчик:</span
-      ><span class="project-card__line-text">{{ props.customer }}</span>
+      <span class="project-card__line-label">Заказчик:</span>
+      <span class="project-card__line-text">{{ props.customer }}</span>
     </div>
     <div class="project-card__line-customer">
-      <span class="project-card__line-label">Создано:</span
-      ><span class="project-card__line-text">{{ formatShortDate(props.creationDate) }}</span>
+      <span class="project-card__line-label">Создано:</span>
+      <span class="project-card__line-text">{{ formatShortDate(props.creationDate) }}</span>
     </div>
     <hr class="button-separator" />
     <div class="project-card__links">
@@ -74,6 +77,7 @@ const props = defineProps({
   background-color: rgb(255, 255, 255);
   padding: 24px;
   transition: all 0.5s;
+  justify-content: center;
 }
 
 .project-card:hover {
@@ -82,10 +86,10 @@ const props = defineProps({
 }
 
 .project-card__header {
-  display: flex;
+  display: grid;
   justify-content: center;
   align-items: center;
-  margin-bottom: 24px;
+  text-align: center;
 }
 
 .project-card__codename {
@@ -93,6 +97,11 @@ const props = defineProps({
   cursor: help;
   font-size: 20px;
   font-weight: 600;
+}
+
+.project-card__description {
+  margin-top: 12px;
+  margin-bottom: 24px;
 }
 
 .project-card__actions {
@@ -136,6 +145,7 @@ const props = defineProps({
 .project-card__line-label {
   font-weight: 400;
   color: rgb(150, 150, 150);
+  margin-right: 8px;
 }
 
 .project-card__line-text {

@@ -21,9 +21,11 @@ export const reportHeader = (project, date, subtitle) => [
   '',
 ]
 
+export const buildTxtBlob = (lines) =>
+  new Blob([lines.join('\r\n')], { type: 'text/plain;charset=utf-8' })
+
 export const downloadTxt = (fileName, lines) => {
-  const content = lines.join('\r\n')
-  const url = window.URL.createObjectURL(new Blob([content], { type: 'text/plain;charset=utf-8' }))
+  const url = window.URL.createObjectURL(buildTxtBlob(lines))
   const link = document.createElement('a')
   link.href = url
   link.download = fileName

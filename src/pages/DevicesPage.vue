@@ -5,13 +5,20 @@ import Ainput from '@/components/A-input.vue'
 import AModal from '@/components/A-modal.vue'
 import Abutton from '@/components/A-button.vue'
 import { projectsApi } from '@/api/projects'
+import { filesApi } from '@/api/files'
 import { devicesApi } from '@/api/devices'
 import { referenceApi } from '@/api/reference'
 import { useAuthStore } from '@/stores/auth'
 import { usePageStore } from '@/stores/pages'
 import { useToast } from '@/composables/useToast'
-import { downloadTxt, formatFileNameStamp, reportHeader, safeFileNamePart } from '@/utils/txtReport'
-import { buildDevicesXlsxBuffer, downloadXlsx } from '@/utils/xlsxReport'
+import {
+  buildTxtBlob,
+  downloadTxt,
+  formatFileNameStamp,
+  reportHeader,
+  safeFileNamePart,
+} from '@/utils/txtReport'
+import { buildDevicesXlsxBuffer, downloadXlsx, XLSX_MIME } from '@/utils/xlsxReport'
 
 const route = useRoute()
 const router = useRouter()
@@ -190,6 +197,7 @@ const showSummaryModal = ref(false)
 const summaryReport = ref(null)
 const exportFormat = ref('txt')
 const exportingSummary = ref(false)
+const uploadReportToProject = ref(false)
 
 // Отчёт, в отличие от сводки, печатает шапку: проект с заказчиком, сборку и
 // дату формирования. Нумерует файл сам по себе (1…N сверху вниз), а не колонкой
@@ -226,31 +234,70 @@ const buildDevicesReport = () => {
 
 const openSummary = () => {
   summaryReport.value = buildDevicesReport()
+  uploadReportToProject.value = false
   showSummaryModal.value = true
 }
 
-const exportDevicesToTxt = () => {
-  downloadTxt(summaryReport.value.fileName, summaryReport.value.lines)
-  toast.success('Скачивание файла')
+const REPORT_CATEGORY_NAME = 'Отчёты'
+
+const ensureReportCategoryId = async () => {
+  const categories = await filesApi.getCategories(route.params.projectId)
+  const existing = (categories || []).find(
+    (category) => (category.name || '').toLowerCase() === REPORT_CATEGORY_NAME.toLowerCase(),
+  )
+  if (existing) return existing.id
+
+  const created = await filesApi.createCategory(route.params.projectId, {
+    name: REPORT_CATEGORY_NAME,
+  })
+  return created.id
+}
+
+const uploadReportToProjectFiles = async (fileName, blob) => {
+  const categoryId = await ensureReportCategoryId()
+  const formData = new FormData()
+  formData.append('file', blob, fileName)
+  formData.append('fileCategoryId', String(categoryId))
+  formData.append(
+    'description',
+    `Сводка по устройствам сборки ${assembly.value?.codeName || '—'} (${exportFormat.value.toUpperCase()})`,
+  )
+  await filesApi.uploadFile(route.params.projectId, formData)
 }
 
 const exportDevicesSummary = async () => {
   const report = summaryReport.value
   if (!report || exportingSummary.value) return
 
-  if (exportFormat.value === 'txt') {
-    exportDevicesToTxt()
-    return
-  }
-
   exportingSummary.value = true
   try {
-    const buffer = await buildDevicesXlsxBuffer(report.rows)
-    downloadXlsx(report.fileName.replace(/\.txt$/, '.xlsx'), buffer)
+    let fileName
+    let blob
+
+    if (exportFormat.value === 'txt') {
+      fileName = report.fileName
+      blob = buildTxtBlob(report.lines)
+      downloadTxt(fileName, report.lines)
+    } else {
+      fileName = report.fileName.replace(/\.txt$/, '.xlsx')
+      const buffer = await buildDevicesXlsxBuffer(report.rows)
+      blob = new Blob([buffer], { type: XLSX_MIME })
+      downloadXlsx(fileName, buffer)
+    }
     toast.success('Скачивание файла')
+
+    if (uploadReportToProject.value) {
+      try {
+        await uploadReportToProjectFiles(fileName, blob)
+        toast.success('Отчёт загружен в файлы проекта')
+      } catch (error) {
+        console.error('Не удалось загрузить отчёт в файлы проекта', error)
+        toast.error('Не удалось загрузить отчёт в файлы проекта')
+      }
+    }
   } catch (error) {
-    console.error('Не удалось сформировать XLSX', error)
-    toast.error('Не удалось сформировать XLSX')
+    console.error('Не удалось сформировать отчёт', error)
+    toast.error('Не удалось сформировать отчёт')
   } finally {
     exportingSummary.value = false
   }
@@ -789,17 +836,23 @@ onMounted(async () => {
         </table>
       </div>
       <div class="admin-form__actions summary-actions" style="margin-top: 24px">
-        <label class="summary-format">
-          <span class="summary-format__label">Формат</span>
-          <select
-            v-model="exportFormat"
-            class="admin-select summary-format__select"
-            :disabled="exportingSummary"
-          >
-            <option value="txt">TXT</option>
-            <option value="xlsx">XLSX</option>
-          </select>
-        </label>
+        <div class="summary-options">
+          <label class="summary-format">
+            <span class="summary-format__label">Формат</span>
+            <select
+              v-model="exportFormat"
+              class="admin-select summary-format__select"
+              :disabled="exportingSummary"
+            >
+              <option value="txt">TXT</option>
+              <option value="xlsx">XLSX</option>
+            </select>
+          </label>
+          <label class="summary-upload">
+            <input type="checkbox" v-model="uploadReportToProject" :disabled="exportingSummary" />
+            <span>Загрузить в файлы проекта</span>
+          </label>
+        </div>
         <Abutton @click="exportDevicesSummary" :disabled="exportingSummary" class="export-btn">
           {{ exportingSummary ? 'Формирование…' : '⬇ Экспорт' }}
         </Abutton>
@@ -909,11 +962,17 @@ onMounted(async () => {
 .summary-actions {
   flex-wrap: wrap;
 }
+.summary-options {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-right: auto;
+  flex-wrap: wrap;
+}
 .summary-format {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-right: auto;
 }
 .summary-format__label {
   font-size: 13px;
@@ -924,6 +983,21 @@ onMounted(async () => {
 .summary-format__select {
   width: auto;
   min-width: 96px;
+}
+.summary-upload {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #4a5568;
+  cursor: pointer;
+}
+.summary-upload input {
+  width: 16px;
+  height: 16px;
+  accent-color: #6366f1;
+  cursor: pointer;
 }
 
 /* === ТАБЛИЦА (Оригинальные стили сохранены) === */
