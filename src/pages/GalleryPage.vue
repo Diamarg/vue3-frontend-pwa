@@ -417,6 +417,12 @@ onBeforeUnmount(() => {
     <div class="gallery">
       <!-- === ХЕДЕР === -->
       <div class="gallery__header">
+        <div class="project-section admin-headbar__info">
+          <span class="admin-headbar__project">{{ project?.codeName || 'Проект' }}</span>
+          <span class="admin-headbar__separator">/</span>
+          <span>Галерея</span>
+        </div>
+
         <div v-if="!isLoadingPhotos" class="gallery__filter">
           <div class="gallery__date-from">
             <span>От: </span><a-input v-model="startDate" type="date" />
@@ -475,7 +481,7 @@ onBeforeUnmount(() => {
 
       <div v-else-if="!hasPhotos" class="gallery__null-photo">
         <div class="empty-icon">📷</div>
-        <p>Нет загруженных фотографий</p>
+        <div class="empty-text">Нет загруженных фотографий</div>
       </div>
 
       <!-- === СЕТКА КАРТОЧЕК === -->
@@ -650,6 +656,12 @@ onBeforeUnmount(() => {
   opacity: 0.5;
 }
 
+.empty-text {
+  font-size: 15px;
+  font-weight: 300;
+  color: #718096;
+}
+
 .file-input {
   margin-bottom: 12px;
 }
@@ -657,7 +669,25 @@ onBeforeUnmount(() => {
 .gallery__header {
   display: flex;
   flex-direction: column;
+  flex-wrap: wrap;
   gap: 16px;
+}
+
+.project-section {
+  flex: 0 0 100%;
+  font-size: 14px;
+  color: #4a5568;
+  font-weight: 500;
+}
+
+.admin-headbar__project {
+  color: #2d3748;
+  font-weight: 600;
+}
+
+.admin-headbar__separator {
+  margin: 0 8px;
+  color: #cbd5e0;
 }
 
 .gallery__filter {
@@ -1139,6 +1169,48 @@ onBeforeUnmount(() => {
   }
   .image-info {
     margin-top: 20px;
+  }
+}
+
+@media (min-width: 1100px) {
+  .gallery__header {
+    display: grid;
+    grid-template-columns: auto max-content max-content minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px 16px;
+  }
+
+  .project-section {
+    flex: none;
+  }
+
+  .gallery__filter {
+    display: contents;
+  }
+
+  .gallery__date-from {
+    grid-column: 2;
+  }
+
+  .gallery__date-to {
+    grid-column: 3;
+  }
+
+  .gallery__filter-tools {
+    grid-column: 4;
+    flex-wrap: nowrap;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .gallery__filter-actions {
+    flex-wrap: nowrap;
+    min-width: 0;
+  }
+
+  .gallery__upload-btn-wrapper {
+    grid-column: 5;
+    width: auto;
   }
 }
 </style>

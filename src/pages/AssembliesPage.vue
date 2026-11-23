@@ -111,6 +111,12 @@ onMounted(async () => {
   <div class="global-container">
     <!-- === ХЕДЕР В СТИЛЕ ГАЛЕРЕИ === -->
     <div class="gallery__header">
+      <div class="project-section admin-headbar__info">
+        <span class="admin-headbar__project">{{ project?.codeName || 'Проект' }}</span>
+        <span class="admin-headbar__separator">/</span>
+        <span>Сборки ШУ</span>
+      </div>
+
       <div v-if="assemblies.length > 0 || searchQuery" class="gallery__filter">
         <div class="gallery__search-wrapper">
           <span class="search-label">Поиск:</span>
@@ -170,7 +176,8 @@ onMounted(async () => {
           :project-name="project?.codeName || ''"
           :assembly-name="assembly.codeName"
           :description="assembly.description"
-          :is-admin="authStore.isAdmin"
+          :devices-count="assembly.devicesCount ?? 0"
+          :total-quantity="assembly.totalQuantity ?? 0"
           @toDevices="toDevices(assembly.id)"
           @toPanelEditor="toPanelEditor(assembly.id)"
         />
@@ -178,7 +185,7 @@ onMounted(async () => {
 
       <div v-else-if="assemblies.length === 0 && !searchQuery" class="gallery__null-photo">
         <div class="empty-icon">📦</div>
-        <p>В этом проекте пока нет сборок</p>
+        <div class="empty-text">В этом проекте пока нет сборок</div>
       </div>
 
       <div v-else class="gallery__null-photo">
@@ -241,7 +248,25 @@ onMounted(async () => {
   padding: 16px;
   display: flex;
   flex-direction: column;
+  flex-wrap: wrap;
   gap: 16px;
+}
+
+.project-section {
+  flex: 0 0 100%;
+  font-size: 14px;
+  color: #4a5568;
+  font-weight: 500;
+}
+
+.admin-headbar__project {
+  color: #2d3748;
+  font-weight: 600;
+}
+
+.admin-headbar__separator {
+  margin: 0 8px;
+  color: #cbd5e0;
 }
 
 /* АДАПТИВНАЯ СЕТКА ДЛЯ ХЕДЕРА */
@@ -324,16 +349,17 @@ onMounted(async () => {
 
 .gallery__cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 24px;
-  margin-top: 16px;
-  background-color: #ffffff;
-  padding: 24px;
+  gap: 14px;
   box-shadow: 4px 4px 30px -10px rgba(34, 60, 80, 0.2);
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   border-radius: 8px;
   border-color: rgb(230, 230, 230);
   border-style: solid;
   border-width: 1px;
+  background-color: rgb(255, 255, 255);
+  padding: 14px;
+  margin-top: 16px;
+  margin-bottom: 24px;
 }
 
 .gallery__null-photo {
@@ -351,6 +377,12 @@ onMounted(async () => {
   font-size: 48px;
   margin-bottom: 16px;
   opacity: 0.5;
+}
+
+.empty-text {
+  font-size: 15px;
+  font-weight: 300;
+  color: #718096;
 }
 
 .retry-btn {
@@ -380,6 +412,20 @@ onMounted(async () => {
   margin-top: 8px;
 }
 
+@media (max-width: 600px) {
+  .gallery__cards {
+    gap: 10px;
+    padding: 10px;
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 900px) {
+  .gallery__cards {
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  }
+}
+
 /* === ДЕСКТОПНАЯ АДАПТАЦИЯ === */
 @media (min-width: 768px) {
   .global-container {
@@ -387,16 +433,23 @@ onMounted(async () => {
   }
 
   .gallery__header {
-    flex-direction: row;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: auto minmax(180px, 1fr) auto;
+    align-items: center;
+    gap: 16px;
     padding: 24px;
   }
 
-  /* На десктопе возвращаем 2 колонки: поиск слева, инфо+кнопка справа */
+  .project-section {
+    flex: none;
+  }
+
   .gallery__filter {
-    grid-template-columns: 1fr auto;
-    gap: 24px;
-    width: auto;
+    display: contents;
+  }
+
+  .gallery__search-wrapper {
+    min-width: 0;
   }
 
   .search-input {
@@ -404,11 +457,14 @@ onMounted(async () => {
   }
 
   .gallery__info-block {
-    /* НА ДЕСКТОПЕ: Разносим текст и кнопку по краям */
-    justify-content: space-between;
+    justify-content: flex-end;
     width: auto;
-    min-width: 300px; /* Минимальная ширина, чтобы они не слипались */
-    gap: 24px;
+    min-width: 0;
+    gap: 12px;
+  }
+
+  .empty-action-wrapper {
+    grid-column: 2 / -1;
   }
 
   .gallery__cards {

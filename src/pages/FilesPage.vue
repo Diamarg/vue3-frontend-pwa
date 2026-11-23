@@ -333,6 +333,12 @@ onMounted(async () => {
     <div class="files-page">
       <!-- Хедер с фильтрами -->
       <div class="files__header">
+        <div class="project-section admin-headbar__info">
+          <span class="admin-headbar__project">{{ project?.codeName || 'Проект' }}</span>
+          <span class="admin-headbar__separator">/</span>
+          <span>Файлы</span>
+        </div>
+
         <div v-if="hasFiles" class="files__filter">
           <!-- ФИЛЬТР ПО КАТЕГОРИИ ВМЕСТО ДАТ -->
           <div class="files__category-filter">
@@ -602,7 +608,25 @@ label {
 .files__header {
   display: flex;
   flex-direction: column;
+  flex-wrap: wrap;
   gap: 16px;
+}
+
+.project-section {
+  flex: 0 0 100%;
+  font-size: 14px;
+  color: #4a5568;
+  font-weight: 500;
+}
+
+.admin-headbar__project {
+  color: #2d3748;
+  font-weight: 600;
+}
+
+.admin-headbar__separator {
+  margin: 0 8px;
+  color: #cbd5e0;
 }
 
 .files__filter {
@@ -1076,6 +1100,47 @@ label {
   }
 
   .full-width-btn {
+    width: auto;
+  }
+}
+
+@media (min-width: 1100px) {
+  .files__header {
+    display: grid;
+    grid-template-columns: auto auto minmax(140px, 1fr) auto auto;
+    align-items: center;
+    gap: 12px 16px;
+  }
+
+  .project-section {
+    flex: none;
+  }
+
+  .files__filter {
+    display: contents;
+  }
+
+  .files__category-filter {
+    grid-column: 2;
+  }
+
+  .form-select-inline {
+    width: 160px;
+  }
+
+  .files__search {
+    grid-column: 3;
+    min-width: 0;
+  }
+
+  .files__filter-actions {
+    grid-column: 4;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+  }
+
+  .files__upload-btn-wrapper {
+    grid-column: 5;
     width: auto;
   }
 }

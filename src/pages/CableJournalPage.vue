@@ -427,10 +427,11 @@ onMounted(async () => {
       <div v-if="isLoadingLines" class="admin-empty">Загрузка...</div>
 
       <div v-else-if="sortedLines.length === 0" class="admin-empty">
+        <div class="electric_symbol">🔌</div>
         {{
           searchBar
             ? `По запросу «${searchBar}» ничего не найдено`
-            : 'В этом проекте пока нет кабельных линий. Нажмите "Добавить линию"'
+            : 'В этом проекте пока нет кабельного журнала'
         }}
       </div>
 
@@ -779,10 +780,16 @@ onMounted(async () => {
   margin-top: 16px;
 }
 .admin-empty {
-  padding: 40px;
+  padding: 24px;
   text-align: center;
   color: #718096;
   font-weight: 300;
+  font-size: 15px;
+}
+
+.electric_symbol {
+  font-size: 48px;
+  padding-bottom: 24px;
 }
 
 .admin-table {

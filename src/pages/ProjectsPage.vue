@@ -16,6 +16,7 @@ const router = useRouter()
 
 const toast = useToast()
 
+const filteredProjectsIsReverse = ref(false)
 const loadError = ref('')
 const loading = ref(false)
 const projects = ref([])
@@ -80,17 +81,21 @@ const formReady = computed(() => {
 const filteredProjects = computed(() => {
   const query = searchBar.value.trim().toLowerCase()
 
-  if (!query) return projects.value.sort((a, b) => a.dateOfCreation.localeCompare(b.dateOfCreation))
-
   const filtered = projects.value.filter(
     (p) =>
+      !query ||
       (p.codeName || '').toLowerCase().includes(query) ||
       (p.customer || '').toLowerCase().includes(query),
   )
 
-  console.log(filtered)
-  return filtered
+  filtered.sort((a, b) => a.dateOfCreation.localeCompare(b.dateOfCreation))
+
+  return filteredProjectsIsReverse.value ? filtered.reverse() : filtered
 })
+
+const reverseFilteredProjects = () => {
+  filteredProjectsIsReverse.value = !filteredProjectsIsReverse.value
+}
 
 const fethProjects = async () => {
   loading.value = true
@@ -166,9 +171,29 @@ onMounted(async () => {
             placeholder="Найти по имени проекта или заказчику..."
           ></ainput>
         </div>
-        <Abutton v-if="authStore.isAdmin" class="sticky-button" @click="showModal = true"
-          ><template #icon><add-icon color="white" /></template>Создать
-        </Abutton>
+        <div class="projects-headbar__actions">
+          <Abutton
+            type="button"
+            class="projects-headbar__sort"
+            :title="
+              filteredProjectsIsReverse
+                ? 'Показать по возрастанию даты'
+                : 'Показать по убыванию даты'
+            "
+            :aria-label="
+              filteredProjectsIsReverse
+                ? 'Показать по возрастанию даты'
+                : 'Показать по убыванию даты'
+            "
+            :aria-pressed="filteredProjectsIsReverse"
+            @click="reverseFilteredProjects"
+          >
+            {{ filteredProjectsIsReverse ? '⬇⬆ ' : '⬆⬇' }}
+          </Abutton>
+          <Abutton v-if="authStore.isAdmin" class="sticky-button" @click="showModal = true"
+            ><template #icon><add-icon color="white" /></template>Создать
+          </Abutton>
+        </div>
       </div>
 
       <div v-if="loading" class="project-cards__loading">Загрузка...</div>
@@ -273,7 +298,24 @@ onMounted(async () => {
 
 @media (max-width: 600px) {
   .projects-headbar {
-    grid-template-rows: 1fr 1fr;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .projects-headbar__searchbar {
+    grid-template-columns: 62px minmax(0, 1fr);
+    min-width: 0;
+  }
+
+  .projects-headbar__actions {
+    display: contents;
+  }
+
+  .projects-headbar__sort {
+    justify-self: end;
   }
 }
 
@@ -298,28 +340,55 @@ onMounted(async () => {
   box-shadow: 4px 4px 20px -10px rgba(34, 60, 80, 0.3);
 }
 
+.projects-headbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.projects-headbar__sort {
+  flex: 0 0 auto;
+  min-width: 58px;
+}
+
 .sticky-button {
   max-width: 160px;
 }
 
 .projects-cards {
   display: grid;
-  gap: 8px;
-  /* Своя рамка у списка не нужна: каждая строка уже обрамлена, а вместе это
-     давало «коробку в коробке» и съедало 48 px ширины на телефоне */
+  gap: 14px;
+  box-shadow: 4px 4px 30px -10px rgba(34, 60, 80, 0.2);
+  /* 1fr вместо auto: с auto последняя карточка в ряду растягивалась шире соседних */
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  border-radius: 8px;
+  border-color: rgb(230, 230, 230);
+  border-style: solid;
+  border-width: 1px;
+  background-color: rgb(255, 255, 255);
+  padding: 14px;
   margin-bottom: 24px;
 }
 
-@media (min-width: 1100px) {
+@media (max-width: 600px) {
+  .sticky-button {
+    grid-column: 1 / -1;
+    width: 100%;
+    max-width: none;
+  }
+
   .projects-cards {
-    gap: 12px;
-    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 10px;
+    padding: 10px;
+    grid-template-columns: 1fr;
   }
 }
 
-.project-cards__notfound {
-  grid-column: 1 / -1;
+@media (min-width: 900px) {
+  .projects-cards {
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  }
 }
 
 .project-cards__notfound,
