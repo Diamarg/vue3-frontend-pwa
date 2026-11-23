@@ -807,6 +807,7 @@ onMounted(async () => {
 
     <!-- ===================== МОДАЛКА: СВОДКА ===================== -->
     <AModal
+      sticky
       @close-emit="showSummaryModal = false"
       :title="`Сводка по устройствам ${assembly?.codeName || ''}`"
       :opened="showSummaryModal"
@@ -835,29 +836,31 @@ onMounted(async () => {
           </tbody>
         </table>
       </div>
-      <div class="admin-form__actions summary-actions" style="margin-top: 24px">
-        <div class="summary-options">
-          <label class="summary-format">
-            <span class="summary-format__label">Формат</span>
-            <select
-              v-model="exportFormat"
-              class="admin-select summary-format__select"
-              :disabled="exportingSummary"
-            >
-              <option value="txt">TXT</option>
-              <option value="xlsx">XLSX</option>
-            </select>
-          </label>
-          <label class="summary-upload">
-            <input type="checkbox" v-model="uploadReportToProject" :disabled="exportingSummary" />
-            <span>Загрузить в файлы проекта</span>
-          </label>
+      <template #footer>
+        <div class="admin-form__actions summary-actions">
+          <div class="summary-options">
+            <label class="summary-format">
+              <span class="summary-format__label">Формат</span>
+              <select
+                v-model="exportFormat"
+                class="admin-select summary-format__select"
+                :disabled="exportingSummary"
+              >
+                <option value="txt">TXT</option>
+                <option value="xlsx">XLSX</option>
+              </select>
+            </label>
+            <label class="summary-upload">
+              <input type="checkbox" v-model="uploadReportToProject" :disabled="exportingSummary" />
+              <span>Загрузить в файлы проекта</span>
+            </label>
+          </div>
+          <Abutton @click="exportDevicesSummary" :disabled="exportingSummary" class="export-btn">
+            {{ exportingSummary ? 'Формирование…' : '⬇ Экспорт' }}
+          </Abutton>
+          <a class="admin-form__cancel" @click="showSummaryModal = false">Закрыть</a>
         </div>
-        <Abutton @click="exportDevicesSummary" :disabled="exportingSummary" class="export-btn">
-          {{ exportingSummary ? 'Формирование…' : '⬇ Экспорт' }}
-        </Abutton>
-        <a class="admin-form__cancel" @click="showSummaryModal = false">Закрыть</a>
-      </div>
+      </template>
     </AModal>
   </div>
 </template>

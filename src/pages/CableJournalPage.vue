@@ -624,6 +624,7 @@ onMounted(async () => {
 
     <!-- === МОДАЛКА СВОДКИ === -->
     <AModal
+      sticky
       class="modal"
       @close-emit="showSummaryModal = false"
       :title="`Сводка по кабельным линиям ${project?.codeName || ''}`"
@@ -665,10 +666,12 @@ onMounted(async () => {
           </tbody>
         </table>
       </div>
-      <div class="admin-form__actions" style="margin-top: 24px">
-        <Abutton @click="exportToTxt" class="export-btn">⬇ Экспорт</Abutton>
-        <a class="admin-form__cancel" @click="showSummaryModal = false">Закрыть</a>
-      </div>
+      <template #footer>
+        <div class="admin-form__actions">
+          <Abutton @click="exportToTxt" class="export-btn">⬇ Экспорт</Abutton>
+          <a class="admin-form__cancel" @click="showSummaryModal = false">Закрыть</a>
+        </div>
+      </template>
     </AModal>
   </div>
 </template>

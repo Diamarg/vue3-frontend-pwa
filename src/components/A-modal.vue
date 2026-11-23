@@ -4,6 +4,8 @@ import { computed, useAttrs, Transition } from 'vue'
 const props = defineProps({
   title: { type: String, default: 'Заголовок' },
   opened: { type: Boolean, default: false },
+  // Длинная таблица: шапка и кнопки не уезжают, скроллится только содержимое
+  sticky: { type: Boolean, default: false },
 })
 
 // Класс страницы-владельца включает режим просмотра фото: там кнопка закрытия своя
@@ -15,13 +17,19 @@ const isPhotoView = computed(() => String(attrs.class ?? '').includes('photo-vie
   <transition name="modal-fade">
     <div v-if="opened" class="modal__overlay">
       <!-- Добавляем класс-модификатор, если это модалка просмотра фото -->
-      <div class="modal__wrapper" :class="{ 'modal--photo-view': isPhotoView }">
+      <div
+        class="modal__wrapper"
+        :class="{ 'modal--photo-view': isPhotoView, 'modal--sticky': sticky }"
+      >
         <div v-if="!isPhotoView" class="modal__header">
           <h2 class="modal__title">{{ title }}</h2>
           <button class="modal__close" @click="$emit('closeEmit')">&times;</button>
         </div>
         <div class="modal__body">
           <slot></slot>
+        </div>
+        <div v-if="$slots.footer" class="modal__footer">
+          <slot name="footer"></slot>
         </div>
       </div>
     </div>
@@ -122,5 +130,30 @@ const isPhotoView = computed(() => String(attrs.class ?? '').includes('photo-vie
 
 .modal__body {
   width: 100%;
+}
+
+/* Режим фиксации: вся высота окна занята, а не уезжает вместе с содержимым */
+.modal--sticky {
+  overflow: hidden;
+}
+
+.modal--sticky .modal__header {
+  flex: 0 0 auto;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #ececf1;
+}
+
+.modal--sticky .modal__body {
+  /* min-height: 0 нужен, иначе flex-элемент не даёт сжаться и скролл не появляется */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.modal__footer {
+  flex: 0 0 auto;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #ececf1;
 }
 </style>
