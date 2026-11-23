@@ -111,13 +111,33 @@ const pollStatus = async () => {
   }
 }
 
+const loadProjects = async () => {
+  try {
+    projects.value = (await projectsApi.getProjects()) || []
+  } catch (error) {
+    console.error('Не удалось получить список проектов:', error)
+    projects.value = []
+  }
+}
+
 const startBuild = async () => {
   if (isRunning.value || isStarting.value) return
   isStarting.value = true
   // Предыдущий результат больше не актуален: полоса должна идти с нуля, а не показывать старую
   result.value = null
+
   try {
-    build.value = await backupApi.start(selectedProjectId.value)
+    // Список проектов наполняется при открытии вкладки, а проект за это время могли
+    // удалить. Спрашиваем свежий список: копия удалённого проекта ничего не содержит
+    await loadProjects()
+    const chosen = selectedProjectId.value
+    if (chosen && !projects.value.some((project) => project.id === chosen)) {
+      selectedProjectId.value = null
+      toast.warning('Этот проект удалён из базы, выбор сброшен на «Все проекты»')
+      return
+    }
+
+    build.value = await backupApi.start(chosen)
     startPolling()
   } catch (error) {
     toast.error(serverMessage(error, 'Не удалось создать резервную копию'))
@@ -148,13 +168,7 @@ const removeArchive = async (archive) => {
 }
 
 onMounted(async () => {
-  await loadInfo()
-  try {
-    projects.value = (await projectsApi.getProjects()) || []
-  } catch (error) {
-    console.error('Не удалось получить список проектов:', error)
-    projects.value = []
-  }
+  await Promise.all([loadInfo(), loadProjects()])
   // Страница могла открыться, когда сборка уже шла — подхватываем её
   if (isRunning.value) startPolling()
 })
