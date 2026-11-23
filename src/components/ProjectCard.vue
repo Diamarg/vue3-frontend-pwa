@@ -68,7 +68,7 @@ defineEmits(['toGallery', 'toFiles', 'toAssemblies', 'toCableJournal'])
         </span>
       </button>
       <button type="button" class="project-card__link" @click="$emit('toCableJournal')">
-        <span class="project-card__link-label">Кабельный журнал</span>
+        <span class="project-card__link-label">Каб. журнал</span>
         <span
           class="project-card__link-count"
           :class="{ 'project-card__link-count--none': !props.cableLinesCount }"

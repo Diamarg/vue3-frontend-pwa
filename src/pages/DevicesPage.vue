@@ -1,9 +1,9 @@
 <script setup>
 import { useRoute, useRouter } from 'vue-router'
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
-import Ainput from '@/components/A-input.vue'
+import AInput from '@/components/A-input.vue'
 import AModal from '@/components/A-modal.vue'
-import Abutton from '@/components/A-button.vue'
+import AButton from '@/components/A-button.vue'
 import { projectsApi } from '@/api/projects'
 import { filesApi } from '@/api/files'
 import { devicesApi } from '@/api/devices'
@@ -508,254 +508,368 @@ onMounted(async () => {
 
 <template>
   <div class="global-container">
-    <!-- === ХЕДЕР В СТИЛЕ ГАЛЕРЕИ (с оригинальными цветами) === -->
-    <div class="gallery__header assembly-header">
-      <div class="assembly-header__info">
-        <div class="admin-headbar__info">
-          <span class="admin-headbar__project">{{ project?.codeName || 'Проект' }}</span>
-          <span class="admin-headbar__separator">/</span>
-          <span class="admin-headbar__assembly">{{ assembly?.codeName || 'Сборка' }}</span>
-        </div>
-        <div class="admin-headbar__search">
-          <Ainput
-            class="admin-headbar__search-input"
-            v-model="searchBar"
-            placeholder="Поиск по артикулу, описанию..."
-          />
-        </div>
-      </div>
+    <main class="devices-page">
+      <header class="devices__header">
+        <div class="devices__heading">
+          <div class="devices__breadcrumb admin-headbar__info">
+            <span class="admin-headbar__project">{{ project?.codeName || 'Проект' }}</span>
+            <span class="admin-headbar__separator">/</span>
+            <span class="admin-headbar__assembly">{{ assembly?.codeName || 'Сборка' }}</span>
+            <span class="admin-headbar__separator">/</span>
+            <span>Устройства</span>
+          </div>
 
-      <div class="assembly-header__actions">
-        <Abutton v-if="sortedDevices.length" @click="openSummary" class="summary-btn">
-          📊 Сводка
-        </Abutton>
-        <Abutton v-if="authStore.isAdmin" @click="showAddModal = true" class="add-device-btn">
-          + Добавить
-        </Abutton>
-      </div>
-    </div>
-
-    <!-- === ТАБЛИЦА === -->
-    <div class="admin-card admin-table-wrap">
-      <div v-if="loadingDevices" class="admin-empty">Загрузка устройств...</div>
-
-      <div v-else-if="sortedDevices.length === 0" class="admin-empty">
-        {{
-          searchBar
-            ? `По запросу «${searchBar}» ничего не найдено`
-            : 'В этой сборке пока нет устройств. Нажмите "Добавить устройство"'
-        }}
-      </div>
-
-      <table v-else class="admin-table">
-        <thead>
-          <tr>
-            <th
-              class="admin-table__th admin-table__th--num admin-table__th--sortable"
-              :class="{ 'admin-table__th--sorted': sortKey === 'id' }"
-              @click="toggleSort('id')"
-              title="Сортировать по порядку добавления"
-            >
-              <span class="admin-table__th-inner">
-                <span class="admin-table__th-text">№</span>
-                <span
-                  class="admin-table__th-arrow"
-                  :class="{ 'admin-table__th-arrow--active': sortKey === 'id' }"
-                >
-                  {{ sortArrow('id') }}
+          <div class="devices__title-row">
+            <span class="devices__title-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                <rect x="6" y="6" width="12" height="12" rx="2" />
+                <rect x="9" y="9" width="6" height="6" rx="1" />
+                <path d="M9 3v3M15 3v3M9 18v3M15 18v3M3 9h3M3 15h3M18 9h3M18 15h3" />
+              </svg>
+            </span>
+            <div>
+              <div class="devices__title-line">
+                <h1 class="devices__title">Устройства</h1>
+                <span v-if="!loadingDevices" class="devices__count-badge">
+                  {{ assemblyDevices.length }}
                 </span>
-              </span>
-            </th>
-            <th
-              v-for="col in columns"
-              :key="col.key"
-              class="admin-table__th admin-table__th--sortable"
-              :class="{ 'admin-table__th--sorted': sortKey === col.key }"
-              @click="toggleSort(col.key)"
-              :title="`Сортировать по: ${col.label}`"
-            >
-              <span class="admin-table__th-inner">
-                <span class="admin-table__th-text">{{ col.label }}</span>
-                <span
-                  class="admin-table__th-arrow"
-                  :class="{ 'admin-table__th-arrow--active': sortKey === col.key }"
-                >
-                  {{ sortArrow(col.key) }}
-                </span>
-              </span>
-            </th>
-            <th v-if="authStore.isAdmin" class="admin-table__th admin-table__th--actions">
-              Действия
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="device in sortedDevices"
-            :key="device.id"
-            class="admin-table__row admin-table__row--clickable"
-            @click="openProperties(device)"
+              </div>
+              <p class="devices__subtitle">
+                Комплектующие сборки «{{ assembly?.codeName || '—' }}»
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="devices__header-actions">
+          <AButton v-if="sortedDevices.length" class="devices__summary" @click="openSummary">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M7 3h10a2 2 0 0 1 2 2v16l-7-3-7 3V5a2 2 0 0 1 2-2Z" />
+              <path d="M9 8h6M9 12h4" />
+            </svg>
+            <span>Сводка</span>
+          </AButton>
+
+          <a-button v-if="authStore.isAdmin" class="devices__add" @click="showAddModal = true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            <span>Добавить устройство</span>
+          </a-button>
+        </div>
+      </header>
+
+      <section
+        v-if="!loadingDevices && (assemblyDevices.length > 0 || searchBar.trim())"
+        class="devices__toolbar"
+        aria-label="Поиск устройств"
+      >
+        <label class="devices__search">
+          <span>Поиск</span>
+          <div class="devices__search-control">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <circle cx="11" cy="11" r="7" />
+              <path d="m20 20-4-4" />
+            </svg>
+            <AInput v-model="searchBar" placeholder="По артикулу, описанию, бренду или типу..." />
+          </div>
+        </label>
+
+        <div class="devices__toolbar-actions">
+          <span class="devices__result-count">
+            {{
+              searchBar.trim()
+                ? `Найдено: ${filteredDevices.length}`
+                : `Всего: ${assemblyDevices.length}`
+            }}
+          </span>
+          <button v-if="searchBar.trim()" class="devices__reset" @click="searchBar = ''">
+            Сбросить
+          </button>
+        </div>
+      </section>
+
+      <div
+        v-if="loadingDevices"
+        class="devices__table-card devices-loading"
+        aria-label="Загрузка устройств"
+      >
+        <div v-for="item in 7" :key="item" class="devices-loading__row">
+          <div class="devices-loading__number skeleton-shimmer"></div>
+          <div v-for="cell in 5" :key="cell" class="devices-loading__cell skeleton-shimmer"></div>
+          <div class="devices-loading__actions skeleton-shimmer"></div>
+        </div>
+      </div>
+
+      <div v-else-if="sortedDevices.length === 0" class="devices__state">
+        <div class="devices__state-icon" aria-hidden="true">
+          <svg
+            v-if="searchBar.trim()"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
           >
-            <td class="admin-table__td admin-table__td--num">{{ numsById.get(device.id) }}</td>
-            <td class="admin-table__td">{{ device.article }}</td>
-            <td class="admin-table__td">{{ device.description }}</td>
-            <td class="admin-table__td">{{ device.brand }}</td>
-            <td class="admin-table__td">{{ device.deviceType }}</td>
+            <circle cx="11" cy="11" r="7" />
+            <path d="m20 20-4-4M8.5 11h5" />
+          </svg>
+          <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="6" y="6" width="12" height="12" rx="2" />
+            <rect x="9" y="9" width="6" height="6" rx="1" />
+            <path d="M9 3v3M15 3v3M9 18v3M15 18v3M3 9h3M3 15h3M18 9h3M18 15h3" />
+          </svg>
+        </div>
+        <template v-if="searchBar.trim()">
+          <h2>Устройства не найдены</h2>
+          <p>По запросу «{{ searchBar }}» ничего не найдено.</p>
+          <AButton class="devices__state-action" @click="searchBar = ''">Сбросить поиск</AButton>
+        </template>
+        <template v-else>
+          <h2>В этой сборке пока нет устройств</h2>
+          <p>Добавьте комплектующие, чтобы сформировать состав сборки.</p>
+        </template>
+      </div>
 
-            <td class="admin-table__td admin-table__td--quantity">
-              <div class="qty-control" @click.stop>
-                <button
-                  v-if="authStore.isAdmin"
-                  class="qty-btn"
-                  :disabled="device.quantity <= 1 || isUpdatingQty"
-                  @click="changeQuantity(device.id, device.quantity, -1)"
-                  title="Уменьшить"
-                >
-                  −
-                </button>
-                <span
-                  v-if="editingQtyId !== device.id"
-                  class="qty-value"
-                  :class="{ 'qty-value--editable': authStore.isAdmin }"
-                  :title="authStore.isAdmin ? 'Нажмите, чтобы ввести количество' : ''"
-                  @click="startQtyEdit(device)"
-                  >{{ device.quantity }}</span
-                >
-                <input
-                  v-else
-                  ref="qtyInput"
-                  class="qty-value qty-input"
-                  type="number"
-                  min="1"
-                  max="200"
-                  step="1"
-                  v-model="editingQtyValue"
-                  @keyup.enter="finishQtyEdit(device, true)"
-                  @keyup.esc="editingQtyId = null"
-                  @focusout="finishQtyEdit(device, false)"
-                />
-                <button
-                  v-if="authStore.isAdmin"
-                  class="qty-btn"
-                  :disabled="device.quantity >= 200 || isUpdatingQty"
-                  @click="changeQuantity(device.id, device.quantity, 1)"
-                  title="Увеличить"
-                >
-                  +
-                </button>
-              </div>
-            </td>
+      <div v-else class="devices__table-card">
+        <div class="devices-table-wrap">
+          <table class="devices-table">
+            <thead>
+              <tr>
+                <th class="devices-table__number">
+                  <button
+                    class="devices-table__sort devices-table__sort--number"
+                    title="Сортировать по порядку добавления"
+                    @click="toggleSort('id')"
+                  >
+                    <span>№</span>
+                    <span class="devices-table__arrow">{{ sortArrow('id') }}</span>
+                  </button>
+                </th>
+                <th v-for="column in columns" :key="column.key">
+                  <button
+                    class="devices-table__sort"
+                    :class="{ 'devices-table__sort--active': sortKey === column.key }"
+                    :title="`Сортировать по: ${column.label}`"
+                    @click="toggleSort(column.key)"
+                  >
+                    <span>{{ column.label }}</span>
+                    <span class="devices-table__arrow">{{ sortArrow(column.key) }}</span>
+                  </button>
+                </th>
+                <th class="devices-table__actions">Действия</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="device in sortedDevices"
+                :key="device.id"
+                tabindex="0"
+                @click="openProperties(device)"
+                @keydown.enter.self="openProperties(device)"
+                @keydown.space.self.prevent="openProperties(device)"
+              >
+                <td class="devices-table__number">
+                  <span class="devices-table__num">{{ numsById.get(device.id) }}</span>
+                </td>
+                <td class="devices-table__article">{{ device.article }}</td>
+                <td class="devices-table__description" :title="device.description">
+                  {{ device.description }}
+                </td>
+                <td>
+                  <span class="devices-table__badge">{{ device.brand }}</span>
+                </td>
+                <td>
+                  <span class="devices-table__badge devices-table__badge--type">
+                    {{ device.deviceType }}
+                  </span>
+                </td>
+                <td class="devices-table__quantity">
+                  <div class="qty-control" @click.stop>
+                    <button
+                      v-if="authStore.isAdmin"
+                      class="qty-btn"
+                      :disabled="device.quantity <= 1 || isUpdatingQty"
+                      @click="changeQuantity(device.id, device.quantity, -1)"
+                      title="Уменьшить количество"
+                      aria-label="Уменьшить количество"
+                    >
+                      −
+                    </button>
+                    <span
+                      v-if="editingQtyId !== device.id"
+                      class="qty-value"
+                      :class="{ 'qty-value--editable': authStore.isAdmin }"
+                      :title="authStore.isAdmin ? 'Нажмите, чтобы ввести количество' : ''"
+                      @click="startQtyEdit(device)"
+                    >
+                      {{ device.quantity }}
+                    </span>
+                    <input
+                      v-else
+                      ref="qtyInput"
+                      class="qty-value qty-input"
+                      type="number"
+                      min="1"
+                      max="200"
+                      step="1"
+                      aria-label="Количество"
+                      v-model="editingQtyValue"
+                      @keyup.enter="finishQtyEdit(device, true)"
+                      @keyup.esc="editingQtyId = null"
+                      @focusout="finishQtyEdit(device, false)"
+                    />
+                    <button
+                      v-if="authStore.isAdmin"
+                      class="qty-btn"
+                      :disabled="device.quantity >= 200 || isUpdatingQty"
+                      @click="changeQuantity(device.id, device.quantity, 1)"
+                      title="Увеличить количество"
+                      aria-label="Увеличить количество"
+                    >
+                      +
+                    </button>
+                  </div>
+                </td>
+                <td class="devices-table__actions">
+                  <div class="devices-table__action-buttons" @click.stop>
+                    <button
+                      class="devices-table__action"
+                      title="Свойства устройства"
+                      aria-label="Свойства устройства"
+                      @click="openProperties(device)"
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <path d="M4 5h16M4 12h16M4 19h16" />
+                        <circle cx="9" cy="5" r="2" fill="#fff" />
+                        <circle cx="15" cy="12" r="2" fill="#fff" />
+                        <circle cx="11" cy="19" r="2" fill="#fff" />
+                      </svg>
+                    </button>
+                    <button
+                      v-if="authStore.isAdmin"
+                      class="devices-table__action devices-table__action--delete"
+                      title="Удалить из сборки"
+                      aria-label="Удалить из сборки"
+                      @click="removeDevice(device.id, device)"
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <path d="M3 6h18M8 6V4h8v2M19 6l-1 15H6L5 6" />
+                        <path d="M10 11v6M14 11v6" />
+                      </svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
 
-            <td v-if="authStore.isAdmin" class="admin-table__td admin-table__td--actions">
-              <div class="admin-table__actions" @click.stop>
-                <button
-                  class="admin-table__btn admin-table__btn--del"
-                  @click="removeDevice(device.id, device)"
-                  title="Удалить из сборки"
-                >
-                  🗑️
-                </button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- ===================== МОДАЛКА: ДОБАВЛЕНИЕ УСТРОЙСТВА ===================== -->
     <AModal
-      @close-emit="showAddModal = false"
       title="Добавить устройство в сборку"
       :opened="showAddModal"
+      class="add-device-modal"
+      @close-emit="showAddModal = false"
     >
       <div class="add-form">
-        <div class="add-form__group">
-          <label for="device-type">1. Тип устройства *</label>
-          <select id="device-type" v-model="selectedDeviceTypeId" class="admin-select">
-            <option :value="null" disabled>Выберите тип устройства...</option>
-            <option v-for="t in deviceTypes" :key="t.id" :value="t.id">
-              {{ t.name }}
-            </option>
-          </select>
-          <p v-if="deviceTypes.length === 0" class="add-form__hint">
-            Справочник типов устройств пуст
-          </p>
+        <div class="add-form__intro">
+          <h3>Новое устройство</h3>
+          <p>Выберите устройство из справочника и укажите количество для сборки.</p>
         </div>
 
-        <div class="add-form__group">
-          <label for="device-brand">2. Бренд *</label>
-          <select
-            id="device-brand"
-            v-model="selectedBrandId"
-            class="admin-select"
-            :disabled="!selectedDeviceTypeId"
-          >
-            <option :value="null" disabled>
-              {{ selectedDeviceTypeId ? 'Выберите бренд...' : 'Сначала выберите тип устройства' }}
-            </option>
-            <option v-for="b in availableBrandsForAdd" :key="b.id" :value="b.id">
-              {{ b.name }}
-            </option>
-          </select>
-          <p
-            v-if="selectedDeviceTypeId && availableBrandsForAdd.length === 0"
-            class="add-form__hint"
-          >
-            Для этого типа нет доступных брендов (либо все устройства уже добавлены)
-          </p>
-        </div>
+        <div class="add-form__grid">
+          <div class="add-form__group">
+            <label for="device-type">Тип устройства *</label>
+            <select id="device-type" v-model="selectedDeviceTypeId" class="form-select">
+              <option :value="null" disabled>Выберите тип устройства...</option>
+              <option v-for="type in deviceTypes" :key="type.id" :value="type.id">
+                {{ type.name }}
+              </option>
+            </select>
+            <p v-if="deviceTypes.length === 0" class="add-form__hint">
+              Справочник типов устройств пуст
+            </p>
+          </div>
 
-        <div class="add-form__group">
-          <label for="new-device">3. Устройство *</label>
-          <select
-            id="new-device"
-            v-model="newDeviceId"
-            class="admin-select"
-            :disabled="!selectedDeviceTypeId || !selectedBrandId"
-          >
-            <option :value="null" disabled>
-              {{
-                selectedDeviceTypeId && selectedBrandId
-                  ? 'Выберите устройство...'
-                  : 'Сначала выберите тип и бренд'
-              }}
-            </option>
-            <option
-              v-for="dev in availableDevicesForAdd"
-              :key="dev.id ?? dev.Id"
-              :value="dev.id ?? dev.Id"
+          <div class="add-form__group">
+            <label for="device-brand">Бренд *</label>
+            <select
+              id="device-brand"
+              v-model="selectedBrandId"
+              class="form-select"
+              :disabled="!selectedDeviceTypeId"
             >
-              {{ dev.article || dev.Article || 'ID ' + (dev.id ?? dev.Id) }}
-              {{
-                dev.description || dev.Description
-                  ? '— ' + (dev.description || dev.Description)
-                  : ''
-              }}
-            </option>
-          </select>
-          <p
-            v-if="selectedDeviceTypeId && selectedBrandId && availableDevicesForAdd.length === 0"
-            class="add-form__hint"
-          >
-            Для этого типа и бренда нет устройств, либо все уже добавлены в сборку
-          </p>
-        </div>
+              <option :value="null" disabled>
+                {{ selectedDeviceTypeId ? 'Выберите бренд...' : 'Сначала выберите тип устройства' }}
+              </option>
+              <option v-for="brand in availableBrandsForAdd" :key="brand.id" :value="brand.id">
+                {{ brand.name }}
+              </option>
+            </select>
+            <p
+              v-if="selectedDeviceTypeId && availableBrandsForAdd.length === 0"
+              class="add-form__hint"
+            >
+              Нет доступных брендов: возможно, все устройства уже добавлены.
+            </p>
+          </div>
 
-        <div class="add-form__group">
-          <label for="new-qty">4. Количество (1–200) *</label>
-          <input
-            id="new-qty"
-            type="number"
-            v-model.number="newQuantity"
-            min="1"
-            max="200"
-            class="admin-input"
-          />
-        </div>
+          <div class="add-form__group add-form__group--wide">
+            <label for="new-device">Устройство *</label>
+            <select
+              id="new-device"
+              v-model="newDeviceId"
+              class="form-select"
+              :disabled="!selectedDeviceTypeId || !selectedBrandId"
+            >
+              <option :value="null" disabled>
+                {{
+                  selectedDeviceTypeId && selectedBrandId
+                    ? 'Выберите устройство...'
+                    : 'Сначала выберите тип и бренд'
+                }}
+              </option>
+              <option
+                v-for="device in availableDevicesForAdd"
+                :key="device.id ?? device.Id"
+                :value="device.id ?? device.Id"
+              >
+                {{ device.article || device.Article || 'ID ' + (device.id ?? device.Id) }}
+                {{
+                  device.description || device.Description
+                    ? '— ' + (device.description || device.Description)
+                    : ''
+                }}
+              </option>
+            </select>
+            <p
+              v-if="selectedDeviceTypeId && selectedBrandId && availableDevicesForAdd.length === 0"
+              class="add-form__hint"
+            >
+              Для этого типа и бренда нет доступных устройств.
+            </p>
+          </div>
 
-        <div class="admin-form__actions" style="margin-top: 24px">
-          <Abutton
-            @click="addDeviceToAssembly"
+          <div class="add-form__group">
+            <label for="new-qty">Количество (1–200) *</label>
+            <input
+              id="new-qty"
+              type="number"
+              v-model.number="newQuantity"
+              min="1"
+              max="200"
+              class="form-input"
+            />
+          </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="devices-modal__actions">
+          <button class="modal-cancel" @click="showAddModal = false">Отмена</button>
+          <AButton
+            class="devices-modal__submit"
             :disabled="
               !selectedDeviceTypeId ||
               !selectedBrandId ||
@@ -763,17 +877,15 @@ onMounted(async () => {
               newQuantity < 1 ||
               newQuantity > 200
             "
+            @click="addDeviceToAssembly"
           >
             Добавить
-          </Abutton>
-          <a class="admin-form__cancel" @click="showAddModal = false">Отмена</a>
+          </AButton>
         </div>
-      </div>
+      </template>
     </AModal>
 
-    <!-- ===================== МОДАЛКА: ПРОСМОТР СВОЙСТВ ===================== -->
     <AModal
-      @close-emit="showPropertiesModal = false"
       :title="
         currentDevice
           ? `Свойства: ${
@@ -784,66 +896,90 @@ onMounted(async () => {
           : 'Свойства устройства'
       "
       :opened="showPropertiesModal"
+      class="properties-modal"
+      @close-emit="showPropertiesModal = false"
     >
-      <div class="properties-device-type">
-        {{ currentDevice.deviceType }} {{ currentDevice.brand }}
+      <div v-if="currentDevice" class="properties-device">
+        <span class="properties-device__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+            <rect x="6" y="6" width="12" height="12" rx="2" />
+            <rect x="9" y="9" width="6" height="6" rx="1" />
+            <path d="M9 3v3M15 3v3M9 18v3M15 18v3M3 9h3M3 15h3M18 9h3M18 15h3" />
+          </svg>
+        </span>
+        <div class="properties-device__info">
+          <h3>{{ currentDevice.article }}</h3>
+          <p>{{ currentDevice.deviceType }} · {{ currentDevice.brand }}</p>
+        </div>
+        <span class="properties-device__quantity">{{ currentDevice.quantity }} шт.</span>
       </div>
-      <div v-if="deviceProperties.length === 0" class="admin-empty">
-        Для этого устройства не заданы свойства
+
+      <div v-if="deviceProperties.length === 0" class="properties-empty">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M4 5h16M4 12h16M4 19h16" />
+          <circle cx="9" cy="5" r="2" fill="#fff" />
+          <circle cx="15" cy="12" r="2" fill="#fff" />
+          <circle cx="11" cy="19" r="2" fill="#fff" />
+        </svg>
+        <p>Для этого устройства не заданы свойства</p>
       </div>
       <div v-else class="properties-view">
-        <div v-for="(prop, idx) in deviceProperties" :key="idx" class="properties-row">
+        <div v-for="(property, index) in deviceProperties" :key="index" class="properties-row">
           <span class="properties-row__label">
-            {{ prop.name }}
-            <span v-if="prop.unit" class="properties-row__unit">, {{ prop.unit }}</span>
+            {{ property.name }}
+            <span v-if="property.unit" class="properties-row__unit">, {{ property.unit }}</span>
           </span>
-          <span class="properties-row__value">{{ prop.value }}</span>
+          <span class="properties-row__value">{{ property.value }}</span>
         </div>
       </div>
-      <div class="admin-form__actions" style="margin-top: 24px">
-        <a class="admin-form__cancel" @click="showPropertiesModal = false">Закрыть</a>
-      </div>
+
+      <template #footer>
+        <div class="devices-modal__actions">
+          <button class="modal-cancel" @click="showPropertiesModal = false">Закрыть</button>
+        </div>
+      </template>
     </AModal>
 
-    <!-- ===================== МОДАЛКА: СВОДКА ===================== -->
     <AModal
       sticky
-      @close-emit="showSummaryModal = false"
       :title="`Сводка по устройствам ${assembly?.codeName || ''}`"
       :opened="showSummaryModal"
+      class="summary-modal"
+      @close-emit="showSummaryModal = false"
     >
       <div v-if="summaryReport" class="summary-view">
-        <table class="admin-table summary-table">
+        <table class="summary-table">
           <thead>
             <tr>
-              <th class="admin-table__th summary-table__num">№</th>
-              <th class="admin-table__th">Тип устройства</th>
-              <th class="admin-table__th">Бренд</th>
-              <th class="admin-table__th">Артикул</th>
-              <th class="admin-table__th">Описание</th>
-              <th class="admin-table__th">Количество</th>
+              <th class="summary-table__number">№</th>
+              <th>Тип устройства</th>
+              <th>Бренд</th>
+              <th>Артикул</th>
+              <th>Описание</th>
+              <th>Количество</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="row in summaryReport.rows" :key="row.num" class="admin-table__row">
-              <td class="admin-table__td summary-table__num">{{ row.num }}</td>
-              <td class="admin-table__td">{{ row.deviceType }}</td>
-              <td class="admin-table__td">{{ row.brand }}</td>
-              <td class="admin-table__td">{{ row.article }}</td>
-              <td class="admin-table__td">{{ row.description }}</td>
-              <td class="admin-table__td">{{ row.quantity }} шт.</td>
+            <tr v-for="row in summaryReport.rows" :key="row.num">
+              <td class="summary-table__number">{{ row.num }}</td>
+              <td>{{ row.deviceType }}</td>
+              <td>{{ row.brand }}</td>
+              <td class="summary-table__article">{{ row.article }}</td>
+              <td class="summary-table__description">{{ row.description }}</td>
+              <td>{{ row.quantity }} шт.</td>
             </tr>
           </tbody>
         </table>
       </div>
+
       <template #footer>
-        <div class="admin-form__actions summary-actions">
+        <div class="devices-modal__actions devices-modal__actions--summary">
           <div class="summary-options">
             <label class="summary-format">
-              <span class="summary-format__label">Формат</span>
+              <span>Формат</span>
               <select
                 v-model="exportFormat"
-                class="admin-select summary-format__select"
+                class="form-select summary-format__select"
                 :disabled="exportingSummary"
               >
                 <option value="txt">TXT</option>
@@ -855,10 +991,19 @@ onMounted(async () => {
               <span>Загрузить в файлы проекта</span>
             </label>
           </div>
-          <Abutton @click="exportDevicesSummary" :disabled="exportingSummary" class="export-btn">
-            {{ exportingSummary ? 'Формирование…' : '⬇ Экспорт' }}
-          </Abutton>
-          <a class="admin-form__cancel" @click="showSummaryModal = false">Закрыть</a>
+          <div class="summary-buttons">
+            <button class="modal-cancel" @click="showSummaryModal = false">Закрыть</button>
+            <AButton
+              class="summary-export"
+              :disabled="exportingSummary"
+              @click="exportDevicesSummary"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M12 3v12M7 10l5 5 5-5M5 21h14" />
+              </svg>
+              <span>{{ exportingSummary ? 'Формирование…' : 'Экспорт' }}</span>
+            </AButton>
+          </div>
         </div>
       </template>
     </AModal>
@@ -867,489 +1012,1224 @@ onMounted(async () => {
 
 <style scoped>
 .global-container {
-  padding: 16px;
   width: 100%;
-  box-sizing: border-box;
   max-width: 1400px;
+  margin: 0 auto;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.devices-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
   margin: 0 auto;
 }
 
-/* === ХЕДЕР В СТИЛЕ ГАЛЕРЕИ (с оригинальными цветами) === */
-.gallery__header {
-  box-shadow: 4px 4px 30px -10px rgba(34, 60, 80, 0.2);
-  border-radius: 8px;
+.devices__header {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 20px;
+  padding: 18px;
+  overflow: hidden;
   border: 1px solid rgb(230, 230, 230);
-  background-color: #fff;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #fff 0%, #fff 62%, #f5f3ff 100%);
+  box-shadow: 4px 4px 24px -14px rgba(34, 60, 80, 0.28);
 }
 
-.assembly-header__info {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  flex: 1;
+.devices__heading {
+  min-width: 0;
 }
 
-.assembly-header__actions {
+.devices__breadcrumb {
   display: flex;
-  gap: 12px;
   align-items: center;
+  min-width: 0;
+  margin-bottom: 14px;
+  overflow: hidden;
+  color: #8a8f98;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 
-/* Оригинальные цвета текстов хедера */
-.admin-headbar__info {
-  font-size: 14px;
-  color: #4a5568;
-  font-weight: 500;
+.devices__breadcrumb > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+
 .admin-headbar__project {
-  color: #2d3748;
+  flex: 0 1 auto;
+  color: #4b5563;
   font-weight: 600;
 }
+
+.admin-headbar__assembly {
+  flex: 0 1 auto;
+  color: #6b7280;
+}
+
 .admin-headbar__separator {
+  flex: 0 0 auto;
   margin: 0 8px;
   color: #cbd5e0;
 }
-.admin-headbar__search-label {
-  font-size: 13px;
-  color: #4a5568;
+
+.devices__title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
 }
 
-/* Кнопка "Назад" в оригинальных тонах */
-.admin-headbar__back-btn {
-  font-size: 14px;
-  color: #4a5568;
-  text-decoration: none;
-  padding: 8px 12px;
-  border-radius: 6px;
-  transition: all 0.2s;
-  white-space: nowrap;
+.devices__title-icon {
+  display: grid;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 1px solid #e0e7ff;
+  border-radius: 12px;
+  background: #eef2ff;
+  color: #4f46e5;
 }
-.admin-headbar__back-btn:hover {
-  background-color: #f7fafc;
+
+.devices__title-icon svg {
+  width: 23px;
+  height: 23px;
+}
+
+.devices__title-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.devices__title {
+  margin: 0;
   color: #2d3748;
-}
-
-.add-device-btn {
-  white-space: nowrap;
-}
-
-/* Серая второстепенная кнопка — как в кабельном журнале */
-.summary-btn,
-.export-btn {
-  white-space: nowrap;
-  background-color: #f3f4f6 !important;
-  color: #374151 !important;
-  border: 1px solid #d1d5db !important;
-}
-.summary-btn:hover,
-.export-btn:hover {
-  background-color: #e5e7eb !important;
-}
-
-/* Таблица сводки — как в кабельном журнале */
-.summary-view {
-  overflow-x: auto;
-}
-.summary-table {
-  min-width: 600px;
-}
-.summary-table__num {
-  width: 48px;
-  text-align: center;
-  white-space: nowrap;
-}
-.summary-actions {
-  flex-wrap: wrap;
-}
-.summary-options {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-right: auto;
-  flex-wrap: wrap;
-}
-.summary-format {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.summary-format__label {
-  font-size: 13px;
-  font-weight: 500;
-  color: #4a5568;
-  white-space: nowrap;
-}
-.summary-format__select {
-  width: auto;
-  min-width: 96px;
-}
-.summary-upload {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  font-weight: 500;
-  color: #4a5568;
-  cursor: pointer;
-}
-.summary-upload input {
-  width: 16px;
-  height: 16px;
-  accent-color: #6366f1;
-  cursor: pointer;
-}
-
-/* === ТАБЛИЦА (Оригинальные стили сохранены) === */
-.admin-card {
-  box-shadow: 4px 4px 30px -10px rgba(34, 60, 80, 0.2);
-  border-radius: 8px;
-  border: 1px solid rgb(230, 230, 230);
-  background-color: #fff;
-  padding: 16px;
-}
-
-.admin-table-wrap {
-  padding: 0;
-  overflow: auto;
-  margin-top: 16px;
-}
-
-.properties-device-type {
-  font-weight: 400;
-  color: #718096;
-  font-size: 12px;
-  margin-bottom: 16px;
-}
-
-.admin-empty {
-  padding: 40px;
-  text-align: center;
-  color: #718096;
-  font-weight: 300;
-}
-
-.admin-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-}
-.admin-table__th {
-  text-align: left;
-  padding: 12px 16px;
+  font-size: 23px;
   font-weight: 600;
-  color: #4a5568;
-  background-color: #f7fafc;
-  border-bottom: 2px solid rgb(230, 230, 230);
-  white-space: nowrap;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
-.admin-table__th--num {
-  width: 58px;
-  text-align: center;
-  padding-inline: 6px;
-}
-.admin-table__th--actions {
-  width: 140px;
-  text-align: center;
+  line-height: 1.2;
 }
 
-.admin-table__th--sortable {
-  cursor: pointer;
-  user-select: none;
-  transition:
-    background-color 0.15s,
-    color 0.15s;
-}
-.admin-table__th--sortable:hover {
-  background-color: #eef2ff;
-  color: #4f46e5;
-}
-.admin-table__th--sorted {
-  color: #4f46e5;
-  background-color: #f5f7ff;
-}
-.admin-table__th-inner {
+.devices__count-badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  min-width: 28px;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 600;
 }
-.admin-table__th-arrow {
+
+.devices__subtitle {
+  margin: 5px 0 0;
+  color: #8a8f98;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.devices__header-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.devices__summary.btn,
+.devices__add.btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 40px;
+  padding: 9px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.devices__summary svg,
+.devices__add svg {
+  width: 18px;
+  height: 18px;
+}
+
+.devices__toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid rgb(230, 230, 230);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 4px 4px 24px -16px rgba(34, 60, 80, 0.24);
+}
+
+.devices__search {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  margin: 0;
+  color: #8a8f98;
   font-size: 11px;
-  line-height: 1;
-  color: #cbd5e0;
-  transition: color 0.15s;
+  font-weight: 500;
+  letter-spacing: 0.02em;
 }
-.admin-table__th--sortable:hover .admin-table__th-arrow {
-  color: #a5b4fc;
+
+.devices__search-control {
+  position: relative;
 }
-.admin-table__th-arrow--active {
+
+.devices__search-control > svg {
+  position: absolute;
+  top: 50%;
+  left: 11px;
+  z-index: 1;
+  width: 16px;
+  height: 16px;
+  color: #9298a1;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.devices__search-control :deep(.input) {
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 10px 8px 34px;
+  border-color: #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  color: #4b5563;
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: normal;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+
+.devices__search-control :deep(.input):focus {
+  border-color: #818cf8;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+
+.devices__toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.devices__result-count {
+  margin-right: auto;
+  color: #6b7280;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.devices__reset {
+  min-height: 34px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
   color: #6366f1;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.devices__reset:hover {
+  background: #eef2ff;
+}
+
+.devices__table-card {
+  overflow: hidden;
+  border: 1px solid rgb(230, 230, 230);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 4px 4px 24px -16px rgba(34, 60, 80, 0.24);
+}
+
+.devices-loading {
+  overflow-x: auto;
+}
+
+.devices-loading__row {
+  display: grid;
+  grid-template-columns: 48px repeat(5, minmax(90px, 1fr)) 90px;
+  align-items: center;
+  gap: 20px;
+  min-width: 1000px;
+  height: 52px;
+  padding: 0 16px;
+  border-bottom: 1px solid #eff1f4;
+}
+
+.devices-loading__row:last-child {
+  border-bottom: 0;
+}
+
+.devices-loading__number,
+.devices-loading__cell,
+.devices-loading__actions {
+  height: 10px;
+  border-radius: 999px;
+  background: #eef0f3;
+}
+
+.devices-loading__number {
+  width: 28px;
+}
+
+.devices-loading__cell:nth-child(3n) {
+  width: 72%;
+}
+
+.devices-loading__cell:nth-child(3n + 1) {
+  width: 84%;
+}
+
+.devices-loading__actions {
+  width: 64px;
+}
+
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton-shimmer::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.75) 50%,
+    transparent 80%
+  );
+  content: '';
+  transform: translateX(-100%);
+  animation: devices-skeleton-slide 1.4s infinite;
+}
+
+@keyframes devices-skeleton-slide {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.devices__state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 320px;
+  padding: 36px 18px;
+  border: 1px solid rgb(230, 230, 230);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 4px 4px 24px -16px rgba(34, 60, 80, 0.24);
+  text-align: center;
+}
+
+.devices__state-icon {
+  display: grid;
+  width: 64px;
+  height: 64px;
+  margin-bottom: 18px;
+  place-items: center;
+  border: 1px solid #e0e7ff;
+  border-radius: 18px;
+  background: #eef2ff;
+  color: #6366f1;
+}
+
+.devices__state-icon svg {
+  width: 30px;
+  height: 30px;
+}
+
+.devices__state h2 {
+  margin: 0;
+  color: #374151;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.devices__state p {
+  max-width: 460px;
+  margin: 8px 0 0;
+  color: #8a8f98;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.devices__state-action.btn {
+  min-height: 38px;
+  margin-top: 20px;
+  padding: 8px 14px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.devices-table-wrap {
+  overflow-x: auto;
+}
+
+.devices-table {
+  width: 100%;
+  min-width: 1050px;
+  border-collapse: separate;
+  border-spacing: 0;
+  color: #4b5563;
   font-size: 13px;
 }
 
-.admin-table__row {
-  transition: background-color 0.15s;
+.devices-table th {
+  padding: 0;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafc;
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
-.admin-table__row--clickable {
+
+.devices-table td {
+  height: 56px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #eff1f4;
+  vertical-align: middle;
+}
+
+.devices-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.devices-table tbody tr {
+  cursor: pointer;
+  outline: none;
+  transition: background 0.16s ease;
+}
+
+.devices-table tbody tr:hover,
+.devices-table tbody tr:focus-visible {
+  background: #fafaff;
+}
+
+.devices-table tbody tr:focus-visible td:first-child {
+  box-shadow: inset 3px 0 #6366f1;
+}
+
+.devices-table__sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 42px;
+  padding: 8px 12px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
   cursor: pointer;
 }
-.admin-table__row:hover {
-  background-color: #f7fafc;
+
+.devices-table__sort:hover,
+.devices-table__sort--active {
+  color: #4f46e5;
 }
-.admin-table__td {
-  font-size: 14px;
-  padding: 10px 16px;
-  border-bottom: 1px solid rgb(240, 240, 240);
-  color: #2d3748;
+
+.devices-table__arrow {
+  color: #a5aab4;
+  font-size: 13px;
+  line-height: 1;
 }
-.admin-table__td--num {
-  color: #a0aec0;
+
+.devices-table__sort:hover .devices-table__arrow,
+.devices-table__sort--active .devices-table__arrow {
+  color: #6366f1;
+}
+
+.devices-table__number {
+  width: 56px;
+  padding-left: 16px !important;
+  text-align: center !important;
+}
+
+.devices-table__sort--number {
+  justify-content: center;
+}
+
+.devices-table__num {
+  display: inline-grid;
+  min-width: 28px;
+  height: 26px;
+  place-items: center;
+  padding: 0 7px;
+  border: 1px solid #e5e7eb;
+  border-radius: 7px;
+  background: #f9fafb;
+  color: #6b7280;
   font-size: 12px;
-  text-align: center;
-  padding-inline: 6px;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
-.admin-table__td--quantity {
+.devices-table__article {
+  min-width: 120px;
+  color: #374151;
+  font-weight: 600;
   white-space: nowrap;
 }
+
+.devices-table__description {
+  min-width: 170px;
+  max-width: 260px;
+  overflow: hidden;
+  color: #8a8f98;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.devices-table__badge {
+  display: inline-flex;
+  align-items: center;
+  max-width: 150px;
+  min-height: 26px;
+  padding: 4px 9px;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  border-radius: 7px;
+  background: #f9fafb;
+  color: #4b5563;
+  font-size: 12px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.devices-table__badge--type {
+  border-color: #e0e7ff;
+  background: #eef2ff;
+  color: #4f46e5;
+}
+
+.devices-table__quantity {
+  white-space: nowrap;
+}
+
 .qty-control {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  background-color: #f7fafc;
-  border-radius: 6px;
-  padding: 4px 8px;
-  border: 1px solid rgb(230, 230, 230);
+  gap: 6px;
+  padding: 3px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f9fafb;
 }
+
 .qty-btn {
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  background-color: #fff;
-  border-radius: 4px;
-  cursor: pointer;
+  display: inline-grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #fff;
+  color: #4f46e5;
   font-size: 16px;
   font-weight: 600;
-  color: #4f46e5;
-  transition: all 0.2s;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  transition:
+    border-color 0.16s,
+    background 0.16s,
+    color 0.16s;
 }
+
 .qty-btn:hover:not(:disabled) {
-  background-color: #eef2ff;
+  border-color: #c7d2fe;
+  background: #eef2ff;
 }
+
 .qty-btn:disabled {
+  border-color: #eff1f4;
+  background: #f9fafb;
   color: #cbd5e0;
   cursor: not-allowed;
-  background-color: #f7fafc;
-  box-shadow: none;
 }
+
 .qty-value {
-  min-width: 32px;
-  text-align: center;
-  font-weight: 600;
+  min-width: 34px;
+  padding: 2px 4px;
+  border-radius: 5px;
+  color: #374151;
   font-size: 14px;
-  color: #2d3748;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
 }
+
 .qty-value--editable {
   cursor: pointer;
-  border-radius: 4px;
 }
+
 @media (hover: hover) {
   .qty-value--editable:hover {
-    background-color: #eef2ff;
+    background: #eef2ff;
     color: #4f46e5;
   }
 }
+
 .qty-input {
-  width: 58px;
-  text-align: center;
-  background-color: #fff;
-  border: 1px solid #6366f1;
-  border-radius: 4px;
+  width: 54px;
+  min-height: 26px;
   padding: 2px 4px;
-  color: #2d3748;
+  border: 1px solid #6366f1;
+  border-radius: 5px;
+  outline: none;
+  background: #fff;
+  color: #374151;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
   -moz-appearance: textfield;
   appearance: textfield;
 }
+
 .qty-input::-webkit-inner-spin-button,
 .qty-input::-webkit-outer-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
 
-.admin-table__td--actions {
-  text-align: center;
+.devices-table__actions {
+  width: 104px;
+  padding-right: 16px !important;
+  text-align: right !important;
   white-space: nowrap;
 }
-/* Flex живёт внутри td: display:flex на самой ячейке ломает раскладку
-   таблицы, и колонка «Действия» съезжает */
-.admin-table__actions {
-  display: inline-flex;
-  justify-content: center;
-  flex-wrap: nowrap;
-  gap: 8px;
-}
-.admin-table__btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 14px;
-  padding: 6px 10px;
-  border-radius: 4px;
-  transition: all 0.2s;
-}
-.admin-table__btn:hover {
-  background-color: #edf2f7;
-}
-.admin-table__btn--del {
-  color: #e53e3e;
-}
-.admin-table__btn--del:hover {
-  background-color: #fed7d7;
-}
 
-/* === ФОРМЫ И МОДАЛКИ === */
-.add-form {
-  display: grid;
-  gap: 16px;
-}
-.add-form__group {
-  display: grid;
+.devices-table__action-buttons {
+  display: flex;
+  justify-content: flex-end;
   gap: 6px;
 }
+
+.devices-table__action {
+  display: inline-grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  color: #6b7280;
+  cursor: pointer;
+  transition:
+    border-color 0.16s,
+    background 0.16s,
+    color 0.16s;
+}
+
+.devices-table__action svg {
+  width: 15px;
+  height: 15px;
+}
+
+.devices-table__action:hover {
+  border-color: #c7d2fe;
+  background: #eef2ff;
+  color: #4f46e5;
+}
+
+.devices-table__action--delete:hover {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.add-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.add-form__intro h3 {
+  margin: 0;
+  color: #374151;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.add-form__intro p {
+  margin: 6px 0 0;
+  color: #8a8f98;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.add-form__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+
+.add-form__group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
 .add-form__group label {
+  margin: 0;
+  color: #4b5563;
   font-size: 13px;
   font-weight: 500;
-  color: #4a5568;
 }
+
 .add-form__hint {
-  font-size: 12px;
-  color: #a0aec0;
   margin: 0;
-  font-style: italic;
+  color: #8a8f98;
+  font-size: 12px;
+  line-height: 1.45;
 }
-.admin-select,
-.admin-input {
+
+.form-select,
+.form-input {
   width: 100%;
-  padding: 8px 10px;
-  border: 1px solid rgb(230, 230, 230);
-  border-radius: 6px;
-  background-color: #fff;
-  font-size: 13px;
-  color: #2d3748;
-  transition: all 0.3s;
+  min-height: 40px;
+  padding: 9px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  outline: none;
+  background: #fff;
+  color: #4b5563;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 400;
   box-sizing: border-box;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
 }
-.admin-select:disabled,
-.admin-input:disabled {
-  background-color: #f7fafc;
+
+.form-select {
+  padding-right: 34px;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-position: right 10px center;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
+
+.form-select:disabled,
+.form-input:disabled {
+  border-color: #eef1f4;
+  background-color: #f8fafc;
   color: #a0aec0;
   cursor: not-allowed;
 }
-.admin-select:focus,
-.admin-input:focus {
-  outline: none;
-  border-color: #6366f1;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+
+.form-select:focus,
+.form-input:focus {
+  border-color: #818cf8;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+
+.devices-modal__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+}
+
+.modal-cancel,
+.devices-modal__actions .btn {
+  min-height: 38px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.modal-cancel {
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  color: #6b7280;
+  font: inherit;
+  cursor: pointer;
+  transition:
+    border-color 0.2s,
+    background 0.2s,
+    color 0.2s;
+}
+
+.modal-cancel:hover:not(:disabled) {
+  border-color: #cbd5e0;
+  background: #f9fafb;
+  color: #374151;
+}
+
+.devices-modal__submit.btn,
+.summary-export.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.summary-export svg {
+  width: 17px;
+  height: 17px;
+}
+
+.properties-device {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #f9fafb;
+}
+
+.properties-device__icon {
+  display: grid;
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border: 1px solid #e0e7ff;
+  border-radius: 10px;
+  background: #eef2ff;
+  color: #4f46e5;
+}
+
+.properties-device__icon svg {
+  width: 21px;
+  height: 21px;
+}
+
+.properties-device__info {
+  min-width: 0;
+}
+
+.properties-device__info h3 {
+  margin: 0;
+  overflow: hidden;
+  color: #374151;
+  font-size: 15px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.properties-device__info p {
+  margin: 4px 0 0;
+  color: #8a8f98;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.properties-device__quantity {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: 5px 9px;
+  border: 1px solid #e0e7ff;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #4f46e5;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.properties-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 180px;
+  padding: 24px;
+  border: 1px dashed #e5e7eb;
+  border-radius: 10px;
+  background: #fafafa;
+  color: #8a8f98;
+  text-align: center;
+}
+
+.properties-empty svg {
+  width: 30px;
+  height: 30px;
+  margin-bottom: 12px;
+  color: #a5aab4;
+}
+
+.properties-empty p {
+  margin: 0;
+  font-size: 14px;
 }
 
 .properties-view {
   display: grid;
-  gap: 12px;
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
 }
+
 .properties-row {
   display: grid;
-  grid-template-columns: 1fr 220px;
-  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) minmax(120px, 0.7fr);
+  gap: 16px;
   align-items: center;
-  padding: 8px 0;
-  border-bottom: 1px solid rgb(240, 240, 240);
+  padding: 12px 14px;
+  border-bottom: 1px solid #eff1f4;
+  background: #fff;
 }
-@media (max-width: 600px) {
-  .properties-row {
-    grid-template-columns: 1fr;
-    gap: 4px;
-  }
+
+.properties-row:last-child {
+  border-bottom: 0;
 }
+
+.properties-row:nth-child(even) {
+  background: #fafafa;
+}
+
 .properties-row__label {
+  color: #6b7280;
   font-size: 13px;
   font-weight: 500;
-  color: #4a5568;
 }
+
 .properties-row__unit {
   color: #a0aec0;
   font-weight: 400;
 }
+
 .properties-row__value {
+  color: #374151;
   font-size: 13px;
-  color: #2d3748;
   font-weight: 600;
   text-align: right;
+  overflow-wrap: anywhere;
 }
-@media (max-width: 600px) {
-  .properties-row__value {
-    text-align: left;
+
+.summary-view {
+  overflow-x: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+}
+
+.summary-table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: separate;
+  border-spacing: 0;
+  color: #4b5563;
+  font-size: 13px;
+}
+
+.summary-table th {
+  padding: 11px 12px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafc;
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.summary-table td {
+  padding: 11px 12px;
+  border-bottom: 1px solid #eff1f4;
+  vertical-align: middle;
+}
+
+.summary-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.summary-table tbody tr:nth-child(even) {
+  background: #fafafa;
+}
+
+.summary-table__number {
+  width: 48px;
+  color: #8a8f98;
+  font-variant-numeric: tabular-nums;
+  text-align: center !important;
+  white-space: nowrap;
+}
+
+.summary-table__article {
+  color: #374151;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.summary-table__description {
+  max-width: 220px;
+  overflow: hidden;
+  color: #8a8f98;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.devices-modal__actions--summary {
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.summary-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.summary-format {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.summary-format__select {
+  width: 88px;
+  min-height: 38px;
+  padding-block: 7px;
+}
+
+.summary-upload {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.summary-upload input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #6366f1;
+  cursor: pointer;
+}
+
+.summary-buttons {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 10px;
+}
+
+@media (min-width: 640px) {
+  .devices__header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px;
+  }
+
+  .devices__header-actions {
+    flex: 0 0 auto;
+    flex-direction: row;
+  }
+
+  .devices__summary.btn,
+  .devices__add.btn {
+    width: auto;
+  }
+
+  .devices__toolbar {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+  }
+
+  .devices__search {
+    width: min(100%, 560px);
+  }
+
+  .devices__toolbar-actions {
+    flex: 0 0 auto;
+  }
+
+  .devices__result-count {
+    margin-right: 0;
+  }
+
+  .add-form__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .add-form__group--wide {
+    grid-column: 1 / -1;
   }
 }
 
-.admin-form__actions {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 16px;
-  padding-top: 8px;
-}
-.admin-form__cancel {
-  font-size: 14px;
-  color: #718096;
-  cursor: pointer;
-  text-decoration: none;
-}
-.admin-form__cancel:hover {
-  color: #4a5568;
-}
-
-/* === ДЕСКТОПНАЯ АДАПТАЦИЯ === */
 @media (min-width: 768px) {
   .global-container {
     padding: 24px;
   }
 
-  .gallery__header {
-    flex-direction: row;
+  .devices-page {
+    gap: 20px;
+  }
+
+  .devices__header {
+    padding: 24px;
+  }
+
+  .devices__breadcrumb {
+    margin-bottom: 16px;
+    font-size: 13px;
+  }
+
+  .devices__title-icon {
+    flex-basis: 48px;
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+  }
+
+  .devices__title {
+    font-size: 26px;
+  }
+
+  .devices__subtitle {
+    font-size: 14px;
+  }
+
+  .devices__summary.btn,
+  .devices__add.btn {
+    min-height: 42px;
+    padding: 10px 16px;
+    font-size: 15px;
+  }
+
+  .devices__toolbar {
+    padding: 14px 16px;
+  }
+
+  .devices__search-control :deep(.input) {
+    padding-inline: 36px 12px;
+    font-size: 14px;
+  }
+
+  .devices__state {
+    min-height: 380px;
+    padding: 48px 24px;
+  }
+}
+
+@media (max-width: 760px) {
+  .devices-modal__actions--summary {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .summary-buttons {
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 600px) {
+  .devices-modal__actions,
+  .summary-buttons {
+    flex-direction: column-reverse;
+  }
+
+  .modal-cancel,
+  .devices-modal__actions .btn {
+    width: 100%;
+  }
+
+  .properties-device {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .properties-device__quantity {
+    margin-left: 52px;
+  }
+
+  .properties-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+
+  .properties-row__value {
+    text-align: left;
+  }
+
+  .summary-options {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .summary-format {
     justify-content: space-between;
-    align-items: center;
-    padding: 24px;
   }
 
-  .assembly-header__info {
-    flex-direction: row;
-    align-items: center;
-    gap: 24px;
-    flex: 1;
+  .devices-table-wrap {
+    scrollbar-width: thin;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .devices-table tbody tr,
+  .devices__reset,
+  .devices-table__action,
+  .qty-btn,
+  .modal-cancel {
+    transition: none;
   }
 
-  .admin-headbar__search {
-    flex: 1;
-    max-width: 400px;
-  }
-
-  .admin-card {
-    padding: 24px;
-  }
-
-  .admin-table-wrap {
-    margin-top: 24px;
+  .skeleton-shimmer::after {
+    animation: none;
   }
 }
 </style>

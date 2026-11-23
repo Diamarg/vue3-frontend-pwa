@@ -39,6 +39,8 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
         navigateFallback: '/index.html',
+        // Переходы к API должны идти в сеть, иначе вместо файла откроется index.html.
+        navigateFallbackDenylist: [/^\/api\//],
         runtimeCaching: [
           {
             // GET-данные API: всегда свежий ответ по сети, офлайн — последние закэшированные
