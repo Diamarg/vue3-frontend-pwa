@@ -1,193 +1,249 @@
 <script setup>
-import { formatShortDate, parseLocalDate } from '@/utils/dateFormatter'
+import { ref } from 'vue'
+import { formatShortDate } from '@/utils/dateFormatter'
 
 const props = defineProps({
   codename: { type: String, default: 'АС__' },
-  customer: { type: String, default: 'заказчик' },
-  description: { type: String, default: 'описание' },
-  creationDate: { type: String, default: '09.06.89' },
-  isAdmin: { type: Boolean, default: false },
+  customer: { type: String, default: '' },
+  description: { type: String, default: '' },
+  creationDate: { type: String, default: '' },
   photosCount: { type: Number, default: 0 },
   filesCount: { type: Number, default: 0 },
   assembliesCount: { type: Number, default: 0 },
   cableLinesCount: { type: Number, default: 0 },
 })
+
+defineEmits(['toGallery', 'toFiles', 'toAssemblies', 'toCableJournal'])
+
+// Строка живёт в списке одна, детали — по касанию: так четыре проекта влезают
+// в экран телефона, а не один
+const expanded = ref(false)
 </script>
 
 <template>
-  <div class="project-card">
-    <div class="project-card__header">
-      <div class="project-card__codename">
-        {{ props.codename }}
-      </div>
-      <div class="project-card__description">
-        {{ props.description }}
-      </div>
-    </div>
-    <hr class="customer-separator" />
-    <div class="project-card__line-customer">
-      <span class="project-card__line-label">Заказчик:</span>
-      <span class="project-card__line-text">{{ props.customer }}</span>
-    </div>
-    <div class="project-card__line-customer">
-      <span class="project-card__line-label">Создано:</span>
-      <span class="project-card__line-text">{{ formatShortDate(props.creationDate) }}</span>
-    </div>
-    <hr class="button-separator" />
-    <div class="project-card__links">
-      <a class="project-card__link project-card__link--outline" @click="$emit('toGallery')"
-        >Изображения -
-        <span class="project-card__link-count">{{
-          photosCount ? photosCount + ' шт.' : 'пусто'
-        }}</span>
-      </a>
-      <a class="project-card__link project-card__link--outline" @click="$emit('toFiles')"
-        >Файлы -
-        <span class="project-card__link-count">{{
-          filesCount ? filesCount + ' шт.' : 'пусто'
-        }}</span></a
+  <article class="project-row" :class="{ 'project-row--open': expanded }">
+    <div class="project-row__top">
+      <h3 class="project-row__codename">{{ props.codename }}</h3>
+      <button
+        type="button"
+        class="project-row__toggle"
+        :aria-expanded="expanded"
+        :aria-label="expanded ? 'Свернуть сведения о проекте' : 'Показать сведения о проекте'"
+        @click="expanded = !expanded"
       >
+        {{ expanded ? '⌃' : '⌄' }}
+      </button>
+    </div>
 
-      <a class="project-card__link project-card__link--outline" @click="$emit('toAssemblies')"
-        >Сборки ШУ -
-        <span class="project-card__link-count">{{
-          assembliesCount ? assembliesCount + ' шт.' : 'пусто'
-        }}</span></a
+    <!-- Числа и есть переходы: подпись короткая, а «пусто» replaced серым нулём -->
+    <div class="project-row__stats">
+      <button
+        type="button"
+        class="stat"
+        :class="{ 'stat--empty': !photosCount }"
+        @click="$emit('toGallery')"
       >
-      <a class="project-card__link project-card__link--outline" @click="$emit('toCableJournal')"
-        >Кабельные линии -
-        <span class="project-card__link-count">{{
-          cableLinesCount ? cableLinesCount + ' шт.' : 'пусто'
-        }}</span></a
+        <span class="stat__count">{{ photosCount }}</span>
+        <span class="stat__label">фото</span>
+      </button>
+      <button
+        type="button"
+        class="stat"
+        :class="{ 'stat--empty': !filesCount }"
+        @click="$emit('toFiles')"
       >
+        <span class="stat__count">{{ filesCount }}</span>
+        <span class="stat__label">файлы</span>
+      </button>
+      <button
+        type="button"
+        class="stat"
+        :class="{ 'stat--empty': !assembliesCount }"
+        @click="$emit('toAssemblies')"
+      >
+        <span class="stat__count">{{ assembliesCount }}</span>
+        <span class="stat__label">сборки</span>
+      </button>
+      <button
+        type="button"
+        class="stat"
+        :class="{ 'stat--empty': !cableLinesCount }"
+        @click="$emit('toCableJournal')"
+      >
+        <span class="stat__count">{{ cableLinesCount }}</span>
+        <span class="stat__label">линии</span>
+      </button>
     </div>
-  </div>
+
+    <div v-if="expanded" class="project-row__details">
+      <div class="project-row__line">
+        <span class="project-row__label">Заказчик</span>
+        <span class="project-row__value">{{ customer || '—' }}</span>
+      </div>
+      <div class="project-row__line">
+        <span class="project-row__label">Создан</span>
+        <span class="project-row__value">{{ formatShortDate(creationDate) }}</span>
+      </div>
+      <p v-if="description" class="project-row__description">{{ description }}</p>
+    </div>
+  </article>
 </template>
 
-<script setup></script>
-
 <style scoped>
-.project-card {
-  box-shadow: 4px 4px 20px -10px rgba(34, 60, 80, 0.2);
+.project-row {
   display: grid;
-  border-radius: 8px;
-  border-color: rgb(230, 230, 230);
-  border-style: solid;
-  border-width: 1px;
-  background-color: rgb(255, 255, 255);
-  padding: 24px;
-  transition: all 0.5s;
-  justify-content: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid rgb(230, 230, 230);
+  border-radius: 10px;
+  background-color: #fff;
+  box-shadow: 2px 2px 14px -8px rgba(34, 60, 80, 0.25);
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
 }
 
-.project-card:hover {
-  box-shadow: 4px 4px 20px -10px rgba(44, 70, 90, 0.4);
-  border-color: rgb(210, 210, 210);
+.project-row:hover {
+  border-color: rgb(197, 197, 197);
 }
 
-.project-card__header {
-  display: grid;
-  justify-content: center;
-  align-items: center;
-  text-align: center;
+.project-row--open {
+  border-color: rgb(160, 170, 190);
+  box-shadow: 2px 2px 18px -8px rgba(34, 60, 80, 0.4);
 }
 
-.project-card__codename {
-  color: rgb(82, 82, 82);
-  cursor: help;
-  font-size: 20px;
+.project-row__top {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.project-row__codename {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 16px;
   font-weight: 600;
+  line-height: 1.25;
+  color: rgb(55, 65, 81);
+  overflow-wrap: anywhere;
 }
 
-.project-card__description {
-  margin-top: 12px;
-  margin-bottom: 24px;
+.project-row__toggle {
+  flex: none;
+  width: 32px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: rgb(140, 140, 140);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
 }
 
-.project-card__actions {
-  font-size: 13px;
+.project-row__toggle:hover {
+  background: rgb(241, 245, 249);
+  color: rgb(70, 70, 70);
+}
+
+.project-row__stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.stat {
   display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 34px;
+  padding: 4px 6px;
+  border: 1px solid rgb(230, 230, 230);
+  border-radius: 8px;
+  background: rgb(248, 250, 252);
+  cursor: pointer;
+  transition:
+    border-color 0.2s,
+    background 0.2s;
+}
+
+.stat:hover {
+  border-color: rgb(150, 150, 150);
+  background: #fff;
+}
+
+.stat__count {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgb(59, 73, 102);
+}
+
+.stat__label {
+  font-size: 11px;
+  color: rgb(120, 120, 120);
+  white-space: nowrap;
+}
+
+.stat--empty {
+  background: #fff;
+}
+
+.stat--empty .stat__count,
+.stat--empty .stat__label {
+  color: rgb(185, 185, 185);
+}
+
+.project-row__details {
+  display: grid;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid rgb(235, 235, 235);
+}
+
+.project-row__line {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
   gap: 12px;
-}
-.project-card__content {
-  color: rgb(82, 82, 82);
+  font-size: 13px;
 }
 
-.project-card__line-customer {
-  display: flex;
-  justify-content: space-between;
-  margin-block: 12px;
+.project-row__label {
+  flex: none;
+  color: rgb(150, 150, 150);
 }
 
-.project-card__line {
-  display: flex;
-  justify-content: space-between;
-  margin-block: 12px;
+.project-row__value {
+  text-align: right;
+  color: rgb(90, 90, 90);
+  overflow-wrap: anywhere;
+}
+
+.project-row__description {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: rgb(100, 100, 100);
+  overflow-wrap: anywhere;
 }
 
 @media (max-width: 600px) {
-  .project-card__line {
-    display: none;
+  .project-row {
+    padding: 10px;
   }
-  .info-separator {
-    display: none;
+
+  /* На телефоне палец должен попадать по числу без промаха, поэтому
+     метки уходят под счётчик, а сам счётчик остаётся крупной кнопкой */
+  .stat {
+    flex-direction: column;
+    gap: 0;
+    min-height: 44px;
   }
-}
 
-.project-card__link-count {
-  color: rgb(155, 155, 155);
-}
-
-.project-card__description {
-  margin-bottom: 24px;
-}
-
-.project-card__line-label {
-  font-weight: 400;
-  color: rgb(150, 150, 150);
-  margin-right: 8px;
-}
-
-.project-card__line-text {
-  font-weight: 300;
-  color: rgb(109, 109, 109);
-}
-.project-card__links {
-  display: grid;
-  gap: 8px;
-  margin-top: 16px;
-}
-
-.project-card__link {
-  color: rgb(80, 80, 80);
-  font-size: 14px;
-  text-decoration: none;
-}
-
-.project-card__link--outline {
-  padding: 8px 24px;
-  border: 1px solid rgb(230, 230, 230);
-  border-radius: 8px;
-  transition: all 0.3s;
-}
-
-.project-card__link--outline:hover {
-  border-color: rgb(150, 150, 150);
-}
-
-.project-card__link--edit {
-  color: rgb(196, 167, 0);
-}
-
-.project-card__link--edit:hover {
-  color: rgb(172, 146, 0);
-}
-
-.project-card__link--delete {
-  color: rgb(177, 29, 29);
-}
-
-.project-card__link--delete:hover {
-  color: rgb(85, 9, 9);
+  .project-row__line {
+    font-size: 14px;
+  }
 }
 </style>

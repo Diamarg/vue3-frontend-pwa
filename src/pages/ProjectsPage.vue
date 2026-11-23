@@ -180,7 +180,6 @@ onMounted(async () => {
           :customer="project.customer"
           :description="project.description"
           :creation-date="project.dateOfCreation"
-          :is-admin="authStore.isAdmin"
           :photos-count="project.photosCount"
           :files-count="project.filesCount"
           :assemblies-count="project.assembliesCount"
@@ -305,23 +304,22 @@ onMounted(async () => {
 
 .projects-cards {
   display: grid;
-  gap: 24px;
-  box-shadow: 4px 4px 30px -10px rgba(34, 60, 80, 0.2);
-
-  grid-template-columns: repeat(auto-fit, minmax(280px, auto));
-  border-radius: 8px;
-  border-color: rgb(230, 230, 230);
-  border-style: solid;
-  border-width: 1px;
-  background-color: rgb(255, 255, 255);
-  padding: 24px;
+  gap: 8px;
+  /* Своя рамка у списка не нужна: каждая строка уже обрамлена, а вместе это
+     давало «коробку в коробке» и съедало 48 px ширины на телефоне */
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   margin-bottom: 24px;
 }
 
-@media (min-width: 900px) {
+@media (min-width: 1100px) {
   .projects-cards {
-    grid-template-columns: repeat(auto-fit, minmax(350px, auto));
+    gap: 12px;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
   }
+}
+
+.project-cards__notfound {
+  grid-column: 1 / -1;
 }
 
 .project-cards__notfound,
