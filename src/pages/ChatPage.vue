@@ -46,8 +46,9 @@ const currentAvatar = computed(() =>
     ? avatarLetter(selectedUser.value.fullName || selectedUser.value.userName)
     : '#',
 )
-const onlineDirectoryUsers = computed(() => chat.sortedUsers.filter((user) => user.isOnline))
-const offlineDirectoryUsers = computed(() => chat.sortedUsers.filter((user) => !user.isOnline))
+const onlineDirectoryUsers = computed(() =>
+  chat.sortedUsers.filter((user) => user.isOnline || user.isOnChatPage),
+)
 const canSend = computed(() => Boolean(draft.value.trim()) && !chat.sending)
 const connectionLabel = computed(() => {
   if (chat.connected) return 'Онлайн'
@@ -113,13 +114,17 @@ const resizeComposer = () => {
 
 const submitMessage = async () => {
   const text = draft.value
-  const sent = await chat.sendMessage(text)
-  if (!sent) return
-  draft.value = ''
-  resizeComposer()
-  stickToBottom.value = true
-  scrollToBottom('smooth')
-  composer.value?.focus()
+  try {
+    const sent = await chat.sendMessage(text)
+    if (!sent) return
+    draft.value = ''
+    resizeComposer()
+    stickToBottom.value = true
+    scrollToBottom('smooth')
+    composer.value?.focus()
+  } catch {
+    return
+  }
 }
 
 const handleComposerKeydown = (event) => {
@@ -170,7 +175,7 @@ onBeforeUnmount(() => {
           :class="{ 'is-active': mobilePanel === 'chats' }"
           @click="mobilePanel = 'chats'"
         >
-          Чаты
+          <span class="chat-tab-label">Чаты</span>
           <span v-if="chat.totalUnread" class="chat-tab-badge">{{ chat.totalUnread }}</span>
         </button>
         <button
@@ -178,14 +183,14 @@ onBeforeUnmount(() => {
           :class="{ 'is-active': mobilePanel === 'messages' }"
           @click="mobilePanel = 'messages'"
         >
-          Сообщения
+          <span class="chat-tab-label">Сообщения</span>
         </button>
         <button
           type="button"
           :class="{ 'is-active': mobilePanel === 'users' }"
           @click="mobilePanel = 'users'"
         >
-          Пользователи
+          <span class="chat-tab-label">Пользователи</span>
           <span class="chat-tab-count">{{ onlineDirectoryUsers.length }}</span>
         </button>
       </nav>
@@ -418,7 +423,6 @@ onBeforeUnmount(() => {
               </span>
               <span class="chat-user__content">
                 <strong>{{ user.fullName || user.userName }}</strong>
-                <small v-if="user.fullName">{{ user.userName }}</small>
                 <span v-if="user.isOnChatPage" class="chat-user__chat-badge">на странице чата</span>
               </span>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -426,30 +430,6 @@ onBeforeUnmount(() => {
               </svg>
             </button>
           </div>
-
-          <template v-if="offlineDirectoryUsers.length">
-            <div class="chat-list-label chat-list-label--offline">Остальные пользователи</div>
-            <div class="chat-user-list">
-              <button
-                v-for="user in offlineDirectoryUsers"
-                :key="user.id"
-                type="button"
-                class="chat-user chat-user--offline"
-                @click="openPrivateChat(user.id)"
-              >
-                <span class="chat-avatar" aria-hidden="true">{{
-                  avatarLetter(user.fullName || user.userName)
-                }}</span>
-                <span class="chat-user__content">
-                  <strong>{{ user.fullName || user.userName }}</strong>
-                  <small v-if="user.fullName">{{ user.userName }}</small>
-                </span>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                  <path d="m9 18 6-6-6-6" />
-                </svg>
-              </button>
-            </div>
-          </template>
         </div>
       </aside>
     </div>
@@ -660,10 +640,6 @@ onBeforeUnmount(() => {
   height: 7px;
   border-radius: 50%;
   background: #22c55e;
-}
-
-.chat-list-label--offline {
-  margin-top: 22px;
 }
 
 .chat-panel__empty {
@@ -1090,14 +1066,6 @@ onBeforeUnmount(() => {
   font-weight: 600;
 }
 
-.chat-user--offline {
-  opacity: 0.68;
-}
-
-.chat-user--offline:hover {
-  opacity: 1;
-}
-
 @keyframes chat-spin {
   to {
     transform: rotate(360deg);
@@ -1117,11 +1085,12 @@ onBeforeUnmount(() => {
 @media (max-width: 1020px) {
   .chat-shell {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
   }
 
   .chat-mobile-tabs {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     min-height: 44px;
     border-bottom: 1px solid #e5e7eb;
     background: #fff;
@@ -1129,15 +1098,26 @@ onBeforeUnmount(() => {
 
   .chat-mobile-tabs button {
     display: flex;
+    min-width: 0;
     align-items: center;
     justify-content: center;
     gap: 6px;
+    overflow: hidden;
+    padding: 0 8px;
     border-bottom: 2px solid transparent;
     background: transparent;
     color: #8a8f98;
     font-size: 13px;
     font-weight: 500;
+    white-space: nowrap;
     cursor: pointer;
+  }
+
+  .chat-tab-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .chat-mobile-tabs button.is-active {
@@ -1203,6 +1183,20 @@ onBeforeUnmount(() => {
   .chat-thread__title p {
     max-width: 190px;
     font-size: 10px;
+  }
+
+  .chat-mobile-tabs button {
+    gap: 4px;
+    padding-inline: 4px;
+    font-size: 12px;
+  }
+
+  .chat-tab-badge,
+  .chat-tab-count {
+    flex: 0 0 auto;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
   }
 
   .chat-messages {
