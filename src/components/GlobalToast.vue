@@ -52,4 +52,19 @@ const { toasts } = useToast()
     opacity: 1;
   }
 }
+
+@media (orientation: landscape) and (max-height: 600px) {
+  .toast-container {
+    right: max(12px, env(safe-area-inset-right, 0px));
+    bottom: max(12px, env(safe-area-inset-bottom, 0px));
+    max-width: calc(
+      100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px) - 24px
+    );
+  }
+
+  .toast {
+    padding: 10px 14px;
+    font-size: 13px;
+  }
+}
 </style>

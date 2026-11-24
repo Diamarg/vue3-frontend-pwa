@@ -163,11 +163,13 @@ onMounted(async () => {
     <main class="projects-page">
       <header class="projects__header">
         <div class="projects__heading">
-          <div class="projects__breadcrumb">Рабочее пространство</div>
+          <div class="projects__breadcrumb">Главная</div>
           <div class="projects__title-row">
             <span class="projects__title-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
-                <path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
+                <path
+                  d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"
+                />
                 <path d="M3 10h18" />
               </svg>
             </span>
@@ -207,14 +209,10 @@ onMounted(async () => {
           type="button"
           class="projects__sort"
           :title="
-            filteredProjectsIsReverse
-              ? 'Показать по возрастанию даты'
-              : 'Показать по убыванию даты'
+            filteredProjectsIsReverse ? 'Показать по возрастанию даты' : 'Показать по убыванию даты'
           "
           :aria-label="
-            filteredProjectsIsReverse
-              ? 'Показать по возрастанию даты'
-              : 'Показать по убыванию даты'
+            filteredProjectsIsReverse ? 'Показать по возрастанию даты' : 'Показать по убыванию даты'
           "
           :aria-pressed="filteredProjectsIsReverse"
           @click="reverseFilteredProjects"
@@ -231,9 +229,7 @@ onMounted(async () => {
         <div class="projects__toolbar-actions">
           <span class="projects__result-count">
             {{
-              searchBar.trim()
-                ? `Найдено: ${filteredProjects.length}`
-                : `Всего: ${projects.length}`
+              searchBar.trim() ? `Найдено: ${filteredProjects.length}` : `Всего: ${projects.length}`
             }}
           </span>
           <button v-if="searchBar.trim()" class="projects__reset" @click="searchBar = ''">
@@ -1046,6 +1042,69 @@ onMounted(async () => {
   .modal-cancel,
   .project-form__actions :deep(.btn) {
     width: 100%;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 600px) {
+  .global-container {
+    padding: max(8px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px))
+      max(12px, env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px));
+  }
+
+  .projects-page {
+    gap: 10px;
+  }
+
+  .projects__header {
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+  }
+
+  .projects__breadcrumb {
+    margin-bottom: 4px;
+  }
+
+  .projects__title-icon {
+    flex-basis: 36px;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+  }
+
+  .projects__title {
+    font-size: 20px;
+  }
+
+  .projects__subtitle {
+    display: none;
+  }
+
+  .projects__header-actions {
+    flex: 0 0 auto;
+  }
+
+  .projects__toolbar {
+    flex-direction: row;
+    align-items: end;
+    gap: 10px;
+    padding: 10px 12px;
+  }
+
+  .projects__search {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .projects__search-control :deep(.input) {
+    min-height: 38px;
+  }
+
+  .projects-cards {
+    gap: 10px;
+    margin-bottom: 12px;
+    padding: 10px;
   }
 }
 

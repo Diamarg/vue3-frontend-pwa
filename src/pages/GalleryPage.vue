@@ -2044,20 +2044,121 @@ onBeforeUnmount(() => {
   }
 }
 
-@media (max-height: 600px) and (orientation: landscape) {
+@media (orientation: landscape) and (max-height: 600px) {
+  .global-container {
+    padding: max(8px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px))
+      max(12px, env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px));
+  }
+
+  .gallery {
+    gap: 10px;
+  }
+
+  .gallery__header {
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+  }
+
+  .gallery__breadcrumb {
+    margin-bottom: 4px;
+  }
+
+  .gallery__title-icon {
+    flex-basis: 36px;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+  }
+
+  .gallery__title {
+    font-size: 20px;
+  }
+
+  .gallery__subtitle {
+    display: none;
+  }
+
+  .gallery__header-actions {
+    flex: 0 0 auto;
+  }
+
+  .gallery__toolbar {
+    display: grid;
+    grid-template-columns: minmax(300px, 1.2fr) minmax(0, 1fr);
+    align-items: end;
+    gap: 10px;
+    padding: 10px 12px;
+  }
+
+  .gallery__filters {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .gallery__date-field {
+    gap: 3px;
+  }
+
+  .gallery__date-field :deep(.input) {
+    min-height: 36px;
+  }
+
+  .gallery__toolbar-actions {
+    justify-content: flex-end;
+  }
+
+  .gallery__result-count {
+    margin-right: 0;
+  }
+
+  .gallery__grid {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px;
+  }
+
+  .top-btn {
+    right: max(12px, env(safe-area-inset-right, 0px));
+    bottom: max(12px, env(safe-area-inset-bottom, 0px));
+  }
+
+  .modal-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .modal-cancel,
+  .modal-submit.btn {
+    width: auto;
+  }
+
+  .photo-viewer {
+    width: calc(100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px) - 16px);
+  }
+
   .photo-viewer__stage {
-    min-height: 76vh;
-    padding-top: 48px;
-    padding-bottom: 68px;
+    height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 16px);
+    min-height: 0;
+    padding: 44px 56px 60px;
   }
 
   .photo-viewer__image {
-    max-height: 52vh;
+    max-height: calc(
+      100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 120px
+    );
   }
 
   .photo-viewer__info {
-    min-height: 52px;
-    padding-block: 8px;
+    flex-direction: row;
+    align-items: center;
+    min-height: 48px;
+    gap: 10px;
+    padding: 8px 14px;
+  }
+
+  .photo-viewer__filename {
+    width: auto;
   }
 }
 

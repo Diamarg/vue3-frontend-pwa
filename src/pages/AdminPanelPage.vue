@@ -1665,11 +1665,13 @@ watch(selectedAssemblyId, () => {
 .global-container {
   height: auto;
   min-height: calc(100vh - var(--navbar-height));
+  min-height: calc(100dvh - var(--navbar-height));
 }
 .admin-layout {
   display: grid;
   grid-template-columns: 240px 1fr;
   min-height: calc(100vh - var(--navbar-height));
+  min-height: calc(100dvh - var(--navbar-height));
   background-color: #f5f7fa;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   color: #2d3748;
@@ -1688,6 +1690,7 @@ watch(selectedAssemblyId, () => {
   /* прилипает под навбаром, иначе шапка сайдбара пряталась бы за ним */
   top: var(--navbar-height);
   height: calc(100vh - var(--navbar-height));
+  height: calc(100dvh - var(--navbar-height));
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -2390,6 +2393,92 @@ watch(selectedAssemblyId, () => {
     min-width: 40px;
     height: 40px;
     font-size: 15px;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 600px) {
+  .global-container,
+  .admin-layout {
+    min-height: calc(100dvh - var(--navbar-height));
+  }
+
+  .admin-sidebar__header {
+    padding-bottom: 4px;
+  }
+
+  .admin-sidebar__title {
+    font-size: 16px;
+  }
+
+  .admin-sidebar__user-info {
+    font-size: 11px;
+  }
+
+  .admin-nav {
+    padding: 4px 12px 6px;
+  }
+
+  .admin-nav__link {
+    min-height: 36px;
+    padding: 7px 12px;
+  }
+
+  .admin-content {
+    gap: 12px;
+    padding: max(12px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px))
+      max(12px, env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px));
+  }
+
+  .admin-card {
+    padding: 14px;
+  }
+
+  .admin-headbar {
+    gap: 10px;
+  }
+
+  .admin-empty {
+    padding: 20px 12px;
+  }
+
+  .admin-pagination {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .admin-pagination__controls {
+    justify-content: flex-end;
+  }
+
+  .admin-table__row {
+    margin: 8px;
+  }
+
+  .admin-table__td {
+    padding: 4px 0;
+  }
+
+  .admin-table__btn {
+    min-width: 36px;
+    min-height: 36px;
+    padding: 6px 10px;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 600px) and (min-width: 769px) {
+  .admin-layout {
+    grid-template-columns: 200px minmax(0, 1fr);
+  }
+
+  .admin-sidebar {
+    height: calc(100dvh - var(--navbar-height));
+    padding-block: 8px;
+  }
+
+  .admin-table__th,
+  .admin-table__td {
+    padding: 10px 12px;
   }
 }
 </style>

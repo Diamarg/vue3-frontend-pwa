@@ -77,6 +77,7 @@ const isPhotoView = computed(() => String(attrs.class ?? '').includes('photo-vie
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
   position: relative;
   max-height: 90vh;
+  max-height: 90dvh;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -155,5 +156,43 @@ const isPhotoView = computed(() => String(attrs.class ?? '').includes('photo-vie
   margin-top: 12px;
   padding-top: 12px;
   border-top: 1px solid #ececf1;
+}
+
+@media (orientation: landscape) and (max-height: 600px) {
+  .modal__overlay {
+    padding: max(8px, env(safe-area-inset-top, 0px)) max(8px, env(safe-area-inset-right, 0px))
+      max(8px, env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px));
+  }
+
+  .modal__wrapper:not(.modal--photo-view) {
+    max-height: calc(
+      100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 16px
+    );
+    padding: 12px 16px;
+    border-radius: 10px;
+  }
+
+  .modal__header {
+    margin-bottom: 8px;
+  }
+
+  .modal__title {
+    font-size: 16px;
+  }
+
+  .modal__close {
+    width: 32px;
+    height: 32px;
+    font-size: 24px;
+  }
+
+  .modal--sticky .modal__header {
+    padding-bottom: 8px;
+  }
+
+  .modal__footer {
+    margin-top: 8px;
+    padding-top: 8px;
+  }
 }
 </style>

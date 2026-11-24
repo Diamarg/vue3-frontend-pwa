@@ -870,6 +870,83 @@ onMounted(async () => {
   }
 }
 
+@media (orientation: landscape) and (max-height: 600px) {
+  .global-container {
+    padding: max(8px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px))
+      max(12px, env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px));
+  }
+
+  .assemblies-page {
+    gap: 10px;
+  }
+
+  .assemblies__header {
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+  }
+
+  .assemblies__breadcrumb {
+    margin-bottom: 4px;
+  }
+
+  .assemblies__title-icon {
+    flex-basis: 36px;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+  }
+
+  .assemblies__title {
+    font-size: 20px;
+  }
+
+  .assemblies__subtitle {
+    display: none;
+  }
+
+  .assemblies__header-actions {
+    flex: 0 0 auto;
+  }
+
+  .assemblies__toolbar {
+    flex-direction: row;
+    align-items: end;
+    gap: 10px;
+    padding: 10px 12px;
+  }
+
+  .assemblies__search {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .assemblies__search-control :deep(.input) {
+    min-height: 38px;
+  }
+
+  .assembly-grid {
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 12px;
+  }
+
+  .assemblies__state {
+    min-height: 0;
+    padding: 24px 16px;
+  }
+
+  .modal-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .modal-cancel,
+  .modal-submit.btn {
+    width: auto;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .assemblies__reset {
     transition: none;

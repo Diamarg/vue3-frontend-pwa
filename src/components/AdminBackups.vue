@@ -658,4 +658,62 @@ onBeforeUnmount(stopPolling)
     max-height: 140px;
   }
 }
+
+@media (orientation: landscape) and (max-height: 600px) {
+  .backup {
+    gap: 10px;
+  }
+
+  .backup__head,
+  .backup__card {
+    padding: 12px;
+  }
+
+  .backup__title {
+    margin-bottom: 6px;
+    font-size: 16px;
+  }
+
+  .backup__hint {
+    margin-top: 8px;
+  }
+
+  .backup__card-title {
+    margin-bottom: 8px;
+  }
+
+  .backup__list {
+    gap: 4px;
+    margin-bottom: 10px;
+  }
+
+  .backup__actions,
+  .backup__label,
+  .backup__meter-line {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .backup__actions {
+    flex-wrap: wrap;
+  }
+
+  .backup__select,
+  .backup__button {
+    width: auto;
+  }
+
+  .backup__item {
+    margin-bottom: 8px;
+    padding: 8px 10px;
+  }
+
+  .backup__td {
+    padding: 4px 0;
+  }
+
+  .backup__missing {
+    max-height: 100px;
+  }
+}
 </style>

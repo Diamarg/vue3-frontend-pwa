@@ -182,6 +182,7 @@ const sendForm = async () => {
 <style scoped>
 .register-container {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   justify-content: center; /* горизонталь */
   align-items: center; /* вертикаль */
@@ -221,5 +222,35 @@ const sendForm = async () => {
 .register-form__back-link {
   align-self: center;
   padding: 0px 24px;
+}
+
+@media (orientation: landscape) and (max-height: 600px) {
+  .register-container {
+    align-items: flex-start;
+    padding: max(12px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px))
+      max(12px, env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px));
+  }
+
+  .register-form {
+    width: min(100%, 760px);
+    max-width: none;
+    gap: 12px;
+    margin: 0;
+    padding: 16px 20px;
+  }
+
+  .register-form__header {
+    font-size: 20px;
+    text-align: left;
+  }
+
+  .register-form__inputs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 20px;
+  }
+
+  .register-form__actions {
+    justify-content: flex-end;
+  }
 }
 </style>

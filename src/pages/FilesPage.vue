@@ -35,6 +35,7 @@ const searchQuery = ref('')
 const selectedCategoryId = ref(null)
 const sortBy = ref('date')
 const selectedFileIds = ref(new Set())
+const expandedCategoryIds = ref(new Set())
 
 const isUploading = ref(false)
 const uploadProgress = ref(0)
@@ -287,6 +288,16 @@ const closeFileModal = () => {
   showModal.value = false
 }
 
+const isCategoryExpanded = (categoryId) => expandedCategoryIds.value.has(categoryId)
+
+const toggleCategory = (categoryId) => {
+  if (expandedCategoryIds.value.has(categoryId)) {
+    expandedCategoryIds.value.delete(categoryId)
+  } else {
+    expandedCategoryIds.value.add(categoryId)
+  }
+}
+
 const toggleSelection = (id) => {
   if (selectedFileIds.value.has(id)) {
     selectedFileIds.value.delete(id)
@@ -491,97 +502,128 @@ onMounted(async () => {
       </div>
 
       <section v-else class="files__list" aria-label="Файлы по категориям">
-        <section v-for="group in groupedFiles" :key="group.category.id" class="file-category">
-          <header class="file-category__header">
-            <span class="file-category__folder" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
-                <path
-                  d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"
-                />
-                <path d="M3 10h18" />
-              </svg>
-            </span>
-            <h2 class="file-category__title">{{ group.category.name }}</h2>
-            <span class="file-category__count">{{ group.files.length }}</span>
-          </header>
-
-          <div class="file-list">
-            <div
-              v-for="file in group.files"
-              :key="file.id"
-              class="file-row"
-              :class="{ 'file-row--selected': selectedFileIds.has(file.id) }"
-              :tabindex="isSelectionMode ? 0 : -1"
-              @click="isSelectionMode && toggleSelection(file.id)"
-              @keydown.enter.prevent="isSelectionMode && toggleSelection(file.id)"
-              @keydown.space.prevent="isSelectionMode && toggleSelection(file.id)"
+        <section
+          v-for="group in groupedFiles"
+          :key="group.category.id"
+          class="file-category"
+          :class="{ 'file-category--expanded': isCategoryExpanded(group.category.id) }"
+        >
+          <h2 class="file-category__header">
+            <button
+              type="button"
+              class="file-category__toggle"
+              :aria-expanded="isCategoryExpanded(group.category.id)"
+              :aria-controls="`file-list-${group.category.id}`"
+              @click="toggleCategory(group.category.id)"
             >
-              <label v-if="isSelectionMode" class="file-row__checkbox" @click.stop>
-                <input
-                  type="checkbox"
-                  :checked="selectedFileIds.has(file.id)"
-                  @change="toggleSelection(file.id)"
-                />
-                <span class="file-row__checkbox-mark" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                    <path d="m5 12 4 4L19 6" />
-                  </svg>
-                </span>
-              </label>
-
-              <div
-                class="file-row__icon"
-                :style="{ backgroundColor: getFileIcon(file.fileName).color }"
+              <span class="file-category__folder" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                  <path
+                    d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"
+                  />
+                  <path d="M3 10h18" />
+                </svg>
+              </span>
+              <span class="file-category__title">{{ group.category.name }}</span>
+              <span class="file-category__count">{{ group.files.length }}</span>
+              <svg
+                class="file-category__chevron"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                aria-hidden="true"
               >
-                {{ getFileIcon(file.fileName).text }}
-              </div>
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </button>
+          </h2>
 
-              <div class="file-row__info">
-                <div class="file-row__name" :title="file.fileName">{{ file.fileName }}</div>
-                <div class="file-row__meta">
-                  <span>{{ formatFileSize(file.fileSize) }}</span>
-                  <span class="file-row__meta-dot" aria-hidden="true">·</span>
-                  <span>{{ formatShortDate(file.uploadedAt) }}</span>
-                  <span
-                    v-if="file.description"
-                    class="file-row__description"
-                    :title="file.description"
+          <Transition name="file-category">
+            <div
+              v-if="isCategoryExpanded(group.category.id)"
+              :id="`file-list-${group.category.id}`"
+              class="file-category__files"
+            >
+              <div class="file-list">
+                <div
+                  v-for="file in group.files"
+                  :key="file.id"
+                  class="file-row"
+                  :class="{ 'file-row--selected': selectedFileIds.has(file.id) }"
+                  :tabindex="isSelectionMode ? 0 : -1"
+                  @click="isSelectionMode && toggleSelection(file.id)"
+                  @keydown.enter.prevent="isSelectionMode && toggleSelection(file.id)"
+                  @keydown.space.prevent="isSelectionMode && toggleSelection(file.id)"
+                >
+                  <label v-if="isSelectionMode" class="file-row__checkbox" @click.stop>
+                    <input
+                      type="checkbox"
+                      :checked="selectedFileIds.has(file.id)"
+                      @change="toggleSelection(file.id)"
+                    />
+                    <span class="file-row__checkbox-mark" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <path d="m5 12 4 4L19 6" />
+                      </svg>
+                    </span>
+                  </label>
+
+                  <div
+                    class="file-row__icon"
+                    :style="{ backgroundColor: getFileIcon(file.fileName).color }"
                   >
-                    {{ file.description }}
-                  </span>
+                    {{ getFileIcon(file.fileName).text }}
+                  </div>
+
+                  <div class="file-row__info">
+                    <div class="file-row__name" :title="file.fileName">{{ file.fileName }}</div>
+                    <div class="file-row__meta">
+                      <span>{{ formatFileSize(file.fileSize) }}</span>
+                      <span class="file-row__meta-dot" aria-hidden="true">·</span>
+                      <span>{{ formatShortDate(file.uploadedAt) }}</span>
+                      <span
+                        v-if="file.description"
+                        class="file-row__description"
+                        :title="file.description"
+                      >
+                        {{ file.description }}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div class="file-row__actions">
+                    <button
+                      class="file-row__action file-row__action--download"
+                      title="Скачать"
+                      aria-label="Скачать файл"
+                      @click.stop="downloadFile(file)"
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <path d="M12 4v12" />
+                        <path d="m7 11 5 5 5-5" />
+                        <path d="M5 19h14" />
+                      </svg>
+                    </button>
+                    <button
+                      v-if="authStore.isAdmin && !isSelectionMode"
+                      class="file-row__action file-row__action--delete"
+                      title="Удалить"
+                      aria-label="Удалить файл"
+                      @click.stop="deleteFile(file)"
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                        <path d="M4 7h16" />
+                        <path d="M9 7V4h6v3" />
+                        <path d="m7 7 1 13h8l1-13" />
+                        <path d="M10 11v5m4-5v5" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               </div>
-
-              <div class="file-row__actions">
-                <button
-                  class="file-row__action file-row__action--download"
-                  title="Скачать"
-                  aria-label="Скачать файл"
-                  @click.stop="downloadFile(file)"
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                    <path d="M12 4v12" />
-                    <path d="m7 11 5 5 5-5" />
-                    <path d="M5 19h14" />
-                  </svg>
-                </button>
-                <button
-                  v-if="authStore.isAdmin && !isSelectionMode"
-                  class="file-row__action file-row__action--delete"
-                  title="Удалить"
-                  aria-label="Удалить файл"
-                  @click.stop="deleteFile(file)"
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
-                    <path d="M4 7h16" />
-                    <path d="M9 7V4h6v3" />
-                    <path d="m7 7 1 13h8l1-13" />
-                    <path d="M10 11v5m4-5v5" />
-                  </svg>
-                </button>
-              </div>
             </div>
-          </div>
+          </Transition>
         </section>
       </section>
     </main>
@@ -1058,6 +1100,53 @@ onMounted(async () => {
   background: #f9fafb;
 }
 
+.file-category__header {
+  margin: 0;
+  padding: 0;
+  border-bottom-color: transparent;
+}
+
+.file-category--expanded .file-category__header {
+  border-bottom-color: #eceef1;
+}
+
+.file-category__toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 54px;
+  padding: 12px 14px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.file-category__toggle:hover {
+  background: #f3f4f6;
+}
+
+.file-category__toggle:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: -2px;
+}
+
+.file-category__chevron {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  color: #9298a1;
+  transition: transform 0.2s;
+}
+
+.file-category--expanded .file-category__chevron {
+  transform: rotate(180deg);
+}
+
 .file-category__folder {
   display: grid;
   flex: 0 0 30px;
@@ -1099,6 +1188,30 @@ onMounted(async () => {
   color: #6b7280;
   font-size: 11px;
   font-weight: 600;
+}
+
+.file-category__files {
+  display: grid;
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.file-category__files > .file-list {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.file-category-enter-active,
+.file-category-leave-active {
+  transition:
+    grid-template-rows 0.25s ease,
+    opacity 0.2s ease;
+}
+
+.file-category-enter-from,
+.file-category-leave-to {
+  grid-template-rows: 0fr;
+  opacity: 0;
 }
 
 .file-list {
@@ -1692,7 +1805,7 @@ onMounted(async () => {
     margin-right: 0;
   }
 
-  .file-category__header {
+  .file-category__toggle {
     padding-inline: 16px;
   }
 
@@ -1812,9 +1925,98 @@ onMounted(async () => {
   }
 }
 
+@media (orientation: landscape) and (max-height: 600px) {
+  .global-container {
+    padding: max(8px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px))
+      max(12px, env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px));
+  }
+
+  .files-page {
+    gap: 10px;
+  }
+
+  .files__header {
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+  }
+
+  .files__breadcrumb {
+    margin-bottom: 4px;
+  }
+
+  .files__title-icon {
+    flex-basis: 36px;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+  }
+
+  .files__title {
+    font-size: 20px;
+  }
+
+  .files__subtitle {
+    display: none;
+  }
+
+  .files__header-actions {
+    flex: 0 0 auto;
+  }
+
+  .files__toolbar {
+    display: grid;
+    grid-template-columns: minmax(260px, 1.1fr) minmax(0, 1fr);
+    align-items: end;
+    gap: 10px;
+    padding: 10px 12px;
+  }
+
+  .files__filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .files__field {
+    gap: 3px;
+  }
+
+  .files__select,
+  .files__search-control :deep(.input) {
+    min-height: 36px;
+  }
+
+  .files__toolbar-actions {
+    justify-content: flex-end;
+  }
+
+  .files__result-count {
+    margin-right: 0;
+  }
+
+  .file-category__toggle,
+  .file-row {
+    padding: 10px 12px;
+  }
+
+  .modal-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .modal-cancel,
+  .modal-submit.btn {
+    width: auto;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .file-row,
   .file-row__action,
+  .file-category__files,
+  .file-category__toggle,
+  .file-category__chevron,
   .files__reset,
   .create-category-link,
   .create-category-cancel {
