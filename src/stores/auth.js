@@ -29,6 +29,7 @@ export const useAuthStore = defineStore('auth', () => {
       const response = await api.post('/auth/login', credentials)
       setToken(response.data.token)
       user.value = {
+        id: response.data.id,
         userName: response.data.userName,
         email: response.data.email,
         fullName: response.data.fullName,
@@ -49,6 +50,7 @@ export const useAuthStore = defineStore('auth', () => {
       const response = await api.post('/auth/register', data)
       setToken(response.data.token)
       user.value = {
+        id: response.data.id,
         userName: response.data.userName,
         email: response.data.email,
         fullName: response.data.fullName,
@@ -84,6 +86,7 @@ export const useAuthStore = defineStore('auth', () => {
       const roles =
         payload.role || payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role']
       return {
+        id: payload.id || payload.nameid,
         userName: payload.name || payload.unique_name || payload.sub,
         email: payload.email,
         fullName: payload.fullName,

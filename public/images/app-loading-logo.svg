@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <defs>
+    <linearGradient id="drop-fill" x1="24" y1="18" x2="94" y2="106" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#eef2ff" />
+      <stop offset="1" stop-color="#e0e7ff" />
+    </linearGradient>
+    <clipPath id="drop-clip">
+      <path d="M60 7C54 24 26 48 26 72a34 34 0 0 0 68 0C94 48 66 24 60 7Z" />
+    </clipPath>
+  </defs>
+
+  <path d="M60 7C54 24 26 48 26 72a34 34 0 0 0 68 0C94 48 66 24 60 7Z" fill="url(#drop-fill)" />
+
+  <g clip-path="url(#drop-clip)">
+    <g class="wave wave--back">
+      <path
+        d="M-120 72Q-90 60-60 72T0 72T60 72T120 72T180 72T240 72V130H-120Z"
+        fill="#c7d2fe"
+      />
+    </g>
+    <g class="wave wave--front">
+      <path
+        d="M-120 84Q-90 73-60 84T0 84T60 84T120 84T180 84T240 84V130H-120Z"
+        fill="#818cf8"
+        fill-opacity=".72"
+      />
+    </g>
+    <circle class="bubble bubble--one" cx="46" cy="98" r="3" fill="#fff" fill-opacity=".85" />
+    <circle class="bubble bubble--two" cx="73" cy="103" r="2" fill="#fff" fill-opacity=".75" />
+  </g>
+
+  <path
+    class="drop-outline"
+    d="M60 7C54 24 26 48 26 72a34 34 0 0 0 68 0C94 48 66 24 60 7Z"
+    fill="none"
+    stroke="#4f46e5"
+    stroke-width="4.5"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+
+  <style>
+    .drop-outline {
+      stroke-dasharray: 260;
+      stroke-dashoffset: 260;
+      animation: draw-outline 1s ease-out forwards;
+    }
+
+    .wave--back {
+      animation: wave-back 4s linear infinite;
+    }
+
+    .wave--front {
+      animation: wave-front 5s linear infinite;
+    }
+
+    .bubble {
+      opacity: 0;
+      animation: bubble-rise 3s ease-in infinite;
+    }
+
+    .bubble--two {
+      animation-delay: 1.4s;
+    }
+
+    @keyframes draw-outline {
+      to {
+        stroke-dashoffset: 0;
+      }
+    }
+
+    @keyframes wave-back {
+      to {
+        transform: translateX(120px);
+      }
+    }
+
+    @keyframes wave-front {
+      from {
+        transform: translateX(120px);
+      }
+      to {
+        transform: translateX(0);
+      }
+    }
+
+    @keyframes bubble-rise {
+      0% {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      25% {
+        opacity: 0.8;
+      }
+      100% {
+        opacity: 0;
+        transform: translateY(-42px);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .drop-outline,
+      .wave--back,
+      .wave--front,
+      .bubble {
+        animation: none;
+      }
+
+      .drop-outline {
+        stroke-dashoffset: 0;
+      }
+
+      .bubble {
+        display: none;
+      }
+    }
+  </style>
+</svg>

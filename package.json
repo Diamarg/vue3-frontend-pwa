@@ -11,6 +11,7 @@
     "format": "prettier --write --experimental-cli src/"
   },
   "dependencies": {
+    "@microsoft/signalr": "^11.0.0",
     "axios": "^1.15.0",
     "browser-image-compression": "^2.0.2",
     "exceljs": "^4.4.0",

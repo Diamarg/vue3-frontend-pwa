@@ -10,6 +10,7 @@ import FilesPage from '@/pages/FilesPage.vue'
 import DevicesPage from '@/pages/DevicesPage.vue'
 import PanelEditorPage from '@/pages/PanelEditorPage.vue'
 import CableJournalPage from '@/pages/CableJournalPage.vue'
+import ChatPage from '@/pages/ChatPage.vue'
 import TestPage from '@/pages/TestPage.vue'
 import { getStoredToken } from '@/utils/token'
 
@@ -27,6 +28,7 @@ const routes = [
     props: true,
     meta: { title: 'Проекты', requiresAuth: true },
   },
+  { path: '/chat', component: ChatPage, meta: { title: 'Чат', requiresAuth: true } },
   {
     path: '/:projectId/gallery',
     component: GalleryPage,

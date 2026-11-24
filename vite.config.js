@@ -22,10 +22,16 @@ export default defineConfig({
         start_url: '/',
         scope: '/',
         display: 'standalone',
-        orientation: 'portrait',
-        theme_color: '#ffffff',
-        background_color: '#ffffff',
+        orientation: 'any',
+        theme_color: '#f8fafc',
+        background_color: '#f8fafc',
         icons: [
+          {
+            src: '/icons/app-icon.svg',
+            sizes: 'any',
+            type: 'image/svg+xml',
+            purpose: 'any',
+          },
           { src: '/icons/pwa-192x192.png', sizes: '192x192', type: 'image/png' },
           { src: '/icons/pwa-512x512.png', sizes: '512x512', type: 'image/png' },
           {
@@ -48,6 +54,7 @@ export default defineConfig({
               sameOrigin &&
               url.pathname.startsWith('/api/') &&
               !url.pathname.startsWith('/api/auth') &&
+              !url.pathname.startsWith('/api/chat') &&
               // Скачивание файлов и выдача фотографий исключены: это blob-ответы,
               // а Workbox клонирует каждый ответ и кладёт в Cache Storage — на больших
               // файлах запрос падает уже после того, как nginx отдал 200 и всё тело

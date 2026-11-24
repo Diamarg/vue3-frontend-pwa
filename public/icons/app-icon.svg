@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <title>А-Сервис</title>
+  <defs>
+    <linearGradient id="drop-fill" x1="24" y1="18" x2="94" y2="106" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#eef2ff" />
+      <stop offset="1" stop-color="#e0e7ff" />
+    </linearGradient>
+    <clipPath id="drop-clip">
+      <path d="M60 7C54 24 26 48 26 72a34 34 0 0 0 68 0C94 48 66 24 60 7Z" />
+    </clipPath>
+  </defs>
+
+  <rect width="120" height="120" fill="#f8fafc" />
+  <g transform="translate(13.2 13.2) scale(.78)">
+    <path d="M60 7C54 24 26 48 26 72a34 34 0 0 0 68 0C94 48 66 24 60 7Z" fill="url(#drop-fill)" />
+    <g clip-path="url(#drop-clip)">
+      <path
+        d="M-120 72Q-90 60-60 72T0 72T60 72T120 72T180 72T240 72V130H-120Z"
+        fill="#c7d2fe"
+      />
+      <g transform="translate(120 0)">
+        <path
+          d="M-120 84Q-90 73-60 84T0 84T60 84T120 84T180 84T240 84V130H-120Z"
+          fill="#818cf8"
+          fill-opacity=".72"
+        />
+      </g>
+      <circle cx="46" cy="88" r="3" fill="#fff" fill-opacity=".85" />
+      <circle cx="73" cy="96" r="2" fill="#fff" fill-opacity=".75" />
+    </g>
+    <path
+      d="M60 7C54 24 26 48 26 72a34 34 0 0 0 68 0C94 48 66 24 60 7Z"
+      fill="none"
+      stroke="#4f46e5"
+      stroke-width="4.5"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+  </g>
+</svg>

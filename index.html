@@ -4,18 +4,33 @@
     <meta charset="UTF-8" />
     <link rel="icon" href="/favicon.ico" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
-    <meta name="theme-color" content="#ffffff" />
+    <meta name="theme-color" content="#f8fafc" />
+    <link rel="stylesheet" href="/app-splash.css" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Montserrat:ital,wght@0,100..900;1,100..900&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap"
       rel="stylesheet"
     />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>А-Сервис</title>
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app">
+      <div class="app-splash" role="status" aria-label="Загрузка приложения" aria-live="polite">
+        <div class="app-splash__content">
+          <div class="app-splash__logo-wrap" aria-hidden="true">
+            <span class="app-splash__ripple"></span>
+            <span class="app-splash__ripple"></span>
+            <span class="app-splash__ripple"></span>
+            <img class="app-splash__logo" src="/images/app-loading-logo.svg" alt="" />
+          </div>
+          <div class="app-splash__brand">А-Сервис</div>
+          <p class="app-splash__caption">Загружаем рабочее пространство</p>
+          <div class="app-splash__progress" aria-hidden="true"><span></span></div>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
