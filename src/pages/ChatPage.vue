@@ -37,7 +37,7 @@ const selectedUser = computed(() => {
 const currentTitle = computed(() => selectedUser.value?.fullName || 'Общий чат')
 const currentStatus = computed(() => {
   if (!selectedUser.value) return 'Сообщения для всех пользователей'
-  if (selectedUser.value.isOnChatPage) return 'В приложении · на странице чата'
+  if (selectedUser.value.isOnChatPage) return 'В приложении · в чате'
   if (selectedUser.value.isOnline) return 'Сейчас в приложении'
   return 'Не в сети'
 })
@@ -423,7 +423,7 @@ onBeforeUnmount(() => {
               </span>
               <span class="chat-user__content">
                 <strong>{{ user.fullName || user.userName }}</strong>
-                <span v-if="user.isOnChatPage" class="chat-user__chat-badge">на странице чата</span>
+                <span v-if="user.isOnChatPage" class="chat-user__chat-badge">в чате</span>
               </span>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                 <path d="m9 18 6-6-6-6" />
